@@ -1,0 +1,70 @@
+using Sheessential_Sales_Finance.helpers;
+var builder = WebApplication.CreateBuilder(args);
+
+// Add services to the container
+builder.Services.AddControllersWithViews();
+
+// Add Session
+builder.Services.AddDistributedMemoryCache();
+builder.Services.AddSession(options =>
+{
+    options.IdleTimeout = TimeSpan.FromMinutes(30); 
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true;
+});
+
+// Register MongoHelper as a singleton for dependency injection
+builder.Services.AddSingleton<MongoHelper>();
+
+var app = builder.Build();
+
+// Middleware
+if (!app.Environment.IsDevelopment())
+{
+    app.UseExceptionHandler("/Home/Error");
+    app.UseHsts();
+}
+
+app.UseHttpsRedirection();
+app.UseStaticFiles();
+
+app.UseRouting();
+
+app.UseSession(); 
+
+app.UseAuthorization();
+
+// reeeedirect to login if session is empty 
+app.Use(async (context, next) =>
+{
+    var path = context.Request.Path.Value?.ToLower();
+
+    // allow this routes
+    if (path != null &&
+        (path.Contains("/auth/login") ||
+         path.Contains("/auth/register") ||
+         path.Contains("/css") ||
+         path.Contains("/js") ||
+         path.Contains("/images")))
+    {
+        await next();
+    }
+    else
+    {
+        // check session
+        if (string.IsNullOrEmpty(context.Session.GetString("UserId")))
+        {
+            context.Response.Redirect("/Auth/Login");
+        }
+        else
+        {
+            await next();
+        }
+    }
+});
+
+app.MapControllerRoute(
+    name: "default",
+    pattern: "{controller=Auth}/{action=Login}/{id?}");
+
+app.Run();
