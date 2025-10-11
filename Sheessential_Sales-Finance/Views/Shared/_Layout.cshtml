@@ -1,49 +1,163 @@
-﻿<!DOCTYPE html>
+﻿@*
+    _Layout.cshtml - Sidebar layout similar to your image
+*@
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - Sheessential_Sales_Finance</title>
+    <title>@ViewData["Title"] - Sheessentials Sales & Finance</title>
+
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
-    <link rel="stylesheet" href="~/Sheessential_Sales_Finance.styles.css" asp-append-version="true" />
+
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #fafafa;
+            margin: 0;
+            display: flex;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 230px;
+            background-color: #fff;
+            height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
+            box-shadow: 2px 0 8px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px 10px;
+        }
+
+        .logo {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 40px;
+        }
+
+            .logo img {
+                width: 200px;
+                height: 140px;
+                margin-bottom: 8px;
+            }
+
+            .logo h4 {
+                font-weight: 600;
+                color: #E98BA9;
+            }
+
+        .nav-links {
+            width: 100%;
+            list-style: none;
+            padding: 0;
+        }
+
+            .nav-links li {
+                width: 100%;
+                margin: 8px 0;
+            }
+
+            .nav-links a {
+                text-decoration: none;
+                color: #555;
+                font-weight: 500;
+                display: flex;
+                align-items: center;
+                padding: 10px 20px;
+                border-radius: 10px;
+                transition: background 0.3s, color 0.3s;
+            }
+
+                .nav-links a:hover,
+                .nav-links a.active {
+                    background-color: #FFE5EC;
+                    color: #E98BA9;
+                }
+
+            .nav-links i {
+                width: 25px;
+                text-align: center;
+                margin-right: 10px;
+            }
+
+        /* Main content area */
+        .main-content {
+            margin-left: 230px;
+            padding: 30px;
+            width: calc(100% - 230px);
+        }
+
+            .main-content h2 {
+                font-weight: 600;
+                color: #333;
+                margin-bottom: 25px;
+            }
+
+        footer {
+            text-align: center;
+            padding: 20px;
+            color: #aaa;
+            font-size: 0.9rem;
+        }
+    </style>
 </head>
+
 <body>
-    <header>
-        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
-            <div class="container-fluid">
-                <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">Sheessential_Sales_Finance</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
-                        aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
-                    <ul class="navbar-nav flex-grow-1">
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Index">Home</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
-                        </li>
-                    </ul>
-                </div>
-            </div>
-        </nav>
-    </header>
-    <div class="container">
-        <main role="main" class="pb-3">
-            @RenderBody()
-        </main>
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="logo">
+            <img src="~/images/logo.png" alt="Logo" />
+            <h4>Sheessentials</h4>
+        </div>
+
+        <ul class="nav-links">
+            <li><a asp-controller="Dashboard" asp-action="Index" class="active"><i class="fa-solid fa-house"></i>Dashboard</a></li>
+            <li><a asp-controller="Products" asp-action="Index"><i class="fa-solid fa-box"></i>Products</a></li>
+            <li><a asp-controller="Banking" asp-action="Index"><i class="fa-solid fa-building-columns"></i>Banking</a></li>
+
+            <li>
+                <a data-bs-toggle="collapse" href="#salesMenu" role="button" aria-expanded="false" aria-controls="salesMenu">
+                    <i class="fa-solid fa-receipt"></i>Sales <i class="fa-solid fa-chevron-down ms-auto"></i>
+                </a>
+                <ul class="collapse ms-4 mt-2" id="salesMenu">
+                    <li><a asp-controller="Sales" asp-action="Records">Records</a></li>
+                    <li><a asp-controller="Sales" asp-action="Reports">Reports</a></li>
+                </ul>
+            </li>
+
+            <li>
+                <a data-bs-toggle="collapse" href="#purchasesMenu" role="button" aria-expanded="false" aria-controls="purchasesMenu">
+                    <i class="fa-solid fa-cart-shopping"></i>Purchases <i class="fa-solid fa-chevron-down ms-auto"></i>
+                </a>
+                <ul class="collapse ms-4 mt-2" id="purchasesMenu">
+                    <li><a asp-controller="Purchases" asp-action="Records">Records</a></li>
+                    <li><a asp-controller="Purchases" asp-action="Reports">Reports</a></li>
+                </ul>
+            </li>
+
+            <li><a asp-controller="Reports" asp-action="Index"><i class="fa-solid fa-chart-line"></i>Reports</a></li>
+        </ul>
     </div>
 
-    <footer class="border-top footer text-muted">
-        <div class="container">
-            &copy; 2025 - Sheessential_Sales_Finance - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
-        </div>
-    </footer>
-    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <!-- Main content -->
+    <div class="main-content">
+        <main role="main">
+            @RenderBody()
+        </main>
+
+        <footer class="border-top mt-5">
+            <p>&copy; 2025 - Sheessentials Sales & Finance</p>
+        </footer>
+    </div>
+
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="~/js/site.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>
