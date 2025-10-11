@@ -97,7 +97,7 @@ namespace Sheessential_Sales_Finance.Controllers
             {
                 return View(user);
             }
-            // Check if email already exists
+            // check if email already exst
             var existingUser = _mongo.Users.Find(User => User.Email == user.Email).FirstOrDefault();
             if (existingUser != null)
             {
@@ -105,7 +105,6 @@ namespace Sheessential_Sales_Finance.Controllers
                 return View(user);
             }
 
-            // Hash password using SHA256
             user.Password = ComputeSha256Hash(password);
 
             _mongo.Users.InsertOne(user);
@@ -114,7 +113,7 @@ namespace Sheessential_Sales_Finance.Controllers
             return RedirectToAction("Login", "Auth");
         }
 
-        // Utility function for password hashing
+        // helper function for password hashing
         private static string ComputeSha256Hash(string rawData)
         {
             using (var sha256 = SHA256.Create())
