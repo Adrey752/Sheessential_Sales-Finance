@@ -1,229 +1,128 @@
-﻿@* _Layout.cshtml with Top Navigation Bar *@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - Sheessentials Sales & Finance</title>
-
-    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="~/js/site.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
-    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
-
-    <style>
-        body {
-            font-family: 'Poppins', sans-serif;
-            background-color: #fafafa;
-            margin: 0;
-            display: flex;
-        }
-
-        /* Sidebar */
-        .sidebar {
-            width: 230px;
-            background-color: #fff;
-            height: 100vh;
-            position: fixed;
-            top: 0;
-            left: 0;
-            box-shadow: 2px 0 8px rgba(0,0,0,0.05);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 20px 10px;
-        }
-
-        .logo {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-
-            .logo img {
-                width: 300px;
-                height: 140px;
-                margin-bottom: 8px;
-            }
-
-            .logo h4 {
-                font-weight: 600;
-                color: #E98BA9;
-            }
-
-        .nav-links {
-            width: 100%;
-            list-style: none;
-            padding: 0;
-        }
-
-            .nav-links li {
-                width: 100%;
-                margin: 8px 0;
-            }
-
-            .nav-links a {
-                text-decoration: none;
-                color: #555;
-                font-weight: 500;
-                display: flex;
-                align-items: center;
-                padding: 10px 20px;
-                border-radius: 10px;
-                transition: background 0.3s, color 0.3s;
-            }
-
-                .nav-links a:hover,
-                .nav-links a.active {
-                    background-color: #FFE5EC;
-                    color: #E98BA9;
-                }
-
-            .nav-links i {
-                width: 25px;
-                text-align: center;
-                margin-right: 10px;
-            }
-
-        /* Main content area */
-        .main-content {
-            margin-left: 230px;
-            width: calc(100% - 230px);
-            display: flex;
-            flex-direction: column;
-            min-height: 100vh;
-        }
-
-        /* ===== Top Bar ===== */
-        .topbar {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            background: #fff;
-            padding: 15px 25px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
-            position: sticky;
-            top: 0;
-            z-index: 100;
-        }
-
-        .topbar-title {
-            font-size: 1.4rem;
-            font-weight: 600;
-            color: #333;
-        }
-
-        .topbar-search input {
-            border: 1px solid #ddd;
-            border-radius: 30px;
-            padding: 6px 14px;
-            outline: none;
-            width: 250px;
-            font-size: 0.9rem;
-        }
-
-        .topbar-icons {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-
-            .topbar-icons i {
-                font-size: 1.2rem;
-                color: #555;
-                cursor: pointer;
-                transition: color 0.3s;
-            }
-
-                .topbar-icons i:hover {
-                    color: #E98BA9;
-                }
-
-        .profile-img {
-            width: 38px;
-            height: 38px;
-            border-radius: 50%;
-            object-fit: cover;
-            cursor: pointer;
-            border: 2px solid #E98BA9;
-        }
-
-        /* Page content */
-        main {
-            flex-grow: 1;
-            padding: 30px;
-        }
-
-        footer {
-            text-align: center;
-            padding: 20px;
-            color: #aaa;
-            font-size: 0.9rem;
-            background-color: #fff;
-        }
-    </style>
 </head>
 
-<body>
+<body class="bg-[#fafafa] font-[Poppins] flex min-h-screen">
+
     <!-- Sidebar -->
-    <div class="sidebar">
-        <div class="logo">
-            <img src="~/images/logo.png" alt="Logo" />
+    <aside class="w-64 bg-white shadow-lg fixed top-0 left-0 h-screen flex flex-col items-center p-5 border-r-4 border-gray-100">
+        <div class="w-full flex flex-col items-center">
+            <img src="~/images/logo.png" alt="Logo" class="w-60 mb-3" />
         </div>
 
-        <ul class="nav-links">
-            <li><a asp-controller="Sales_Finance" asp-action="Index" class="active"><i class="fa-solid fa-house"></i>Dashboard</a></li>
-            <li><a asp-controller="Sales_Finance" asp-action="Products"><i class="fa-solid fa-box"></i>Products</a></li>
-            <li><a asp-controller="Banking" asp-action="Index"><i class="fa-solid fa-building-columns"></i>Banking</a></li>
-
+        <ul class="w-full mt-5 space-y-2">
+            <!-- Dashboard -->
             <li>
-                <a data-bs-toggle="collapse" href="#salesMenu" role="button" aria-expanded="false" aria-controls="salesMenu">
-                    <i class="fa-solid fa-receipt"></i>Sales <i class="fa-solid fa-chevron-down ms-auto"></i>
+                <a asp-controller="Sales_Finance" asp-action="Index"
+                   class="flex items-center px-5 py-3 rounded-xl hover:bg-pink-50 hover:text-pink-500 text-gray-600 font-medium transition active:bg-pink-100">
+                    <i class="fa-solid fa-house w-6 mr-2"></i>Dashboard
                 </a>
-                <ul class="collapse ms-4 mt-2" id="salesMenu">
-                    <li><a asp-controller="Sales" asp-action="Records">Records</a></li>
-                    <li><a asp-controller="Sales" asp-action="Reports">Reports</a></li>
+            </li>
+
+            <!-- Products -->
+            <li>
+                <a asp-controller="Sales_Finance" asp-action="Products"
+                   class="flex items-center px-5 py-3 rounded-xl hover:bg-pink-50 hover:text-pink-500 text-gray-600 font-medium transition">
+                    <i class="fa-solid fa-box w-6 mr-2"></i>Products
+                </a>
+            </li>
+
+            <!-- Sales (Dropdown) -->
+            <li class="relative">
+                <button onclick="toggleDropdown('salesDropdown', this)"
+                        class="w-full flex items-center justify-between px-5 py-3 rounded-xl hover:bg-pink-50 text-gray-600 font-medium transition">
+                    <span class="flex items-center"><i class="fa-solid fa-hand-holding-dollar w-6 mr-2"></i>Sales</span>
+                    <i class="fa-solid fa-chevron-down text-sm transition-transform duration-300"></i>
+                </button>
+                <ul id="salesDropdown"
+                    class="max-h-0 overflow-hidden transition-all duration-300 ease-in-out pl-10 space-y-1">
+                    <li>
+                        <a asp-controller="Sales" asp-action="Income"
+                           class="block px-3 py-2 rounded-lg text-gray-600 hover:bg-pink-50 hover:text-pink-500 transition text-sm">
+                            <i class="fa-solid fa-wallet w-4 mr-2"></i>Income
+                        </a>
+                    </li>
+                    <li>
+                        <a asp-controller="Sales" asp-action="Customers"
+                           class="block px-3 py-2 rounded-lg text-gray-600 hover:bg-pink-50 hover:text-pink-500 transition text-sm">
+                            <i class="fa-solid fa-user-group w-4 mr-2"></i>Customers
+                        </a>
+                    </li>
                 </ul>
             </li>
 
-            <li>
-                <a data-bs-toggle="collapse" href="#purchasesMenu" role="button" aria-expanded="false" aria-controls="purchasesMenu">
-                    <i class="fa-solid fa-cart-shopping"></i>Purchases <i class="fa-solid fa-chevron-down ms-auto"></i>
-                </a>
-                <ul class="collapse ms-4 mt-2" id="purchasesMenu">
-                    <li><a asp-controller="Purchases" asp-action="Records">Records</a></li>
-                    <li><a asp-controller="Purchases" asp-action="Reports">Reports</a></li>
+            <!-- Purchases (Dropdown) -->
+            <li class="relative">
+                <button onclick="toggleDropdown('purchasesDropdown', this)"
+                        class="w-full flex items-center justify-between px-5 py-3 rounded-xl hover:bg-pink-50 text-gray-600 font-medium transition">
+                    <span class="flex items-center"><i class="fa-solid fa-cart-shopping w-6 mr-2"></i>Purchases</span>
+                    <i class="fa-solid fa-chevron-down text-sm transition-transform duration-300"></i>
+                </button>
+                <ul id="purchasesDropdown"
+                    class="max-h-0 overflow-hidden transition-all duration-300 ease-in-out pl-10 space-y-1">
+                    <li>
+                        <a asp-controller="Purchases" asp-action="Expenses"
+                           class="block px-3 py-2 rounded-lg text-gray-600 hover:bg-pink-50 hover:text-pink-500 transition text-sm">
+                            <i class="fa-solid fa-money-bill-wave w-4 mr-2"></i>Expenses
+                        </a>
+                    </li>
+                    <li>
+                        <a asp-controller="Purchases" asp-action="Vendors"
+                           class="block px-3 py-2 rounded-lg text-gray-600 hover:bg-pink-50 hover:text-pink-500 transition text-sm">
+                            <i class="fa-solid fa-truck-field w-4 mr-2"></i>Vendors
+                        </a>
+                    </li>
                 </ul>
             </li>
 
-            <li><a asp-controller="Reports" asp-action="Index"><i class="fa-solid fa-chart-line"></i>Reports</a></li>
+            <!-- Reports -->
+            <li>
+                <a asp-controller="Reports" asp-action="Index"
+                   class="flex items-center px-5 py-3 rounded-xl hover:bg-pink-50 hover:text-pink-500 text-gray-600 font-medium transition">
+                    <i class="fa-solid fa-chart-line w-6 mr-2"></i>Reports
+                </a>
+            </li>
         </ul>
-    </div>
+    </aside>
 
-    <!-- Main content -->
-    <div class="main-content">
-        <!-- Top bar -->
-        <div class="topbar">
-            <div class="topbar-title">@ViewData["Title"]</div>
+    <!-- Main Content -->
+    <div class="ml-64 flex flex-col w-[calc(100%-16rem)] min-h-screen">
 
-            <div class="d-flex align-items-center gap-3">
-                <div class="topbar-search">
-                    <input type="text" placeholder="Search..." />
+        <!-- Topbar -->
+        <header class="bg-[#ffffff] flex justify-between items-center px-10 py-4 sticky top-0 z-10">
+            <h1 class="text-2xl font-semibold text-gray-800">@ViewData["Title"]</h1>
+
+            <div class="flex items-center gap-5">
+                <!-- Search Bar -->
+                <div class="relative">
+                    <input type="text" placeholder="Search..."
+                           class="pl-10 pr-4 py-2.5 w-80 rounded-2xl bg-gray-50 focus:bg-white focus:ring-2 focus:ring-pink-300 outline-none shadow-md text-gray-600 text-sm transition duration-300 ease-in-out" />
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-gray-400"></i>
                 </div>
-                <div class="topbar-icons">
-                    <i class="fa-regular fa-bell"></i>
-                    <i class="fa-regular fa-envelope"></i>
-                    <img src="~/images/profile.jpg" alt="Profile" class="profile-img" />
-                </div>
+
+                <!-- Icons -->
+                <i class="fa-regular fa-envelope text-gray-500 hover:text-pink-500 cursor-pointer transition"></i>
+
+                <!-- Profile -->
+                <img src="~/images/profile.jpg" class="w-10 h-10 rounded-full border-2 border-pink-400 object-cover shadow-sm" alt="Profile" />
             </div>
-        </div>
+        </header>
 
-        <main role="main">
+        <!-- Page Content -->
+        <main class="flex-grow bg-[#ffffff] p-4">
             @RenderBody()
         </main>
-
     </div>
 
-    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     @await RenderSectionAsync("Scripts", required: false)
+
+
 </body>
 </html>
