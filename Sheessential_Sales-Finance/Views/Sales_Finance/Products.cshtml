@@ -1,0 +1,68 @@
+﻿@model IEnumerable<Inventory>
+@{
+    ViewData["Title"] = "Products";
+}
+
+<div class="products-page d-flex flex-wrap gap-4">
+    <!-- Product Table -->
+    <div class="flex-grow-1 bg-white p-4 rounded-3 shadow-sm" style="min-width: 700px;">
+        <table class="table align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Product ID</th>
+                    <th>Product Name</th>
+                    <th>Category</th>
+                    <th>Selling Price</th>
+                    <th>Purchase Price</th>
+                    <th>Stock</th>
+                    <th>Status</th>
+                    <th>Options</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var p in Model)
+                {
+                    <tr>
+                        <td>@p.Id</td>
+                        <td>@p.Item</td>
+                        <td><span class="badge bg-warning text-dark">@p.Category</span></td>
+                        <td>₱@p.UnitPrice</td>
+                        <td>₱@p.UnitPrice</td>
+                        <td>@p.StockQuantity</td>
+                        <td>
+                            @if (p.StockQuantity >= 10)
+                            {
+                                <span class="text-success fw-semibold">Available</span>
+                            }
+                            else if (p.StockQuantity < 10 && p.StockQuantity > 0)
+                            {
+                                <span class="text-muted fw-semibold">Low</span>
+                            }
+                            else
+                            {
+                                <span class="text-danger fw-semibold">Sold</span>
+                            }
+                        </td>
+                        <td><a href="#" class="text-decoration-none text-primary">Details</a></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Top Product -->
+    <div class="top-product bg-white p-4 rounded-3 shadow-sm" style="width: 280px;">
+        <h6 class="fw-semibold mb-3 text-center">TOP PRODUCT</h6>
+        <img src="~/images/topproduct.jpg" alt="Top Product" class="img-fluid rounded mb-3">
+        @if (ViewBag.TopProduct != null)
+        {
+            <p class="fw-semibold text-center mb-1">@ViewBag.TopProduct.Item</p>
+            <p class="text-center text-secondary small mb-0">Total Orders</p>
+            <p class="text-center fw-bold fs-5 mb-0">200</p>
+        }
+        else
+        {
+            <p class="text-center text-muted">No data available</p>
+        }
+    </div>
+</div>

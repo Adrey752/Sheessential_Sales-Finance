@@ -13,7 +13,7 @@ namespace Sheessential_Sales_Finance.Models
         public required string Item { get; set; }
 
         [BsonElement("sku")]
-        public required string SKU { get; set; }
+        public required string SKU { get; set; } 
 
         [BsonElement("category")]
         public required string Category { get; set; }
