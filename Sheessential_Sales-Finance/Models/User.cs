@@ -38,5 +38,8 @@ namespace Sheessential_Sales_Finance.Models
 
         [BsonElement("status")]
         public string Status { get; set; } = "Active";
+
+        [BsonIgnore]
+        public string FullName => $"{FirstName} {LastName}";
     }
 }
