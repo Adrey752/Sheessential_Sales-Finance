@@ -63,12 +63,69 @@ namespace Sheessential_Sales_Finance.Controllers
 
             return View();
         }
-        public IActionResult Products()
+
+        [HttpGet]
+        public IActionResult GetMonthlySalesData()
         {
-            var products = _mongo.Inventories.Find(_ => true).ToList();
-            ViewBag.TopProduct = products.OrderByDescending(p => p.StockQuantity).FirstOrDefault();
-            return View(products);
+            var sales = _mongo.Sales.Find(_ => true).ToList();
+
+            // Group by month (based on transactionDate)
+            var monthlyData = sales
+                .GroupBy(s => s.TransactionDate.ToString("MMM"))
+                .Select(g => new
+                {
+                    Month = g.Key,
+                    TotalRevenue = g.Sum(x => (double)x.SalePrice),
+                    TotalExpense = g.Sum(x => (double)(x.SaleTax + x.SaleDiscounts))
+                })
+                .OrderBy(x => DateTime.ParseExact(x.Month, "MMM", null))
+                .ToList();
+
+            return Json(monthlyData);
         }
+
+        public IActionResult Products(int page = 1)
+        {
+            int pageSize = 5; // Show 10 products per page
+
+            // ✅ Fetch all sales data
+            var sales = _mongo.Sales.Find(_ => true).ToList();
+
+            // ✅ Group by item name and calculate total quantity sold
+            var topProduct = sales
+                .GroupBy(s => s.Item)
+                .Select(g => new
+                {
+                    Item = g.Key,
+                    TotalQuantity = g.Sum(x => Convert.ToInt32(x.Quantity)),
+                    TotalRevenue = g.Sum(x =>
+                    {
+                        double.TryParse(x.SalePrice.ToString(), out double price);
+                        return price;
+                    })
+                })
+                .OrderByDescending(x => x.TotalQuantity)
+                .FirstOrDefault();
+
+            // ✅ Pass top product to view
+            ViewBag.TopProduct = topProduct;
+
+            // ✅ Fetch inventory list with pagination
+            var totalProducts = (int)_mongo.Inventories.CountDocuments(_ => true);
+            int totalPages = (int)Math.Ceiling((double)totalProducts / pageSize);
+
+            var pagedProducts = _mongo.Inventories.Find(_ => true)
+                .Skip((page - 1) * pageSize)
+                .Limit(pageSize)
+                .ToList();
+
+            // ✅ Pass pagination info to View
+            ViewBag.CurrentPage = page;
+            ViewBag.TotalPages = totalPages;
+
+            return View(pagedProducts);
+        }
+
 
     }
 }

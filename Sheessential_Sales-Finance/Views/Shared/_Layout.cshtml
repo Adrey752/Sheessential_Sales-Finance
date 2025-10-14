@@ -112,6 +112,9 @@
 
                 <!-- Profile -->
                 <img src="~/images/profile.jpg" class="w-10 h-10 rounded-full border-2 border-pink-400 object-cover shadow-sm" alt="Profile" />
+                <span class="text-gray-700 font-medium">
+                    @Context.Session.GetString("UserName")
+                </span>
             </div>
         </header>
 

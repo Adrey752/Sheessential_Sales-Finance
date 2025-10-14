@@ -95,56 +95,69 @@
 </div>
 
 @section Scripts {
-    <script>
-        // Cash Flow Bar Chart
-        const ctx1 = document.getElementById('cashFlowChart').getContext('2d');
-        new Chart(ctx1, {
-            type: 'bar',
-            data: {
-                labels: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug'],
-                datasets: [{
-                    label: 'Income',
-                    data: [12, 19, 15, 8, 12, 20, 18, 14],
-                    backgroundColor: 'rgba(236, 72, 153, 0.5)', // pink
-                    borderRadius: 6
-                }, {
-                    label: 'Expense',
-                    data: [-8, -6, -10, -12, -8, -5, -9, -6],
-                    backgroundColor: 'rgba(37, 99, 235, 0.5)', // blue
-                    borderRadius: 6
-                }]
-            },
-            options: {
-                responsive: true,
-                plugins: { legend: { display: false } },
-                scales: {
-                    y: { grid: { drawBorder: false } },
-                    x: { grid: { display: false } }
-                }
-            }
-        });
+  <script>
+async function loadCashFlowChart() {
+    const res = await fetch('/Sales_Finance/GetMonthlySalesData');
+    const data = await res.json();
 
-        // Donut Chart - Sales Report
-        const ctx2 = document.getElementById('salesReportChart').getContext('2d');
-        new Chart(ctx2, {
-            type: 'doughnut',
-            data: {
-                labels: ['Sales', 'Distribution', 'Return'],
-                datasets: [{
-                    data: [45, 28, 18],
-                    backgroundColor: ['#3b82f6', '#fb923c', '#f43f5e'],
-                    hoverOffset: 10
-                }]
-            },
-            options: {
-                cutout: '70%',
-                plugins: {
-                    legend: {
-                        position: 'bottom',
-                        labels: { boxWidth: 12 }
-                    }
+    const labels = data.map(x => x.month);
+    const revenue = data.map(x => x.totalRevenue);
+    const expense = data.map(x => x.totalExpense);
+
+    const ctx1 = document.getElementById('cashFlowChart').getContext('2d');
+    new Chart(ctx1, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Revenue',
+                    data: revenue,
+                    backgroundColor: 'rgba(236, 72, 153, 0.6)',
+                    borderRadius: 6
+                },
+                {
+                    label: 'Expense',
+                    data: expense.map(x => -x),
+                    backgroundColor: 'rgba(37, 99, 235, 0.6)',
+                    borderRadius: 6
                 }
+            ]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { position: 'bottom' } },
+            scales: {
+                y: { beginAtZero: true, grid: { drawBorder: false } },
+                x: { grid: { display: false } }
             }
-        });
-    </script>
+        }
+    });
+}
+
+loadCashFlowChart();
+
+         // Donut Chart - Sales Report
+                const ctx2 = document.getElementById('salesReportChart').getContext('2d');
+                new Chart(ctx2, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Sales', 'Distribution', 'Return'],
+                        datasets: [{
+                            data: [45, 28, 18],
+                            backgroundColor: ['#3b82f6', '#fb923c', '#f43f5e'],
+                            hoverOffset: 10
+                        }]
+                    },
+                    options: {
+                        cutout: '70%',
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: { boxWidth: 12 }
+                            }
+                        }
+                    }
+                });
+</script>
 }

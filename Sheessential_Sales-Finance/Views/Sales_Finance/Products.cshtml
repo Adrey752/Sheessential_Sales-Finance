@@ -58,6 +58,40 @@
                     }
                 </tbody>
             </table>
+            <!-- Pagination Controls -->
+            <div class="flex justify-center mt-6 space-x-2">
+                @if (ViewBag.CurrentPage > 1)
+                {
+                    <a href="@Url.Action("Products", new { page = ViewBag.CurrentPage - 1 })"
+                       class="px-4 py-2 bg-gray-200 rounded-lg text-gray-700 hover:bg-gray-300">
+                        Previous
+                    </a>
+                }
+
+                @for (int i = 1; i <= ViewBag.TotalPages; i++)
+                {
+                    if (i == ViewBag.CurrentPage)
+                    {
+                        <span class="px-4 py-2 bg-sky-500 text-white rounded-lg">@i</span>
+                    }
+                    else
+                    {
+                        <a href="@Url.Action("Products", new { page = i })"
+                           class="px-4 py-2 bg-gray-200 rounded-lg text-gray-700 hover:bg-gray-300">
+                            @i
+                        </a>
+                    }
+                }
+
+                @if (ViewBag.CurrentPage < ViewBag.TotalPages)
+                {
+                    <a href="@Url.Action("Products", new { page = ViewBag.CurrentPage + 1 })"
+                       class="px-4 py-2 bg-gray-200 rounded-lg text-gray-700 hover:bg-gray-300">
+                        Next
+                    </a>
+                }
+            </div>
+
         </div>
     </div>
 
@@ -67,9 +101,18 @@
         <img src="~/images/topproduct.jpg" alt="Top Product" class="rounded-xl mb-4 mx-auto w-full object-cover">
         @if (ViewBag.TopProduct != null)
         {
-            <p class="text-center font-medium text-gray-800">@ViewBag.TopProduct.Item</p>
-            <p class="text-center text-gray-400 text-sm mt-1">Total Orders</p>
-            <p class="text-center font-bold text-lg text-gray-800 mt-1">200</p>
+            @if (ViewBag.TopProduct != null)
+            {
+                <p class="text-center font-medium text-gray-800">@ViewBag.TopProduct.Item</p>
+                <p class="text-center text-gray-400 text-sm mt-1">Total Sold</p>
+                <p class="text-center font-bold text-lg text-gray-800 mt-1">@ViewBag.TopProduct.TotalQuantity</p>
+            }
+            else
+            {
+                <p class="text-center text-gray-400">No data available</p>
+            }
+
+            
         }
         else
         {
