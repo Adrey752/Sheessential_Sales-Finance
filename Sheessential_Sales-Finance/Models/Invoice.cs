@@ -1,0 +1,59 @@
+﻿using MongoDB.Bson.Serialization.Attributes;
+using MongoDB.Bson;
+
+namespace Sheessential_Sales_Finance.Models
+{
+    public enum InvoiceStatus { Unpaid, Paid, Partial, Overdue, Draft, Cancelled }
+
+    public class Invoice
+    {
+        [BsonId]
+        [BsonRepresentation(BsonType.ObjectId)]
+        public string? Id { get; set; }
+
+        [BsonElement("invoiceNumber")]
+        public required string InvoiceNumber { get; set; }
+
+        [BsonElement("billedBy")]
+        [BsonRepresentation(BsonType.ObjectId)]
+        public required string BilledBy { get; set; } // sellerId
+
+        [BsonElement("billedTo")]
+        [BsonRepresentation(BsonType.ObjectId)]
+        public required string BilledTo { get; set; } // customerId
+
+        [BsonElement("issuedAt")]
+        public DateTime IssuedAt { get; set; } = DateTime.UtcNow;
+
+        [BsonElement("dueDate")]
+        public DateTime? DueDate { get; set; }
+
+        [BsonElement("items")]
+        public List<ProductSale> Items { get; set; } = new();
+
+        [BsonElement("subtotal")]
+        public decimal Subtotal => Items.Sum(i => i.SalePrice * i.Quantity);
+
+        [BsonElement("tax")]
+        public decimal Tax => Items.Sum(i => i.SaleTax);
+
+        [BsonElement("discount")]
+        public decimal Discount => Items.Sum(i => i.SaleDiscounts);
+
+        [BsonElement("total")]
+        public decimal Total => Subtotal + Tax - Discount;
+
+        [BsonElement("status")]
+        [BsonRepresentation(BsonType.String)]
+        public InvoiceStatus Status { get; set; } = InvoiceStatus.Unpaid;
+
+        [BsonElement("notes")]
+        public string? Notes { get; set; }
+
+        [BsonElement("createdAt")]
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+        [BsonElement("updatedAt")]
+        public DateTime? UpdatedAt { get; set; }
+    }
+}

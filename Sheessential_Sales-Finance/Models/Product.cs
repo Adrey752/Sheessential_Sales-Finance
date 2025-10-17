@@ -3,7 +3,7 @@ using MongoDB.Bson;
 
 namespace Sheessential_Sales_Finance.Models
 {
-    public class Inventory
+    public class Product
     {
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
@@ -29,6 +29,12 @@ namespace Sheessential_Sales_Finance.Models
 
         [BsonElement("supplier")]
         public required string Supplier { get; set; }
+
+        [BsonElement("images")]
+        public List<string>? Images { get; set; }
+
+        [BsonElement("tags")]
+        public List<string>? Tags { get; set; }
 
         [BsonElement("lastUpdated")]
         public required DateTime LastUpdated { get; set; }

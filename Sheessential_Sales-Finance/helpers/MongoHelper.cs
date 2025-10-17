@@ -20,7 +20,8 @@ namespace Sheessential_Sales_Finance.helpers
         }
 
         public IMongoCollection<User> Users => GetCollection<User>("users");
-        public IMongoCollection<Inventory> Inventories => GetCollection<Inventory>("inventory");
-        public IMongoCollection<Sale> Sales => GetCollection<Sale>("sales");
+        public IMongoCollection<Invoice> Invoices => GetCollection<Invoice>("invoice");
+        public IMongoCollection<Product> Inventories => GetCollection<Product>("inventory");
+        public IMongoCollection<ProductSale> ProductSales => GetCollection<ProductSale>("ProductSales");
     }
 }

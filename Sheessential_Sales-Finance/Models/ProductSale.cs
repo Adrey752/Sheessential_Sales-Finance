@@ -3,14 +3,15 @@ using MongoDB.Bson;
 
 namespace Sheessential_Sales_Finance.Models
 {
-    public class Sale
+    public class ProductSale
     {
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
         public string? Id { get; set; }
 
-        [BsonElement("item")]
-        public required string Item { get; set; }
+        [BsonElement("productId")]
+        [BsonRepresentation(BsonType.ObjectId)]
+        public required string ProductId { get; set; }
 
         [BsonElement("quantity")]
         public required int Quantity { get; set; }
