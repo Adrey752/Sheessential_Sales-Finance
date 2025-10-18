@@ -4,9 +4,6 @@
     ViewData["Title"] = "Invoices";
 }
 
-<!-- TailwindCSS CDN -->
-<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-
 <div class="p-6 space-y-6">
 
     <!-- ===== Summary Cards ===== -->
@@ -32,26 +29,38 @@
 
     <!-- ===== Invoice Section ===== -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <!-- Left Column (Invoice List) -->
+
+        <!-- ===== Left Column (Invoice List) ===== -->
         <div class="col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
             <div class="flex justify-between items-center mb-4">
                 <h2 class="text-lg font-semibold text-gray-700">All Invoices</h2>
 
                 <div class="flex items-center gap-3">
-                    <a asp-action="Create" class="bg-pink-500 hover:bg-pink-600 text-white text-sm font-medium px-4 py-2 rounded-xl shadow-md transition">
+                    <!-- New Invoice Button -->
+                    <a class="bg-pink-500 hover:bg-pink-600 text-white text-sm font-medium px-4 py-2 rounded-xl shadow-md transition"
+                       data-modal-target="newInvoiceModal">
                         <i class="fa-solid fa-plus mr-1"></i> New Invoice
                     </a>
 
+                    <!-- Search Input -->
                     <div class="relative">
-                        <input type="text" placeholder="Search here..."
+                        <input type="text"
+                               id="searchBox"
+                               placeholder="Search here..."
+                               autocomplete="off"
                                class="pl-10 pr-4 py-2.5 w-56 rounded-xl bg-gray-50 focus:bg-white focus:ring-2 focus:ring-pink-300 outline-none text-gray-600 text-sm transition" />
                         <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-gray-400"></i>
+
+                        <!-- Suggestions -->
+                        <div id="searchSuggestions" 
+                             class="absolute left-0 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg hidden z-50 overflow-hidden"></div> 
                     </div>
                 </div>
             </div>
 
+            <!-- ===== Invoice Table ===== -->
             <div class="overflow-x-auto">
-                <table class="min-w-full text-sm text-left border-t border-gray-100">
+                <table id="invoiceTable" class="min-w-full text-sm text-left border-t border-gray-100">
                     <thead class="bg-gray-50 text-gray-600 font-medium">
                         <tr>
                             <th class="py-3 px-4">Status</th>
@@ -75,7 +84,11 @@
                                 _ => "bg-gray-100 text-gray-600"
                             };
 
-                            <tr class="border-t hover:bg-pink-50 transition cursor-pointer @(Model.SelectedInvoice?.Id == invoice.Id ? "bg-pink-100" : "")"
+                            <tr class="border-t transition cursor-pointer hover:bg-pink-50"
+                                data-id="@invoice.Id"
+                                data-invoice-number="@invoice.InvoiceNumber.ToLower()"
+                                data-billed-to="@invoice.BilledTo.ToLower()"
+                                data-due-date="@((invoice.DueDate?.ToString("dd MMM yyyy").ToLower()) ?? "")"
                                 onclick="window.location.href='@Url.Action("Invoices", "Sales_Finance", new { id = invoice.Id })'">
                                 <td class="py-3 px-4">
                                     <span class="@statusColor text-xs px-3 py-1 rounded-full font-medium">@invoice.Status</span>
@@ -91,7 +104,7 @@
             </div>
         </div>
 
-        <!-- Right Column (Invoice Detail Preview) -->
+        <!-- ===== Right Column (Invoice Detail Preview) ===== -->
         @if (Model.SelectedInvoice != null)
         {
             var inv = Model.SelectedInvoice;
@@ -158,11 +171,187 @@
     </div>
 </div>
 
+<!--Modal-->
+<div id="newInvoiceModal" class="fixed inset-0 bg-black bg-opacity-30 hidden items-center justify-center z-50">
+    <div class="bg-[#fffafc] rounded-3xl shadow-lg w-[800px] max-h-[90vh] overflow-y-auto p-6 relative">
+        <button type="button" class="absolute top-4 right-4 text-gray-500 hover:text-gray-800 text-xl font-bold" data-modal-close>
+            &times;
+        </button>
+
+        <h1 class="text-2xl font-semibold mb-2">New Invoice</h1>
+
+        <h2 class="text-lg font-bold mt-4 mb-1">BILLING INFORMATION</h2>
+        <label class="text-sm font-medium">Order Number</label>
+        <input type="text" class="w-full border border-gray-300 rounded-xl p-2 text-sm mb-4 focus:ring-1 focus:ring-pink-400" placeholder="Enter Order Number" />
+
+        <div class="flex justify-between items-center mb-2">
+            <h3 class="text-base font-bold">Customer</h3>
+            <button type="button" class="bg-pink-300 hover:bg-pink-400 text-white text-xs font-medium px-3 py-1 rounded-lg">Add Customer</button>
+        </div>
+
+        <textarea class="w-full border border-gray-300 rounded-xl p-2 text-sm h-20 resize-none" placeholder="Customer details will appear here..."></textarea>
+
+        <div class="grid grid-cols-2 gap-4 mt-4">
+            <div>
+                <label class="text-sm font-medium">Invoice Date</label>
+                <input type="date" class="w-full border border-gray-300 rounded-xl p-2 text-sm" />
+            </div>
+            <div>
+                <label class="text-sm font-medium">Due Date</label>
+                <input type="date" class="w-full border border-gray-300 rounded-xl p-2 text-sm" />
+            </div>
+        </div>
+
+        <div class="mt-4">
+            <label class="text-sm font-medium">Invoice Number</label>
+            <input type="text" class="w-full border border-gray-300 rounded-xl p-2 text-sm" placeholder="INV - 00001" />
+        </div>
+
+        <h2 class="text-lg font-bold mt-6 mb-2">PRODUCT DETAILS</h2>
+        <button type="button" class="bg-pink-300 hover:bg-pink-400 text-white text-xs font-medium px-3 py-1 rounded-lg mb-2">Add Products</button>
+
+        <table class="w-full border-collapse text-sm mb-4">
+            <thead class="bg-pink-50 text-gray-600">
+                <tr>
+                    <th class="text-left p-2">Item</th>
+                    <th class="text-left p-2">Description</th>
+                    <th class="text-left p-2">Quantity</th>
+                    <th class="text-left p-2">Price</th>
+                    <th class="text-left p-2">Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var product in Model.AvailableProducts)
+                {
+                    <tr>
+                        <td class="p-2">@product.Item</td>
+                        <td class="p-2">@product.Category</td>
+                        <td class="p-2">
+                            <input type="number" min="1" class="w-16 border border-gray-300 rounded-lg p-1 text-center" />
+                        </td>
+                        <td class="p-2">₱@product.SRP.ToString("N2")</td>
+                        <td class="p-2 text-right font-medium text-gray-800">₱0.00</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        <div class="text-sm space-y-1 text-right">
+            <p><span class="text-gray-500">Subtotal</span> <span class="font-medium">₱0.00</span></p>
+            <p><span class="text-gray-500">Discount</span> <span class="font-medium">₱0.00</span></p>
+            <p class="font-bold text-gray-800">TOTAL ₱0.00</p>
+        </div>
+
+        <h2 class="text-lg font-bold mt-6 mb-2">NOTES</h2>
+        <textarea class="w-full border border-gray-300 rounded-xl p-2 text-sm h-20 resize-none" placeholder="Enter notes..."></textarea>
+
+        <div class="flex justify-between mt-6">
+            <button type="button" data-modal-close class="bg-green-100 hover:bg-green-200 text-green-700 font-medium px-6 py-2 rounded-xl">Cancel</button>
+            <button type="submit" class="bg-green-400 hover:bg-green-500 text-white font-medium px-6 py-2 rounded-xl shadow-md">Save</button>
+        </div>
+    </div>
+</div>
+<!-- ===== JS: Modal + Search ===== -->
+<script>
+    // Modal toggle
+    document.querySelectorAll('[data-modal-target]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const target = document.getElementById(btn.dataset.modalTarget);
+            target.classList.remove('hidden');
+            target.classList.add('flex');
+        });
+    });
+    document.querySelectorAll('[data-modal-close]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            btn.closest('#newInvoiceModal').classList.add('hidden');
+            btn.closest('#newInvoiceModal').classList.remove('flex');
+        });
+    });
+
+    // === Search ===
+    const searchBox = document.getElementById("searchBox");
+    const suggestions = document.getElementById("searchSuggestions");
+    const tableBody = document.querySelector("#invoiceTable tbody");
+    const rows = Array.from(tableBody.querySelectorAll("tr"));
+
+    searchBox.addEventListener("input", () => {
+        const term = searchBox.value.trim().toLowerCase();
+        suggestions.innerHTML = "";
+        suggestions.classList.add("hidden");
+
+        if (term.length < 2) {
+            rows.forEach(r => (r.style.display = ""));
+            return;
+        }
+
+        // Filter matching invoices
+        const matches = rows.filter(row => {
+            const inv = row.dataset.invoiceNumber;
+            const cust = row.dataset.billedTo;
+            const due = row.dataset.dueDate;
+            const match = inv.includes(term) || cust.includes(term) || due.includes(term);
+            row.style.display = match ? "" : "none";
+            return match;
+        });
+
+        // Move matches to top
+        matches.reverse().forEach(r => tableBody.prepend(r));
+
+        // Suggestions dropdown
+        if (matches.length > 0) {
+            suggestions.innerHTML = matches.slice(0, 5).map(row => `
+                <div class="p-3 hover:bg-pink-50 cursor-pointer transition border-b border-gray-100"
+                     data-id="${row.dataset.id}">
+                    <div class="text-gray-700 font-medium">${row.dataset.invoiceNumber.toUpperCase()}</div>
+                    <div class="text-xs text-gray-500">
+                        ${row.dataset.billedTo} • ${row.dataset.dueDate || "No Due Date"}
+                    </div>
+                </div>
+            `).join("");
+            suggestions.classList.remove("hidden");
+
+            // Clicking suggestion → move row to top + click it
+            suggestions.querySelectorAll("[data-id]").forEach(el => {
+                el.addEventListener("click", () => {
+                    const targetRow = rows.find(r => r.dataset.id === el.dataset.id);
+                    if (targetRow) {
+                        // Move row to top
+                        tableBody.prepend(targetRow);
+
+                        // Make sure it's visible
+                        targetRow.scrollIntoView({ behavior: "smooth", block: "center" });
+
+                        // Trigger the row’s click handler
+                        setTimeout(() => targetRow.click(), 300);
+                    }
+
+                    // Hide suggestions and clear search box
+                    suggestions.classList.add("hidden");
+                });
+            });
+        } else {
+            suggestions.innerHTML = "<div class='p-2 text-sm text-gray-500'>No results found</div>";
+            suggestions.classList.remove("hidden");
+        }
+    });
+
+    // Hide suggestions when clicking outside
+    document.addEventListener("click", (e) => {
+        if (!e.target.closest("#searchSuggestions") && e.target !== searchBox) {
+            suggestions.classList.add("hidden");
+        }
+    });
+</script>
+
 @if (Model.SelectedInvoice != null)
 {
     <script>
         document.addEventListener("DOMContentLoaded", () => {
-            document.querySelector(".invoice-detail")?.scrollIntoView({ behavior: "smooth", block: "start" });
+            const detail = document.querySelector(".invoice-detail");
+            if (detail) {
+                detail.classList.add("bg-pink-50");
+                detail.scrollIntoView({ behavior: "smooth", block: "start" });
+            }
         });
     </script>
 }

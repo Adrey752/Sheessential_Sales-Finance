@@ -2,16 +2,20 @@
 using Sheessential_Sales_Finance.helpers;
 using MongoDB.Driver;
 using Sheessential_Sales_Finance.Models;
+using MongoDB.Bson;
+using System.Text.RegularExpressions;
 
 namespace Sheessential_Sales_Finance.Controllers
 {
     public class Sales_FinanceController : Controller
     {
         private readonly MongoHelper _mongo;
+        private readonly ILogger<AuthController> _logger;
 
-        public Sales_FinanceController(MongoHelper mongo) {
+        public Sales_FinanceController(MongoHelper mongo, ILogger<AuthController> logger)
+        {
             _mongo = mongo;
-
+            _logger = logger;
         }
         public IActionResult Index()
         {
@@ -141,16 +145,28 @@ namespace Sheessential_Sales_Finance.Controllers
         }
         public async Task<IActionResult> Invoices(string? id)
         {
-            var invoices = await _mongo.Invoices.Find(_ => true).SortByDescending(i => i.CreatedAt).ToListAsync();
+            var invoices = await _mongo.Invoices
+                .Find(_ => true)
+                .SortByDescending(i => i.CreatedAt)
+                .ToListAsync();
 
-            // Calculate summary data
-            var overdueAmount = invoices.Where(i => i.Status == InvoiceStatus.Overdue).Sum(i => i.Total);
-            var openAmount = invoices.Where(i => i.Status == InvoiceStatus.Unpaid || i.Status == InvoiceStatus.Partial).Sum(i => i.Total);
-            var draftedAmount = invoices.Where(i => i.Status == InvoiceStatus.Draft).Sum(i => i.Total);
+            var overdueAmount = invoices
+                .Where(i => i.Status == InvoiceStatus.Overdue)
+                .Sum(i => i.Total);
+
+            var openAmount = invoices
+                .Where(i => i.Status == InvoiceStatus.Unpaid || i.Status == InvoiceStatus.Partial)
+                .Sum(i => i.Total);
+
+            var draftedAmount = invoices
+                .Where(i => i.Status == InvoiceStatus.Draft)
+                .Sum(i => i.Total);
 
             Invoice? selectedInvoice = null;
             if (!string.IsNullOrEmpty(id))
+            {
                 selectedInvoice = invoices.FirstOrDefault(i => i.Id == id);
+            }
 
             // Populate user display names
             foreach (var invoice in invoices)
@@ -162,25 +178,30 @@ namespace Sheessential_Sales_Finance.Controllers
                 invoice.BilledTo = billedTo?.FullName ?? "Unknown Customer";
             }
 
+            // Fetch available products
+            var availableProducts = await _mongo.Inventories
+                .Find(_ => true)
+                .SortBy(p => p.Item)
+                .ToListAsync();
+
             var viewModel = new InvoiceListViewModel
             {
                 Invoices = invoices,
                 SelectedInvoice = selectedInvoice,
                 OverdueAmount = overdueAmount,
                 OpenAmount = openAmount,
-                DraftedAmount = draftedAmount
+                DraftedAmount = draftedAmount,
+                AvailableProducts = availableProducts //ass to modal
             };
 
             return View(viewModel);
         }
 
-        // GET: /Invoice/Create
-        public IActionResult CreateInvoice()
-        {
-            return View();
-        }
 
-        // POST: /Invoice/Create
+
+        
+
+        // POST: I'll use later
         [HttpPost]
         public async Task<IActionResult> CreateInvoice(Invoice invoice)
         {
@@ -193,6 +214,8 @@ namespace Sheessential_Sales_Finance.Controllers
 
             return RedirectToAction(nameof(Index));
         }
+ 
+
     }
 
 }
