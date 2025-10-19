@@ -143,7 +143,7 @@ namespace Sheessential_Sales_Finance.Controllers
 
             return View(pagedProducts);
         }
-        public async Task<IActionResult> Invoices(string? id)
+        public async Task<IActionResult> Invoices()
         {
             var invoices = await _mongo.Invoices
                 .Find(_ => true)
@@ -162,11 +162,7 @@ namespace Sheessential_Sales_Finance.Controllers
                 .Where(i => i.Status == InvoiceStatus.Draft)
                 .Sum(i => i.Total);
 
-            Invoice? selectedInvoice = null;
-            if (!string.IsNullOrEmpty(id))
-            {
-                selectedInvoice = invoices.FirstOrDefault(i => i.Id == id);
-            }
+
 
             // Populate user display names
             foreach (var invoice in invoices)
@@ -187,7 +183,6 @@ namespace Sheessential_Sales_Finance.Controllers
             var viewModel = new InvoiceListViewModel
             {
                 Invoices = invoices,
-                SelectedInvoice = selectedInvoice,
                 OverdueAmount = overdueAmount,
                 OpenAmount = openAmount,
                 DraftedAmount = draftedAmount,

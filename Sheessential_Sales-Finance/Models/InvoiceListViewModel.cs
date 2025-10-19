@@ -3,7 +3,6 @@
     public class InvoiceListViewModel
     {
         public List<Invoice> Invoices { get; set; } = new();
-        public Invoice? SelectedInvoice { get; set; }
         public List<Product> AvailableProducts { get; set; } = new();
 
         // Summary card amounts
