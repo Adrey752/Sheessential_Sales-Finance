@@ -12,11 +12,8 @@ namespace Sheessential_Sales_Finance.Models
         public string? Id { get; set; }
 
         [BsonElement("invoiceNumber")]
-        public required string InvoiceNumber { get; set; }
+        public required string InvoiceNumber { get; set; } = "INvi_00";
 
-        [BsonElement("billedBy")]
-        [BsonRepresentation(BsonType.ObjectId)]
-        public required string BilledBy { get; set; } // sellerId
 
         [BsonElement("billedTo")]
         [BsonRepresentation(BsonType.ObjectId)]
