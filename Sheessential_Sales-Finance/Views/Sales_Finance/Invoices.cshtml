@@ -76,12 +76,12 @@
                         {
                             var statusColor = invoice.Status switch
                             {
-                                InvoiceStatus.Paid => "bg-green-100 text-green-600",
-                                InvoiceStatus.Unpaid => "bg-pink-100 text-pink-600",
-                                InvoiceStatus.Overdue => "bg-yellow-100 text-yellow-600",
-                                InvoiceStatus.Partial => "bg-blue-100 text-blue-600",
-                                InvoiceStatus.Draft => "bg-gray-100 text-gray-600",
-                                InvoiceStatus.Cancelled => "bg-red-100 text-red-600",
+                                "Paid" => "bg-green-100 text-green-600",
+                                "Unpaid" => "bg-pink-100 text-pink-600",
+                                "Overdue" => "bg-yellow-100 text-yellow-600",
+                                "Partial" => "bg-blue-100 text-blue-600",
+                                "Draft" => "bg-gray-100 text-gray-600",
+                                "Cancelled" => "bg-red-100 text-red-600",
                                 _ => "bg-gray-100 text-gray-600"
                             };
 
@@ -314,6 +314,7 @@
                 <!-- Customer Search -->
                 <div class="relative mb-3">
                     <input id="customerSearchInput"
+                        
                            type="text"
                            class="w-full border border-gray-300 rounded-xl p-2 text-sm pl-9 focus:ring-1 focus:ring-pink-400"
                            placeholder="Search customer..."
@@ -326,9 +327,11 @@
                 </div>
 
                 <!-- Customer Details -->
+                <span id="customerError" class="text-red-500 text-xs hidden">Please select a customer.</span>
                 <textarea id="customerDetails"
                           class="w-full border border-gray-300 rounded-xl p-2 text-sm h-20 resize-none"
-                          placeholder="Customer details will appear here..." readonly></textarea>
+                                    
+                          placeholder="Customer details will appear here..." readonly required></textarea>
 
                 <!-- BilledTo (ObjectId reference to customer) -->
                 <input type="hidden" name="BilledTo" id="selectedCustomerId" required />
@@ -354,7 +357,20 @@
             </div>
 
             <!-- PRODUCT DETAILS -->
-            <h2 class="text-lg font-bold mt-6 mb-2">PRODUCT DETAILS</h2>
+            <h2 class="text-lg font-bold mt-6 mb-2">PRODUCT DETAILS</h2>      
+            <div class="relative mb-3">
+                <input id="productSearchInput"
+                       type="text"
+                       class="w-full border border-gray-300 rounded-xl p-2 text-sm pl-9 focus:ring-1 focus:ring-pink-400"
+                       placeholder="Search product..."
+                       autocomplete="off" />
+                <i class="fa-solid fa-search absolute left-3 top-2.5 text-gray-400 text-sm"></i>
+
+                <!-- Suggestions -->
+                <div id="productSuggestions"
+                     class="absolute mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-md hidden max-h-48 overflow-y-auto z-10"></div>
+            </div>
+
 
             <div class="border border-gray-200 rounded-xl bg-white max-h-60 overflow-y-auto">
                 <table class="w-full border-collapse text-sm">
@@ -442,7 +458,7 @@
 
         <h2 class="text-lg font-semibold mb-4">Update Invoice Status</h2>
 
-        <form id="updateForm">
+        <form id="updateForm" asp-controller="Sales_Finance" asp-action="UpdateStatus">
             <input type="hidden" id="updateInvoiceId" />
             <p class="text-sm text-gray-600 mb-3">Invoice: <span id="updateInvoiceNumber" class="font-medium"></span></p>
 
@@ -485,7 +501,10 @@
     // Make all invoices available in JS
     const invoices = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Invoices));
 </script>
-    
+<script>
+    const availableProducts = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.AvailableProducts));
+</script>
+
 
 <!-- ===== JS: Modal + Search ===== -->
 <script>
@@ -576,6 +595,18 @@
         if (!e.target.closest("#searchSuggestions") && e.target !== searchBox) {
             suggestions.classList.add("hidden");
         }
+    });
+
+        document.querySelector("form").addEventListener("submit", function (e) {
+      const billedTo = document.getElementById("selectedCustomerId").value.trim();
+      if (!billedTo) {
+        e.preventDefault();
+        document.getElementById("customerError").classList.remove("hidden");
+        document.getElementById("customerDetails").classList.add("border-red-400");
+      } else {
+        document.getElementById("customerError").classList.add("hidden");
+        document.getElementById("customerDetails").classList.remove("border-red-400");
+      }
     });
 </script>
 
@@ -680,7 +711,7 @@ Product modal script
 
 <!-- Right document view-->
 <script>
-    // === Dynamic invoice detail rendering (no page reload) ===
+    // =
 
     function formatDate(dateStr) {
         if (!dateStr) return "—";
@@ -689,22 +720,23 @@ Product modal script
     }
 
     function selectInvoice(id) {
-        // Fix: use proper PascalCase to match .NET property names
+
+        // check if it exist generate the modal 
         const invoice = invoices.find(i => i.Id === id);
         if (!invoice) {
             console.warn("Invoice not found for ID:", id);
             return;
         }
-            // Highlight selected row
     // remove highlight to other rows
     document.querySelectorAll("#invoiceTable tbody tr").forEach(r => r.classList.remove("bg-pink-50"));
+
+     // Select and highlight the selected row
     const selectedRow = document.querySelector(`#invoiceTable tbody tr[data-id="${id}"]`);
     if (selectedRow) selectedRow.classList.add("bg-pink-50");
 
         const container = document.getElementById("invoiceDetailContainer");
         if (!container) return;
-
-        // Render invoice detail HTML dynamically
+        // insert the modal in the container
         container.innerHTML = `
             <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 invoice-detail">
                 <h2 class="text-lg font-semibold text-gray-700 mb-3">Invoice Detail</h2>
@@ -746,7 +778,7 @@ Product modal script
                         <tbody>
                             ${(invoice.Items || []).map(item => `
                                 <tr>
-                                    <td class="py-1">${item.ProductId}</td>
+                                    <td class="py-1">${getProductName(item.ProductId)}</td>
                                     <td>${item.Quantity}</td>
                                     <td>₱${Number(item.SalePrice).toFixed(2)}</td>
                                     <td class="text-right">₱${(item.Quantity * item.SalePrice).toFixed(2)}</td>
@@ -1030,3 +1062,70 @@ Product modal script
 </script>
 
 
+@* getting product name using id *@
+<script>
+
+function getProductName(productId) {
+    const product = availableProducts.find(p => p.Id == productId);
+        console.log(availableProducts);
+
+        return product ? product.Item : "(Unknown Product)";
+}
+</script>
+
+<script>
+    document.getElementById("updateForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        const id = document.getElementById("updateInvoiceId").value;
+        const newStatus = document.getElementById("updateStatus").value;
+
+        try {
+            const response = await fetch("/Sales_Finance/UpdateStatus", {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: new URLSearchParams({ id, newStatus })
+            });
+
+            if (!response.ok) throw new Error("Failed to update invoice status");
+
+            const result = await response.json();
+            if (result.success) {
+                // ✅ Update UI
+                updateInvoiceRowStatus(id, newStatus);
+
+                closeModal("updateModal");
+
+            }
+        } catch (err) {
+            console.error(err);
+            alert("Error updating invoice status.");
+        }
+    });
+
+    function updateInvoiceRowStatus(id, newStatus) {
+        const row = document.querySelector(`#invoiceTable tbody tr[data-id='${id}']`);
+        if (!row) return;
+
+        // Find the <span> inside the Status cell
+        const statusSpan = row.querySelector("td:first-child span");
+        if (!statusSpan) return;
+
+        statusSpan.textContent = newStatus;
+
+        // Update color based on new status
+        statusSpan.className = getStatusColorClass(newStatus) + " text-xs px-3 py-1 rounded-full font-medium";
+    }
+
+    function getStatusColorClass(status) {
+        switch (status) {
+            case "Paid": return "bg-green-100 text-green-600";
+            case "Unpaid": return "bg-pink-100 text-pink-600";
+            case "Overdue": return "bg-yellow-100 text-yellow-600";
+            case "Partial": return "bg-blue-100 text-blue-600";
+            case "Draft": return "bg-gray-100 text-gray-600";
+            case "Cancelled": return "bg-red-100 text-red-600";
+            default: return "bg-gray-100 text-gray-600";
+        }
+    }
+</script>

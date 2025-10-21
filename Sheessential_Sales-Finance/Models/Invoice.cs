@@ -3,7 +3,7 @@ using MongoDB.Bson;
 
 namespace Sheessential_Sales_Finance.Models
 {
-    public enum InvoiceStatus { Unpaid, Paid, Partial, Overdue, Draft, Cancelled }
+    
 
     public class Invoice
     {
@@ -42,7 +42,7 @@ namespace Sheessential_Sales_Finance.Models
 
         [BsonElement("status")]
         [BsonRepresentation(BsonType.String)]
-        public InvoiceStatus Status { get; set; } = InvoiceStatus.Unpaid;
+        public string Status { get; set; } = "Unpaid";
 
         [BsonElement("notes")]
         public string? Notes { get; set; }

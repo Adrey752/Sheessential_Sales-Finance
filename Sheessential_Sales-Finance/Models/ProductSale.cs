@@ -12,7 +12,7 @@ namespace Sheessential_Sales_Finance.Models
         [BsonElement("productId")]
         [BsonRepresentation(BsonType.ObjectId)]
         public required string ProductId { get; set; }
-
+      
         [BsonElement("quantity")]
         public required int Quantity { get; set; }
 

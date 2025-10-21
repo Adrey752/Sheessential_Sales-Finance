@@ -197,9 +197,9 @@ namespace Sheessential_Sales_Finance.Controllers
                 .SortByDescending(i => i.CreatedAt)
                 .ToListAsync();
 
-            var overdueAmount = invoices.Where(i => i.Status == InvoiceStatus.Overdue).Sum(i => i.Total);
-            var openAmount = invoices.Where(i => i.Status == InvoiceStatus.Unpaid || i.Status == InvoiceStatus.Partial).Sum(i => i.Total);
-            var draftedAmount = invoices.Where(i => i.Status == InvoiceStatus.Draft).Sum(i => i.Total);
+            var overdueAmount = invoices.Where(i => i.Status == "Overdue").Sum(i => i.Total);
+            var openAmount = invoices.Where(i => i.Status == "Unpaid" || i.Status == "Unpaid").Sum(i => i.Total);
+            var draftedAmount = invoices.Where(i => i.Status == "Draft").Sum(i => i.Total);
 
             foreach (var invoice in invoices)
             {
@@ -264,13 +264,66 @@ namespace Sheessential_Sales_Finance.Controllers
 
 
 
+        //[HttpPost]
+        //public async Task<IActionResult> CreateInvoice(Invoice invoice)
+        //{
+        //    if (!ModelState.IsValid)
+        //        return BadRequest(ModelState);
+
+        //    // 🔹 Auto-generate InvoiceNumber (format: INV-00001, INV-00002, ...)
+        //    var lastInvoice = await _mongo.Invoices
+        //        .Find(_ => true)
+        //        .SortByDescending(i => i.CreatedAt)
+        //        .Limit(1)
+        //        .FirstOrDefaultAsync();
+
+        //    int nextNumber = 1;
+
+        //    if (lastInvoice != null && !string.IsNullOrEmpty(lastInvoice.InvoiceNumber))
+        //    {
+        //        // extract numeric part
+        //        var numericPart = new string(lastInvoice.InvoiceNumber.Where(char.IsDigit).ToArray());
+        //        if (int.TryParse(numericPart, out int lastNumber))
+        //        {
+        //            nextNumber = lastNumber + 1;
+        //        }
+        //    }
+
+        //    invoice.InvoiceNumber = $"INV-{nextNumber:D5}";
+
+        //    // 🔹 Set timestamps
+        //    invoice.CreatedAt = DateTime.UtcNow;
+        //    invoice.UpdatedAt = null;
+
+        //    // 🔹 Default status
+        //    invoice.Status = InvoiceStatus.Unpaid;
+
+        //    // 🔹 Ensure server-side computation (Mongo ignores client values)
+        //    if (invoice.Items == null) invoice.Items = new List<ProductSale>();
+
+        //    await _mongo.Invoices.InsertOneAsync(invoice);
+
+        //    // You can redirect to a details page or return JSON depending on usage
+        //    return RedirectToAction("Invoices");
+        //}
+
         [HttpPost]
         public async Task<IActionResult> CreateInvoice(Invoice invoice)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            // 🔹 Auto-generate InvoiceNumber (format: INV-00001, INV-00002, ...)
+            // Remove items with zero or negative quantity
+            invoice.Items = invoice.Items
+                .Where(i => i.Quantity > 0)
+                .ToList();
+
+            if (invoice.Items.Count == 0)
+            {
+                return BadRequest("Invoice must contain at least one item with quantity greater than 0.");
+            }
+
+            // Auto-generate invoice number
             var lastInvoice = await _mongo.Invoices
                 .Find(_ => true)
                 .SortByDescending(i => i.CreatedAt)
@@ -278,10 +331,8 @@ namespace Sheessential_Sales_Finance.Controllers
                 .FirstOrDefaultAsync();
 
             int nextNumber = 1;
-
             if (lastInvoice != null && !string.IsNullOrEmpty(lastInvoice.InvoiceNumber))
             {
-                // extract numeric part
                 var numericPart = new string(lastInvoice.InvoiceNumber.Where(char.IsDigit).ToArray());
                 if (int.TryParse(numericPart, out int lastNumber))
                 {
@@ -290,20 +341,13 @@ namespace Sheessential_Sales_Finance.Controllers
             }
 
             invoice.InvoiceNumber = $"INV-{nextNumber:D5}";
-
-            // 🔹 Set timestamps
             invoice.CreatedAt = DateTime.UtcNow;
             invoice.UpdatedAt = null;
+            invoice.Status = "Unpaid";
 
-            // 🔹 Default status
-            invoice.Status = InvoiceStatus.Unpaid;
-
-            // 🔹 Ensure server-side computation (Mongo ignores client values)
             if (invoice.Items == null) invoice.Items = new List<ProductSale>();
 
             await _mongo.Invoices.InsertOneAsync(invoice);
-
-            // You can redirect to a details page or return JSON depending on usage
             return RedirectToAction("Invoices");
         }
 
@@ -326,6 +370,27 @@ namespace Sheessential_Sales_Finance.Controllers
             var invoiceNumber = $"INV-{next:D5}";
             return Json(new { invoiceNumber });
         }
+
+        [HttpPost]
+        public async Task<IActionResult> UpdateStatus(string id, string newStatus)
+        {
+            if (string.IsNullOrEmpty(id) || string.IsNullOrEmpty(newStatus))
+                return BadRequest("Invalid invoice ID or status.");
+
+
+            var filter = Builders<Invoice>.Filter.Eq(i => i.Id, id);
+            var update = Builders<Invoice>.Update
+                .Set(i => i.Status, newStatus)
+                .Set(i => i.UpdatedAt, DateTime.UtcNow);
+
+            var result = await _mongo.Invoices.UpdateOneAsync(filter, update);
+
+            if (result.MatchedCount == 0)
+                return NotFound("Invoice not found.");
+
+            return Ok(new { success = true, message = "Invoice status updated successfully." });
+        }
+
 
 
     }
