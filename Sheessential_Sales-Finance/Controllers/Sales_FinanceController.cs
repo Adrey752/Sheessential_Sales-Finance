@@ -391,8 +391,76 @@ namespace Sheessential_Sales_Finance.Controllers
             return Ok(new { success = true, message = "Invoice status updated successfully." });
         }
 
+        //Fetch Customers in customers page with search function
+        public IActionResult Customers(string? searchQuery, string? selectedId)
+        {
+            // ✅ Base filter: only customers
+            var filter = Builders<User>.Filter.Where(u => u.Role.ToLower() == "customer");
+
+            // ✅ Add search filter if user types something
+            if (!string.IsNullOrEmpty(searchQuery))
+            {
+                var searchFilter = Builders<User>.Filter.Or(
+                    Builders<User>.Filter.Regex(u => u.FirstName, new MongoDB.Bson.BsonRegularExpression(searchQuery, "i")),
+                    Builders<User>.Filter.Regex(u => u.LastName, new MongoDB.Bson.BsonRegularExpression(searchQuery, "i")),
+                    Builders<User>.Filter.Regex(u => u.Email, new MongoDB.Bson.BsonRegularExpression(searchQuery, "i")),
+                    Builders<User>.Filter.Regex(u => u.Phone, new MongoDB.Bson.BsonRegularExpression(searchQuery, "i"))
+                );
+
+                filter = Builders<User>.Filter.And(filter, searchFilter);
+            }
+
+            // ✅ Apply the filter (instead of ignoring it)
+            var users = _mongo.Users.Find(filter).ToList();
+
+            // ✅ Compute stats based on the same filtered list
+            ViewBag.TotalCustomers = users.Count;
+            ViewBag.ActiveCustomers = users.Count(u => u.Status.ToLower() == "active");
+            ViewBag.InactiveCustomers = users.Count(u => u.Status.ToLower() == "inactive");
+
+            // ✅ Select user for modal preview (if any)
+            ViewBag.SelectedUser = !string.IsNullOrEmpty(selectedId)
+                ? users.FirstOrDefault(u => u.Id == selectedId)
+                : null;
+
+            return View(users);
+        }
+
+
+      public IActionResult Reports()
+{
+    var productSalesList = _mongo.ProductSales.Find(_ => true).ToList();
+
+    if (productSalesList == null || productSalesList.Count == 0)
+    {
+        ViewBag.Revenue = 0;
+        ViewBag.Expense = 0;
+        ViewBag.TotalTransactions = 0;
+        return View(new List<ProductSale>());
+    }
+
+    ViewBag.Revenue = productSalesList.Sum(x => x.SalePrice);
+    ViewBag.Expense = productSalesList.Sum(x => x.SaleTax + x.SaleDiscounts);
+    ViewBag.TotalTransactions = productSalesList.Count;
+
+    var monthlyData = productSalesList
+        .GroupBy(s => s.TransactionDate.ToString("MMM yyyy"))
+        .Select(g => new
+        {
+            Month = g.Key,
+            TotalRevenue = g.Sum(x => x.SalePrice),
+            TotalExpense = g.Sum(x => x.SaleTax + x.SaleDiscounts)
+        })
+        .OrderBy(x => DateTime.ParseExact(x.Month, "MMM yyyy", null))
+        .ToList();
+
+    ViewBag.MonthlyData = monthlyData;
+
+    return View(productSalesList);
+}
 
 
     }
+
 
 }

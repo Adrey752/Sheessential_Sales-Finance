@@ -1,5 +1,5 @@
-﻿using MongoDB.Bson.Serialization.Attributes;
-using MongoDB.Bson;
+﻿using MongoDB.Bson;
+using MongoDB.Bson.Serialization.Attributes;
 
 namespace Sheessential_Sales_Finance.Models
 {
@@ -11,8 +11,11 @@ namespace Sheessential_Sales_Finance.Models
 
         [BsonElement("productId")]
         [BsonRepresentation(BsonType.ObjectId)]
-        public required string ProductId { get; set; }
-      
+        public string? ProductId { get; set; }
+
+        [BsonElement("item")]
+        public string? Item { get; set; }   // ✅ ADD THIS LINE
+
         [BsonElement("quantity")]
         public required int Quantity { get; set; }
 

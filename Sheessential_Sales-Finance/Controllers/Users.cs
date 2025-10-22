@@ -9,6 +9,9 @@ namespace Sheessential_Sales_Finance.Controllers
             return View();
         }
 
-
+        public IActionResult Customer()
+        {
+            return View();
+        }
     }
 }
