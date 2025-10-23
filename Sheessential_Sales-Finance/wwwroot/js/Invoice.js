@@ -14,6 +14,7 @@
             target.classList.add('flex');
         });
     });
+
     document.querySelectorAll('[data-modal-close]').forEach(btn => {
         btn.addEventListener('click', () => {
             btn.closest('#newInvoiceModal').classList.add('hidden');
@@ -31,17 +32,37 @@
    
    //      1. VALIDATION FOR ENTERING A CUSTOMER
 
-           document.querySelector("form").addEventListener("submit", function (e) {
-      const billedTo = document.getElementById("selectedCustomerId").value.trim();
-      if (!billedTo) {
+document.querySelector("form").addEventListener("submit", function (e) {
+    const billedTo = document.getElementById("selectedCustomerId").value.trim();
+    const customerError = document.getElementById("customerError");
+    const customerDetails = document.getElementById("customerDetails");
+    const customerSearchInput = document.getElementById("customerSearchInput");
+
+    if (!billedTo) {
         e.preventDefault();
-        document.getElementById("customerError").classList.remove("hidden");
-        document.getElementById("customerDetails").classList.add("border-red-400");
-      } else {
-        document.getElementById("customerError").classList.add("hidden");
-        document.getElementById("customerDetails").classList.remove("border-red-400");
-      }
-    });
+
+        // Show error styles
+        customerError.classList.remove("hidden");
+        customerDetails.classList.add("border-red-400");
+        customerSearchInput.classList.add("border-red-400", "ring-2", "ring-red-300");
+
+        // scroll to the customer section
+        customerSearchInput.scrollIntoView({
+            behavior: "smooth",
+            block: "center"
+        });
+
+        //focus the search input for convenience
+        customerSearchInput.focus();
+
+    } else {
+        // Remove error styles if valid
+        customerError.classList.add("hidden");
+        customerDetails.classList.remove("border-red-400");
+        customerSearchInput.classList.remove("border-red-400", "ring-2", "ring-red-300");
+    }
+});
+
     
     //   CUTOMER VALIDATION SCRIPT END
 
@@ -466,7 +487,7 @@
 
         const result = await response.json();
         if (result.success) {
-            // ✅ Update UI
+            // Update UI
             updateInvoiceRowStatus(id, newStatus);
 
         closeModal("updateModal");
@@ -526,6 +547,7 @@
         }
     });
 
+      
 
 
             // make them global (so buttons in HTML can call them)
@@ -534,4 +556,79 @@
             window.closeModal = closeModal;
 
     });
-    
+
+    document.addEventListener("DOMContentLoaded", function () {
+
+    // --- 1️⃣ SET DEFAULT INVOICE DATE AND DUE DATE ---
+    const invoiceDateInput = document.getElementById("invoiceDate");
+    const dueDateInput = document.getElementById("dueDate");
+
+    const today = new Date();
+    const todayStr = today.toISOString().split("T")[0];
+    invoiceDateInput.value = todayStr;
+
+    const due = new Date(today);
+    due.setDate(due.getDate() + 7);
+    const dueStr = due.toISOString().split("T")[0];
+    dueDateInput.value = dueStr;
+    dueDateInput.min = dueStr; // cannot be less than 7 days
+
+    // If user manually changes due date, prevent setting earlier than +7 days
+    dueDateInput.addEventListener("change", () => {
+        const selected = new Date(dueDateInput.value);
+    const minDue = new Date(today);
+    minDue.setDate(minDue.getDate() + 7);
+
+    if (selected < minDue) {
+        alert("Due date cannot be less than 7 days from today.");
+    dueDateInput.value = dueStr;
+        }
+    });
+
+
+    // --- 2️⃣ & 3️⃣ PRODUCT QUANTITY + SUBTOTAL HANDLING ---
+    const qtyInputs = document.querySelectorAll(".qtyInput");
+    const subtotalEl = document.getElementById("invoiceSubtotal");
+    const totalEl = document.getElementById("invoiceTotal");
+
+    qtyInputs.forEach(input => {
+        const price = parseFloat(input.dataset.price);
+    const row = input.closest("tr");
+    const amountCell = row.querySelector(".amountCell");
+
+    // Get available stock from data attribute (you’ll need to set it in Razor)
+    const availableStock = parseInt(input.dataset.stock || "9999", 10);
+
+        input.addEventListener("input", () => {
+        let qty = parseInt(input.value) || 0;
+
+    if (qty < 0) qty = 0;
+            if (qty > availableStock) {
+        alert(`Only ${availableStock} in stock.`);
+    qty = availableStock;
+    input.value = availableStock;
+            }
+
+    // Update this row amount
+    const amount = qty * price;
+    amountCell.textContent = "₱" + amount.toFixed(2);
+
+    // Recalculate subtotal
+    updateSubtotal();
+        });
+    });
+
+    function updateSubtotal() {
+        let subtotal = 0;
+        document.querySelectorAll(".amountCell").forEach(cell => {
+            const val = parseFloat(cell.textContent.replace(/[₱,]/g, "")) || 0;
+    subtotal += val;
+        });
+
+    subtotalEl.textContent = "₱" + subtotal.toFixed(2);
+    totalEl.textContent = "₱" + subtotal.toFixed(2);
+    }
+
+});
+
+     

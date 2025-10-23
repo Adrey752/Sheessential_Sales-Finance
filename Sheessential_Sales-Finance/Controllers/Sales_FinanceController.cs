@@ -143,51 +143,6 @@ namespace Sheessential_Sales_Finance.Controllers
 
             return View(pagedProducts);
         }
-        //public async Task<IActionResult> Invoices()
-        //{
-        //    var invoices = await _mongo.Invoices
-        //        .Find(_ => true)
-        //        .SortByDescending(i => i.CreatedAt)
-        //        .ToListAsync();
-
-        //    var overdueAmount = invoices
-        //        .Where(i => i.Status == InvoiceStatus.Overdue)
-        //        .Sum(i => i.Total);
-
-        //    var openAmount = invoices
-        //        .Where(i => i.Status == InvoiceStatus.Unpaid || i.Status == InvoiceStatus.Partial)
-        //        .Sum(i => i.Total);
-
-        //    var draftedAmount = invoices
-        //        .Where(i => i.Status == InvoiceStatus.Draft)
-        //        .Sum(i => i.Total);
-
-
-
-        //    // Populate user display names
-        //    foreach (var invoice in invoices)
-        //    {
-        //        var billedTo = await _mongo.Users.Find(u => u.Id == invoice.BilledTo).FirstOrDefaultAsync();
-        //        invoice.BilledTo = billedTo?.FullName ?? "Unknown Customer";
-        //    }
-
-        //    // Fetch available products
-        //    var availableProducts = await _mongo.Inventories
-        //        .Find(_ => true)
-        //        .SortBy(p => p.Item)
-        //        .ToListAsync();
-
-        //    var viewModel = new InvoiceListViewModel
-        //    {
-        //        Invoices = invoices,
-        //        OverdueAmount = overdueAmount,
-        //        OpenAmount = openAmount,
-        //        DraftedAmount = draftedAmount,
-        //        AvailableProducts = availableProducts //ass to modal
-        //    };
-
-        //    return View(viewModel);
-        //}
 
 
         public async Task<IActionResult> Invoices()
@@ -226,26 +181,12 @@ namespace Sheessential_Sales_Finance.Controllers
                 Customers = customers,
             };
 
+            ViewBag.NextInvoiceNumber = await GenerateInvoiceNumber();
             return View(viewModel);
         }
 
 
 
-
-
-        //// POST: I'll use later
-        //[HttpPost]
-        //public async Task<IActionResult> CreateInvoice(Invoice invoice)
-        //{
-        //    if (!ModelState.IsValid)
-        //        return View(invoice);
-
-        //    invoice.CreatedAt = DateTime.UtcNow;
-        //    invoice.Status = InvoiceStatus.Draft;
-        //    await _mongo.Invoices.InsertOneAsync(invoice);
-
-        //    return RedirectToAction(nameof(Index));
-        //}
 
         [HttpPost]
         public async Task<IActionResult> DeleteInvoice(string id)
@@ -261,51 +202,6 @@ namespace Sheessential_Sales_Finance.Controllers
             return Json(new { success = true });
         }
 
-
-
-
-        //[HttpPost]
-        //public async Task<IActionResult> CreateInvoice(Invoice invoice)
-        //{
-        //    if (!ModelState.IsValid)
-        //        return BadRequest(ModelState);
-
-        //    // 🔹 Auto-generate InvoiceNumber (format: INV-00001, INV-00002, ...)
-        //    var lastInvoice = await _mongo.Invoices
-        //        .Find(_ => true)
-        //        .SortByDescending(i => i.CreatedAt)
-        //        .Limit(1)
-        //        .FirstOrDefaultAsync();
-
-        //    int nextNumber = 1;
-
-        //    if (lastInvoice != null && !string.IsNullOrEmpty(lastInvoice.InvoiceNumber))
-        //    {
-        //        // extract numeric part
-        //        var numericPart = new string(lastInvoice.InvoiceNumber.Where(char.IsDigit).ToArray());
-        //        if (int.TryParse(numericPart, out int lastNumber))
-        //        {
-        //            nextNumber = lastNumber + 1;
-        //        }
-        //    }
-
-        //    invoice.InvoiceNumber = $"INV-{nextNumber:D5}";
-
-        //    // 🔹 Set timestamps
-        //    invoice.CreatedAt = DateTime.UtcNow;
-        //    invoice.UpdatedAt = null;
-
-        //    // 🔹 Default status
-        //    invoice.Status = InvoiceStatus.Unpaid;
-
-        //    // 🔹 Ensure server-side computation (Mongo ignores client values)
-        //    if (invoice.Items == null) invoice.Items = new List<ProductSale>();
-
-        //    await _mongo.Invoices.InsertOneAsync(invoice);
-
-        //    // You can redirect to a details page or return JSON depending on usage
-        //    return RedirectToAction("Invoices");
-        //}
 
         [HttpPost]
         public async Task<IActionResult> CreateInvoice(Invoice invoice)
@@ -324,6 +220,22 @@ namespace Sheessential_Sales_Finance.Controllers
             }
 
             // Auto-generate invoice number
+
+
+            invoice.InvoiceNumber = await GenerateInvoiceNumber();
+            invoice.CreatedAt = DateTime.UtcNow;
+            invoice.UpdatedAt = null;
+            invoice.Status = "Unpaid";
+
+            if (invoice.Items == null) invoice.Items = new List<ProductSale>();
+
+            await _mongo.Invoices.InsertOneAsync(invoice);
+            ViewBag.NextInvoiceNumber = await GenerateInvoiceNumber();
+            return RedirectToAction("Invoices");
+        }
+
+        private async Task<string> GenerateInvoiceNumber()
+        {
             var lastInvoice = await _mongo.Invoices
                 .Find(_ => true)
                 .SortByDescending(i => i.CreatedAt)
@@ -331,6 +243,7 @@ namespace Sheessential_Sales_Finance.Controllers
                 .FirstOrDefaultAsync();
 
             int nextNumber = 1;
+
             if (lastInvoice != null && !string.IsNullOrEmpty(lastInvoice.InvoiceNumber))
             {
                 var numericPart = new string(lastInvoice.InvoiceNumber.Where(char.IsDigit).ToArray());
@@ -340,36 +253,30 @@ namespace Sheessential_Sales_Finance.Controllers
                 }
             }
 
-            invoice.InvoiceNumber = $"INV-{nextNumber:D5}";
-            invoice.CreatedAt = DateTime.UtcNow;
-            invoice.UpdatedAt = null;
-            invoice.Status = "Unpaid";
-
-            if (invoice.Items == null) invoice.Items = new List<ProductSale>();
-
-            await _mongo.Invoices.InsertOneAsync(invoice);
-            return RedirectToAction("Invoices");
+            return $"INV-{nextNumber:D5}";
         }
 
-        [HttpGet]
-        public async Task<IActionResult> GetNextInvoiceNumber()
-        {
-            var last = await _mongo.Invoices
-                .Find(_ => true)
-                .SortByDescending(i => i.CreatedAt)
-                .FirstOrDefaultAsync();
 
-            int next = 1;
-            if (last != null && last.InvoiceNumber.StartsWith("INV-"))
-            {
-                var num = last.InvoiceNumber.Replace("INV-", "");
-                if (int.TryParse(num, out var n))
-                    next = n + 1;
-            }
 
-            var invoiceNumber = $"INV-{next:D5}";
-            return Json(new { invoiceNumber });
-        }
+        //[HttpGet]
+        //public async Task<IActionResult> GetNextInvoiceNumber()
+        //{
+        //    var last = await _mongo.Invoices
+        //        .Find(_ => true)
+        //        .SortByDescending(i => i.CreatedAt)
+        //        .FirstOrDefaultAsync();
+
+        //    int next = 1;
+        //    if (last != null && last.InvoiceNumber.StartsWith("INV-"))
+        //    {
+        //        var num = last.InvoiceNumber.Replace("INV-", "");
+        //        if (int.TryParse(num, out var n))
+        //            next = n + 1;
+        //    }
+
+        //    var invoiceNumber = $"INV-{next:D5}";
+        //    return Json(new { invoiceNumber });
+        //}
 
         [HttpPost]
         public async Task<IActionResult> UpdateStatus(string id, string newStatus)
@@ -427,37 +334,37 @@ namespace Sheessential_Sales_Finance.Controllers
         }
 
 
-      public IActionResult Reports()
-{
-    var productSalesList = _mongo.ProductSales.Find(_ => true).ToList();
-
-    if (productSalesList == null || productSalesList.Count == 0)
-    {
-        ViewBag.Revenue = 0;
-        ViewBag.Expense = 0;
-        ViewBag.TotalTransactions = 0;
-        return View(new List<ProductSale>());
-    }
-
-    ViewBag.Revenue = productSalesList.Sum(x => x.SalePrice);
-    ViewBag.Expense = productSalesList.Sum(x => x.SaleTax + x.SaleDiscounts);
-    ViewBag.TotalTransactions = productSalesList.Count;
-
-    var monthlyData = productSalesList
-        .GroupBy(s => s.TransactionDate.ToString("MMM yyyy"))
-        .Select(g => new
+        public IActionResult Reports()
         {
-            Month = g.Key,
-            TotalRevenue = g.Sum(x => x.SalePrice),
-            TotalExpense = g.Sum(x => x.SaleTax + x.SaleDiscounts)
-        })
-        .OrderBy(x => DateTime.ParseExact(x.Month, "MMM yyyy", null))
-        .ToList();
+            var productSalesList = _mongo.ProductSales.Find(_ => true).ToList();
 
-    ViewBag.MonthlyData = monthlyData;
+            if (productSalesList == null || productSalesList.Count == 0)
+            {
+                ViewBag.Revenue = 0;
+                ViewBag.Expense = 0;
+                ViewBag.TotalTransactions = 0;
+                return View(new List<ProductSale>());
+            }
 
-    return View(productSalesList);
-}
+            ViewBag.Revenue = productSalesList.Sum(x => x.SalePrice);
+            ViewBag.Expense = productSalesList.Sum(x => x.SaleTax + x.SaleDiscounts);
+            ViewBag.TotalTransactions = productSalesList.Count;
+
+            var monthlyData = productSalesList
+                .GroupBy(s => s.TransactionDate.ToString("MMM yyyy"))
+                .Select(g => new
+                {
+                    Month = g.Key,
+                    TotalRevenue = g.Sum(x => x.SalePrice),
+                    TotalExpense = g.Sum(x => x.SaleTax + x.SaleDiscounts)
+                })
+                .OrderBy(x => DateTime.ParseExact(x.Month, "MMM yyyy", null))
+                .ToList();
+
+            ViewBag.MonthlyData = monthlyData;
+
+            return View(productSalesList);
+        }
 
 
     }

@@ -126,39 +126,45 @@
 
 
 <div id="newInvoiceModal" class="fixed inset-0 bg-black bg-opacity-30 hidden items-center justify-center z-50">
-    <div class="bg-[#fffafc] rounded-3xl shadow-lg w-[800px] max-h-[90vh] overflow-y-auto p-6 relative">
+    <div class="bg-[#fffafc] rounded-3xl shadow-lg w-[800px] max-h-[90vh] overflow-y-auto relative border border-pink-100">
 
-        <button type="button"
-                class="absolute top-4 right-4 text-gray-500 hover:text-gray-800 text-xl font-bold"
-                data-modal-close>
-            &times;
-        </button>
-
-        <form asp-controller="Sales_Finance" asp-action="CreateInvoice" method="post" id="createInvoiceForm">
-            <!-- Header with invoice number -->
-            <div class="flex justify-between items-center mb-4">
-                <h1 class="text-2xl font-semibold">New Invoice</h1>
+        <!-- ===== Sticky Header ===== -->
+        <div class="sticky top-0 bg-gradient-to-r from-pink-100 to-pink-50 border-b border-pink-200 rounded-t-3xl z-20 px-6 py-4 flex justify-between items-center shadow-sm">
+            <h1 class="text-2xl font-semibold text-gray-800 flex items-center gap-2">
+                <i class="fa-solid fa-file-invoice text-pink-500"></i>
+                New Invoice
+            </h1>
+            <div class="flex items-center gap-3">
                 <span id="autoInvoiceNumber"
-                      class="text-sm font-medium text-gray-600 bg-pink-50 px-3 py-1 rounded-lg border border-pink-200">
-                    INV-00001
+                      class="text-sm font-medium text-gray-700 bg-white px-3 py-1 rounded-lg border border-pink-300 shadow-sm">
+                    @ViewBag.NextInvoiceNumber
                 </span>
-                <!-- Hidden auto-generated InvoiceNumber -->
-                <input type="hidden" id="InvoiceNumber" name="InvoiceNumber"  value="INVosf"/>
+                <button type="button"
+                        class="text-gray-500 hover:text-gray-800 text-2xl font-bold leading-none"
+                        data-modal-close>
+                    &times;
+                </button>
             </div>
+        </div>
+
+        <!-- ===== Body ===== -->
+        <form asp-controller="Sales_Finance" asp-action="CreateInvoice" method="post" id="createInvoiceForm" class="p-6">
+
+            <!-- Hidden auto-generated InvoiceNumber -->
+            <input type="hidden" id="InvoiceNumber" name="InvoiceNumber" value="INVosf" />
 
             <!-- BILLING INFORMATION -->
-            <h2 class="text-lg font-bold mt-4 mb-1">BILLING INFORMATION</h2>
+            <h2 class="text-lg font-bold mt-2 mb-2 text-gray-800">BILLING INFORMATION</h2>
 
             <!-- Customer Section -->
-            <div class="mb-2">
-                <h3 class="text-base font-bold mb-2">Customer</h3>
+            <div class="mb-4">
+                <h3 class="text-base font-bold mb-2 text-gray-700">Customer</h3>
 
                 <!-- Customer Search -->
                 <div class="relative mb-3">
                     <input id="customerSearchInput"
-                        
                            type="text"
-                           class="w-full border border-gray-300 rounded-xl p-2 text-sm pl-9 focus:ring-1 focus:ring-pink-400"
+                           class="w-full border border-gray-300 rounded-xl p-2 text-sm pl-9 focus:ring-2 focus:ring-pink-400 focus:border-pink-400 transition"
                            placeholder="Search customer..."
                            autocomplete="off" />
                     <i class="fa-solid fa-search absolute left-3 top-2.5 text-gray-400 text-sm"></i>
@@ -171,39 +177,38 @@
                 <!-- Customer Details -->
                 <span id="customerError" class="text-red-500 text-xs hidden">Please select a customer.</span>
                 <textarea id="customerDetails"
-                          class="w-full border border-gray-300 rounded-xl p-2 text-sm h-20 resize-none"
-                                    
+                          class="w-full border border-gray-300 rounded-xl p-2 text-sm h-20 resize-none bg-gray-50"
                           placeholder="Customer details will appear here..." readonly required></textarea>
 
-                <!-- BilledTo (ObjectId reference to customer) -->
+                <!-- Hidden Selected Customer -->
                 <input type="hidden" name="BilledTo" id="selectedCustomerId" required />
             </div>
 
             <!-- Dates -->
             <div class="grid grid-cols-2 gap-4 mt-4">
                 <div>
-                    <label class="text-sm font-medium">Invoice Date</label>
+                    <label class="text-sm font-medium text-gray-700">Invoice Date</label>
                     <input id="invoiceDate"
                            name="IssuedAt"
                            type="date"
-                           class="w-full border border-gray-300 rounded-xl p-2 text-sm"
+                           class="w-full border border-gray-300 rounded-xl p-2 text-sm focus:ring-2 focus:ring-pink-400 focus:border-pink-400"
                            required />
                 </div>
                 <div>
-                    <label class="text-sm font-medium">Due Date</label>
+                    <label class="text-sm font-medium text-gray-700">Due Date</label>
                     <input id="dueDate"
                            name="DueDate"
                            type="date"
-                           class="w-full border border-gray-300 rounded-xl p-2 text-sm" />
+                           class="w-full border border-gray-300 rounded-xl p-2 text-sm focus:ring-2 focus:ring-pink-400 focus:border-pink-400" />
                 </div>
             </div>
 
             <!-- PRODUCT DETAILS -->
-            <h2 class="text-lg font-bold mt-6 mb-2">PRODUCT DETAILS</h2>      
+            <h2 class="text-lg font-bold mt-6 mb-2 text-gray-800">PRODUCT DETAILS</h2>
             <div class="relative mb-3">
                 <input id="productSearchInput"
                        type="text"
-                       class="w-full border border-gray-300 rounded-xl p-2 text-sm pl-9 focus:ring-1 focus:ring-pink-400"
+                       class="w-full border border-gray-300 rounded-xl p-2 text-sm pl-9 focus:ring-2 focus:ring-pink-400 focus:border-pink-400 transition"
                        placeholder="Search product..."
                        autocomplete="off" />
                 <i class="fa-solid fa-search absolute left-3 top-2.5 text-gray-400 text-sm"></i>
@@ -213,16 +218,16 @@
                      class="absolute mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-md hidden max-h-48 overflow-y-auto z-10"></div>
             </div>
 
-
-            <div class="border border-gray-200 rounded-xl bg-white max-h-60 overflow-y-auto">
+            <!-- Product Table -->
+            <div class="border border-gray-200 rounded-xl bg-white max-h-60 overflow-y-auto shadow-inner">
                 <table class="w-full border-collapse text-sm">
-                    <thead class="bg-pink-50 text-gray-600 sticky top-0">
+                    <thead class="bg-pink-50 text-gray-600 sticky top-0 z-10">
                         <tr>
-                            <th class="text-left p-2">Item</th>
-                            <th class="text-left p-2">Description</th>
-                            <th class="text-left p-2">Quantity</th>
-                            <th class="text-left p-2">Price</th>
-                            <th class="text-left p-2 text-right">Amount</th>
+                            <th class="text-left p-2 font-medium">Item</th>
+                            <th class="text-left p-2 font-medium">Description</th>
+                            <th class="text-left p-2 font-medium">Quantity</th>
+                            <th class="text-left p-2 font-medium">Price</th>
+                            <th class="text-left p-2 text-right font-medium">Amount</th>
                         </tr>
                     </thead>
                     <tbody id="productTableBody">
@@ -237,8 +242,9 @@
                                            name="Items[@i].Quantity"
                                            min="0"
                                            value="0"
-                                           class="qtyInput w-16 border border-gray-300 rounded-lg p-1 text-center"
-                                           data-price="@product.SRP" />
+                                           class="qtyInput w-16 border border-gray-300 rounded-lg p-1 text-center focus:ring-1 focus:ring-pink-400"
+                                           data-price="@product.SRP"
+                                           data-stock="@product.StockQuantity" />
                                     <input type="hidden" name="Items[@i].SalePrice" value="@product.SRP" />
                                     <input type="hidden" name="Items[@i].ProductId" value="@product.Id" />
                                     <input type="hidden" name="Items[@i].SaleTax" value="0" />
@@ -253,37 +259,38 @@
             </div>
 
             <!-- Totals -->
-            <div class="text-sm space-y-1 text-right mt-4">
+            <div class="text-sm space-y-1 text-right mt-4 border-t border-gray-200 pt-3">
                 <p><span class="text-gray-500">Subtotal</span> <span id="invoiceSubtotal" class="font-medium">₱0.00</span></p>
                 <p><span class="text-gray-500">Discount</span> <span class="font-medium">₱0.00</span></p>
-                <p class="font-bold text-gray-800">TOTAL <span id="invoiceTotal">₱0.00</span></p>
+                <p class="font-bold text-gray-800 text-lg">TOTAL <span id="invoiceTotal">₱0.00</span></p>
             </div>
 
             <!-- Notes -->
-            <h2 class="text-lg font-bold mt-6 mb-2">NOTES</h2>
+            <h2 class="text-lg font-bold mt-6 mb-2 text-gray-800">NOTES</h2>
             <textarea name="Notes"
                       id="Notes"
-                      class="w-full border border-gray-300 rounded-xl p-2 text-sm h-20 resize-none"
+                      class="w-full border border-gray-300 rounded-xl p-2 text-sm h-20 resize-none focus:ring-2 focus:ring-pink-400 focus:border-pink-400"
                       placeholder="Enter notes..."></textarea>
 
             <!-- Status (hidden default) -->
             <input type="hidden" name="Status" value="Unpaid" />
 
             <!-- Buttons -->
-            <div class="flex justify-between mt-6">
+            <div class="flex justify-between mt-6 border-t border-gray-200 pt-4">
                 <button type="button"
                         data-modal-close
-                        class="bg-green-100 hover:bg-green-200 text-green-700 font-medium px-6 py-2 rounded-xl">
+                        class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium px-6 py-2 rounded-xl transition">
                     Cancel
                 </button>
                 <button type="submit"
-                        class="bg-green-400 hover:bg-green-500 text-white font-medium px-6 py-2 rounded-xl shadow-md">
+                        class="bg-pink-500 hover:bg-pink-600 text-white font-medium px-6 py-2 rounded-xl shadow-md transition">
                     Save
                 </button>
             </div>
         </form>
     </div>
 </div>
+
 
 
 

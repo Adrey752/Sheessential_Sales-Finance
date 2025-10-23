@@ -30,9 +30,11 @@ app.UseStaticFiles();
 
 app.UseRouting();
 
-app.UseSession(); 
+app.UseSession();
 
 app.UseAuthorization();
+app.UseExceptionHandler("/Error/Connection");
+
 
 // reeeedirect to login if session is empty 
 app.Use(async (context, next) =>
@@ -45,7 +47,9 @@ app.Use(async (context, next) =>
          path.Contains("/auth/register") ||
          path.Contains("/css") ||
          path.Contains("/js") ||
-         path.Contains("/images")))
+         path.Contains("/images") ||
+         path.Contains("/error/connection")))
+
     {
         await next();
     }
