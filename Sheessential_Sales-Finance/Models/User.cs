@@ -22,7 +22,7 @@ namespace Sheessential_Sales_Finance.Models
         public required string Password { get; set; }
 
         [BsonElement("role")]
-        public string Role { get; set; } = "User"; 
+        public string Role { get; set; } = "User    "; 
 
         [BsonElement("phone")]
         public required string Phone { get; set; }

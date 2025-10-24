@@ -49,6 +49,7 @@ namespace Sheessential_Sales_Finance.helpers
         public IMongoCollection<Invoice> Invoices => GetCollection<Invoice>("invoice");
         public IMongoCollection<Product> Inventories => GetCollection<Product>("inventory");
         public IMongoCollection<ProductSale> ProductSales => GetCollection<ProductSale>("ProductSales");
+        public IMongoCollection<ActionLog> ActionLog => GetCollection<ActionLog>("action_log");
 
         // ✅ Safe query wrapper (centralized error handling)
         public List<T> SafeFindAll<T>(IMongoCollection<T> collection)

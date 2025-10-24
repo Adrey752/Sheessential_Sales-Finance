@@ -145,31 +145,99 @@ namespace Sheessential_Sales_Finance.Controllers
         }
 
 
+        //public async Task<IActionResult> Invoices()
+        //{
+        //    var invoices = await _mongo.Invoices
+        //        .Find(_ => true)
+        //        .SortByDescending(i => i.CreatedAt)
+        //        .ToListAsync();
+
+        //    var overdueAmount = invoices.Where(i => i.Status == "Overdue").Sum(i => i.Total);
+        //    var openAmount = invoices.Where(i => i.Status == "Unpaid" || i.Status == "Unpaid").Sum(i => i.Total);
+        //    var draftedAmount = invoices.Where(i => i.Status == "Draft").Sum(i => i.Total);
+
+        //    foreach (var invoice in invoices)
+        //    {
+        //        var billedTo = await _mongo.Users.Find(u => u.Id == invoice.BilledTo).FirstOrDefaultAsync();
+        //        invoice.BilledTo = billedTo?.FullName ?? "Unknown Customer";
+        //    }
+
+        //    var availableProducts = await _mongo.Inventories.Find(_ => true).SortBy(p => p.Item).ToListAsync();
+
+        //    //  Fetch customer list
+        //    var customers = await _mongo.Users
+        //        .Find(u => u.Role.ToLower() == "customer")
+        //        .SortBy(u => u.FirstName)
+        //        .ToListAsync();
+
+
+        //    var viewModel = new InvoiceListViewModel
+        //    {
+        //        Invoices = invoices,
+        //        OverdueAmount = overdueAmount,
+        //        OpenAmount = openAmount,
+        //        DraftedAmount = draftedAmount,
+        //        AvailableProducts = availableProducts,
+        //        Customers = customers,
+        //    };
+
+        //    ViewBag.NextInvoiceNumber = await GenerateInvoiceNumber();
+        //    return View(viewModel);
+        //}
         public async Task<IActionResult> Invoices()
         {
+            // Fetch all invoices first
             var invoices = await _mongo.Invoices
                 .Find(_ => true)
                 .SortByDescending(i => i.CreatedAt)
                 .ToListAsync();
 
+            // Update overdue invoices
+            var now = DateTime.UtcNow;
+            var overdueInvoices = invoices
+                .Where(i => i.Status == "Unpaid" && i.DueDate.HasValue && i.DueDate.Value < now)
+                .ToList();
+
+            if (overdueInvoices.Any())
+            {
+                foreach (var invoice in overdueInvoices)
+                {
+                    invoice.Status = "Overdue";
+                    invoice.UpdatedAt = now;
+
+                    // Update in MongoDB
+                    var filter = Builders<Invoice>.Filter.Eq(i => i.Id, invoice.Id);
+                    var update = Builders<Invoice>.Update
+                        .Set(i => i.Status, "Overdue")
+                        .Set(i => i.UpdatedAt, now);
+
+                    await _mongo.Invoices.UpdateOneAsync(filter, update);
+                }
+            }
+
+            // Calculate totals
             var overdueAmount = invoices.Where(i => i.Status == "Overdue").Sum(i => i.Total);
-            var openAmount = invoices.Where(i => i.Status == "Unpaid" || i.Status == "Unpaid").Sum(i => i.Total);
+            var openAmount = invoices.Where(i => i.Status == "Unpaid").Sum(i => i.Total);
             var draftedAmount = invoices.Where(i => i.Status == "Draft").Sum(i => i.Total);
 
+            //  Replace billedTo with readable name
             foreach (var invoice in invoices)
             {
                 var billedTo = await _mongo.Users.Find(u => u.Id == invoice.BilledTo).FirstOrDefaultAsync();
                 invoice.BilledTo = billedTo?.FullName ?? "Unknown Customer";
             }
 
-            var availableProducts = await _mongo.Inventories.Find(_ => true).SortBy(p => p.Item).ToListAsync();
+            // Fetch available products
+            var availableProducts = await _mongo.Inventories
+                .Find(_ => true)
+                .SortBy(p => p.Item)
+                .ToListAsync();
 
             //  Fetch customer list
             var customers = await _mongo.Users
                 .Find(u => u.Role.ToLower() == "customer")
                 .SortBy(u => u.FirstName)
                 .ToListAsync();
-
 
             var viewModel = new InvoiceListViewModel
             {
@@ -188,6 +256,8 @@ namespace Sheessential_Sales_Finance.Controllers
 
 
 
+
+
         [HttpPost]
         public async Task<IActionResult> DeleteInvoice(string id)
         {
@@ -198,6 +268,17 @@ namespace Sheessential_Sales_Finance.Controllers
 
             if (result.DeletedCount == 0)
                 return NotFound(new { success = false, message = "Invoice not found Id: " + id });
+
+
+            var userId = HttpContext.Session.GetString("UserId");
+            var actionLog = new ActionLog(
+                userId: userId, // or your actual logged-in user’s ID
+                entity: "Invoice",
+                entityId: id, // use the generated Id here
+                action: "CREATE",
+                description: $"Deleted invoice #{id}"
+            );
+            await _mongo.ActionLog.InsertOneAsync(actionLog);
 
             return Json(new { success = true });
         }
@@ -215,24 +296,36 @@ namespace Sheessential_Sales_Finance.Controllers
                 .ToList();
 
             if (invoice.Items.Count == 0)
-            {
                 return BadRequest("Invoice must contain at least one item with quantity greater than 0.");
-            }
 
             // Auto-generate invoice number
-
-
             invoice.InvoiceNumber = await GenerateInvoiceNumber();
             invoice.CreatedAt = DateTime.UtcNow;
             invoice.UpdatedAt = null;
             invoice.Status = "Unpaid";
 
-            if (invoice.Items == null) invoice.Items = new List<ProductSale>();
+            if (invoice.Items == null)
+                invoice.Items = new List<ProductSale>();
 
+            // ✅ Insert the invoice
             await _mongo.Invoices.InsertOneAsync(invoice);
+
+            // ✅ After insert, invoice.Id now holds the generated ObjectId
+            var userId = HttpContext.Session.GetString("UserId");
+            var actionLog = new ActionLog(
+                userId: userId, // or your actual logged-in user’s ID
+                entity: "Invoice",
+                entityId: invoice.Id!, // use the generated Id here
+                action: "CREATE",
+                description: $"Created invoice #{invoice.InvoiceNumber}"
+            );
+
+            await _mongo.ActionLog.InsertOneAsync(actionLog);
+
             ViewBag.NextInvoiceNumber = await GenerateInvoiceNumber();
             return RedirectToAction("Invoices");
         }
+
 
         private async Task<string> GenerateInvoiceNumber()
         {
@@ -256,7 +349,7 @@ namespace Sheessential_Sales_Finance.Controllers
             return $"INV-{nextNumber:D5}";
         }
 
-
+        //Update
 
         //[HttpGet]
         //public async Task<IActionResult> GetNextInvoiceNumber()
@@ -295,8 +388,19 @@ namespace Sheessential_Sales_Finance.Controllers
             if (result.MatchedCount == 0)
                 return NotFound("Invoice not found.");
 
+            var userId = HttpContext.Session.GetString("UserId");
+            var actionLog = new ActionLog(
+                userId: userId, // or your actual logged-in user’s ID
+                entity: "Invoice",
+                entityId: id, // use the generated Id here
+                action: "Update",
+                description: $"Updated status of invoice #{id} to {newStatus}"
+            );
+            await _mongo.ActionLog.InsertOneAsync(actionLog);
+
             return Ok(new { success = true, message = "Invoice status updated successfully." });
         }
+        //delete
 
         //Fetch Customers in customers page with search function
         public IActionResult Customers(string? searchQuery, string? selectedId)
