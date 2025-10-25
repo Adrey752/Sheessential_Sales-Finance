@@ -31,10 +31,24 @@
     <!-- Charts Section -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <!-- Sales Report -->
+        <!-- Sales Report -->
         <div class="bg-white rounded-2xl shadow p-6">
-            <h2 class="font-semibold text-gray-700 mb-4">Sales Report</h2>
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="font-semibold text-gray-700">Sales Report</h2>
+
+                <!-- Period Dropdown -->
+                <select id="salesPeriodSelect"
+                        class="border border-gray-300 text-sm rounded-xl px-3 py-1.5 focus:ring-2 focus:ring-pink-400 focus:border-pink-400">
+                    <option value="monthly" selected>Monthly</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="quarterly">Quarterly</option>
+                    <option value="yearly">Yearly</option>
+                </select>
+            </div>
+
             <canvas id="salesChart"></canvas>
         </div>
+
 
         <!-- Expense Breakdown -->
         <div class="bg-white rounded-2xl shadow p-6">
@@ -44,10 +58,24 @@
     </div>
 
     <!-- Revenue vs Expense -->
+    <!-- Revenue vs Expense -->
     <div class="bg-white rounded-2xl shadow p-6">
-        <h2 class="font-semibold text-gray-700 mb-4">Revenue vs Expense</h2>
-        <canvas id="revenueExpenseChart"></canvas>
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="font-semibold text-gray-700">Revenue vs Expense</h2>
+
+            <!-- Period Dropdown -->
+            <select id="periodSelect"
+                    class="border border-gray-300 text-sm rounded-xl px-3 py-1.5 focus:ring-2 focus:ring-pink-400 focus:border-pink-400">
+                <option value="monthly" selected>Monthly</option>
+                <option value="weekly">Weekly</option>
+                <option value="quarterly">Quarterly</option>
+                <option value="yearly">Yearly</option>
+            </select>
+        </div>
+
+        <canvas id="cashFlowChart"></canvas>
     </div>
+
 </div>
 
 <!-- Chart.js -->
@@ -55,30 +83,49 @@
 
 <script>
     // === Sales Report Line Chart ===
-    const salesCtx = document.getElementById('salesChart');
-    new Chart(salesCtx, {
-        type: 'line',
-        data: {
-            labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
-            datasets: [{
-                label: 'Sales',
-                data: [1200, 1500, 1800, 1600, 2200, 4200, 2000, 2300, 1900, 2400, 2100, 2500],
-                borderColor: '#ec4899',
-                backgroundColor: 'rgba(236,72,153,0.15)',
-                fill: true,
-                tension: 0.4
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                legend: { display: false },
+    let salesChart;
+
+    async function loadSalesChart(period = "monthly") {
+        const res = await fetch(`/Sales_Finance/GetSalesReportData?period=${period}`);
+        const data = await res.json();
+
+        const labels = data.map(x => x.label);
+        const sales = data.map(x => x.totalSales);
+
+        const ctx = document.getElementById('salesChart').getContext('2d');
+
+        // Destroy old chart if it exists (to prevent overlay)
+        if (salesChart) salesChart.destroy();
+
+        salesChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [{
+                    label: 'Sales',
+                    data: sales,
+                    borderColor: '#ec4899',
+                    backgroundColor: 'rgba(236,72,153,0.15)',
+                    fill: true,
+                    tension: 0.4
+                }]
             },
-            scales: {
-                y: { beginAtZero: true }
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true } }
             }
-        }
+        });
+    }
+
+    // Handle dropdown change
+    document.getElementById("salesPeriodSelect").addEventListener("change", (e) => {
+        loadSalesChart(e.target.value);
     });
+
+    // Initial load
+    loadSalesChart();
+
 
     // === Expense Breakdown Donut Chart ===
     const expenseCtx = document.getElementById('expenseChart');
@@ -99,33 +146,137 @@
         }
     });
 
-    // === Revenue vs Expense Bar Chart ===
-    const revenueExpenseCtx = document.getElementById('revenueExpenseChart');
-    new Chart(revenueExpenseCtx, {
-        type: 'bar',
-        data: {
-            labels: ['January','February','March','April','May','June','July','August','September','October','November','December'],
-            datasets: [
-                {
-                    label: 'Revenue',
-                    data: [60, 45, 70, 90, 20, 35, 55, 40, 75, 95, 80, 65],
-                    backgroundColor: '#3b82f6'
-                },
-                {
-                    label: 'Expense',
-                    data: [40, 30, 50, 60, 15, 20, 45, 30, 55, 75, 60, 45],
-                    backgroundColor: '#ec4899'
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                legend: { position: 'bottom' }
+    // === Revenue vs Expense Bar Chart 
+
+
+    // const revenueExpenseCtx = document.getElementById('revenueExpenseChart');
+    // new Chart(revenueExpenseCtx, {
+    //     type: 'bar',
+    //     data: {
+    //         labels: ['January','February','March','April','May','June','July','August','September','October','November','December'],
+    //         datasets: [
+    //             {
+    //                 label: 'Revenue',
+    //                 data: [60, 45, 70, 90, 20, 35, 55, 40, 75, 95, 80, 65],
+    //                 backgroundColor: '#3b82f6'
+    //             },
+    //             {
+    //                 label: 'Expense',
+    //                 data: [40, 30, 50, 60, 15, 20, 45, 30, 55, 75, 60, 45],
+    //                 backgroundColor: '#ec4899'
+    //             }
+    //         ]
+    //     },
+    //     options: {
+    //         responsive: true,
+    //         plugins: {
+    //             legend: { position: 'bottom' }
+    //         },
+    //         scales: {
+    //             y: { beginAtZero: true }
+    //         }
+    //     }
+    // });
+
+/**
+ * 
+ * 
+ *      Cash Flow Chart
+ * 
+ */
+
+    let cashFlowChart;
+
+    async function loadCashFlowChart(period = "monthly") {
+        const res = await fetch(`/Sales_Finance/GetSalesData?period=${period}`);
+        const data = await res.json();
+
+        const labels = data.map(x => x.label);
+        const revenue = data.map(x => x.totalRevenue);
+        const expense = data.map(x => x.totalExpense);
+
+        const ctx1 = document.getElementById('cashFlowChart').getContext('2d');
+
+        // Destroy previous chart to avoid overlay
+        if (cashFlowChart) cashFlowChart.destroy();
+
+        cashFlowChart = new Chart(ctx1, {
+            type: 'bar',
+            data: {
+                labels,
+                datasets: [
+                    {
+                        label: 'Revenue',
+                        data: revenue,
+                        backgroundColor: 'rgba(236, 72, 153, 0.6)',
+                        borderRadius: 6
+                    },
+                    {
+                        label: 'Expense',
+                        data: expense.map(x => -x),
+                        backgroundColor: 'rgba(37, 99, 235, 0.6)',
+                        borderRadius: 6
+                    }
+                ]
             },
-            scales: {
-                y: { beginAtZero: true }
+            options: {
+                responsive: true,
+                plugins: { legend: { position: 'bottom' } },
+                scales: {
+                    y: { beginAtZero: true, grid: { drawBorder: false } },
+                    x: { grid: { display: false } }
+                }
             }
-        }
+        });
+    }
+
+    // Event listener for dropdown change
+    document.getElementById("periodSelect").addEventListener("change", (e) => {
+        loadCashFlowChart(e.target.value);
     });
+
+    // Initial load
+    loadCashFlowChart();
+
+// async function loadCashFlowChart() {
+//     const res = await fetch('/Sales_Finance/GetMonthlySalesData');
+//     const data = await res.json();
+
+//     const labels = data.map(x => x.month);
+//     const revenue = data.map(x => x.totalRevenue);
+//     const expense = data.map(x => x.totalExpense);
+
+//     const ctx1 = document.getElementById('cashFlowChart').getContext('2d');
+//     new Chart(ctx1, {
+//         type: 'bar',
+//         data: {
+//             labels: labels,
+//             datasets: [
+//                 {
+//                     label: 'Revenue',
+//                     data: revenue,
+//                     backgroundColor: 'rgba(236, 72, 153, 0.6)',
+//                     borderRadius: 6
+//                 },
+//                 {
+//                     label: 'Expense',
+//                     data: expense.map(x => -x),
+//                     backgroundColor: 'rgba(37, 99, 235, 0.6)',
+//                     borderRadius: 6
+//                 }
+//             ]
+//         },
+//         options: {
+//             responsive: true,
+//             plugins: { legend: { position: 'bottom' } },
+//             scales: {
+//                 y: { beginAtZero: true, grid: { drawBorder: false } },
+//                 x: { grid: { display: false } }
+//             }
+//         }
+//     });
+// }
+
+// loadCashFlowChart();
+
 </script>

@@ -66,28 +66,172 @@ namespace Sheessential_Sales_Finance.Controllers
                 ViewBag.Sales = 0;
             }
 
+            //GetMonthlySalesData
+
             return View();
         }
 
+
+
+        public async Task<IActionResult> Dashboard()
+        {
+            var userName = HttpContext.Session.GetString("UserName") ?? "User";
+
+            // --- Example Metrics ---
+            var invoices = await _mongo.Invoices.Find(i => !i.IsArchived).ToListAsync();
+            ViewBag.Revenue = invoices.Where(i => i.Status == "Paid").Sum(i => i.Total);
+            ViewBag.Expense = 0m; // replace with real data if needed
+            ViewBag.Sales = invoices.Count;
+
+            // --- Fetch Recent Logs ---
+            var logs = await _mongo.ActionLog
+                .Find(_ => true)
+                .SortByDescending(l => l.TimeStamp)
+                .Limit(10)
+                .ToListAsync();
+
+            // --- Get all involved users ---
+            var userIds = logs.Select(l => l.UserId).Distinct().ToList();
+            var users = await _mongo.Users
+                .Find(u => userIds.Contains(u.Id))
+                .ToListAsync();
+
+            // --- Map logs with user names ---
+            var enrichedLogs = logs.Select(log =>
+            {
+                var user = users.FirstOrDefault(u => u.Id == log.UserId);
+                return new
+                {
+                    UserName = user != null ? $"{user.FirstName} {user.LastName}" : "Unknown User",
+                    log.Action,
+                    log.Entity,
+                    log.Description,
+                    log.TimeStamp
+                };
+            }).ToList();
+
+            ViewBag.UserName = userName;
+            ViewBag.ActionLogs = enrichedLogs;
+
+            return View();
+        }
+
+
+        //[HttpGet]
+        //public IActionResult GetMonthlySalesData()
+        //{
+        //    var sales = _mongo.ProductSales.Find(_ => true).ToList();
+
+        //    // Group by month (based on transactionDate)
+        //    var monthlyData = sales
+        //        .GroupBy(s => s.TransactionDate.ToString("MMM"))
+        //        .Select(g => new
+        //        {
+        //            Month = g.Key,
+        //            TotalRevenue = g.Sum(x => (double)x.SalePrice),
+        //            TotalExpense = g.Sum(x => (double)(x.SaleTax + x.SaleDiscounts))
+        //        })
+        //        .OrderBy(x => DateTime.ParseExact(x.Month, "MMM", null))
+        //        .ToList();
+
+        //    return Json(monthlyData);
+        //}
+
+
         [HttpGet]
-        public IActionResult GetMonthlySalesData()
+        public IActionResult GetSalesData(string period = "monthly")
         {
             var sales = _mongo.ProductSales.Find(_ => true).ToList();
 
-            // Group by month (based on transactionDate)
-            var monthlyData = sales
-                .GroupBy(s => s.TransactionDate.ToString("MMM"))
-                .Select(g => new
-                {
-                    Month = g.Key,
-                    TotalRevenue = g.Sum(x => (double)x.SalePrice),
-                    TotalExpense = g.Sum(x => (double)(x.SaleTax + x.SaleDiscounts))
-                })
-                .OrderBy(x => DateTime.ParseExact(x.Month, "MMM", null))
-                .ToList();
+            var grouped = period.ToLower() switch
+            {
+                "weekly" => sales
+                    .GroupBy(s => System.Globalization.CultureInfo.CurrentCulture.Calendar
+                        .GetWeekOfYear(s.TransactionDate, System.Globalization.CalendarWeekRule.FirstDay, DayOfWeek.Monday))
+                    .OrderBy(g => g.Key)
+                    .Select(g => new {
+                        Label = $"Week {g.Key}",
+                        TotalRevenue = g.Sum(x => (double)x.SalePrice),
+                        TotalExpense = g.Sum(x => (double)(x.SaleTax + x.SaleDiscounts))
+                    }),
 
-            return Json(monthlyData);
+                "quarterly" => sales
+                    .GroupBy(s => (s.TransactionDate.Month - 1) / 3 + 1)
+                    .OrderBy(g => g.Key)
+                    .Select(g => new {
+                        Label = $"Q{g.Key}",
+                        TotalRevenue = g.Sum(x => (double)x.SalePrice),
+                        TotalExpense = g.Sum(x => (double)(x.SaleTax + x.SaleDiscounts))
+                    }),
+
+                "yearly" => sales
+                    .GroupBy(s => s.TransactionDate.Year)
+                    .OrderBy(g => g.Key)
+                    .Select(g => new {
+                        Label = g.Key.ToString(),
+                        TotalRevenue = g.Sum(x => (double)x.SalePrice),
+                        TotalExpense = g.Sum(x => (double)(x.SaleTax + x.SaleDiscounts))
+                    }),
+
+                _ => sales // Default: Monthly
+                    .GroupBy(s => new { s.TransactionDate.Year, s.TransactionDate.Month })
+                    .OrderBy(g => g.Key.Year)
+                    .ThenBy(g => g.Key.Month)
+                    .Select(g => new {
+                        Label = $"{System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetAbbreviatedMonthName(g.Key.Month)} {g.Key.Year}",
+                        TotalRevenue = g.Sum(x => (double)x.SalePrice),
+                        TotalExpense = g.Sum(x => (double)(x.SaleTax + x.SaleDiscounts))
+                    })
+            };
+
+            return Json(grouped.ToList());
         }
+
+        [HttpGet]
+        public IActionResult GetSalesReportData(string period = "monthly")
+        {
+            var sales = _mongo.ProductSales.Find(_ => true).ToList();
+
+            var grouped = period.ToLower() switch
+            {
+                "weekly" => sales
+                    .GroupBy(s => System.Globalization.CultureInfo.CurrentCulture.Calendar
+                        .GetWeekOfYear(s.TransactionDate, System.Globalization.CalendarWeekRule.FirstDay, DayOfWeek.Monday))
+                    .OrderBy(g => g.Key)
+                    .Select(g => new {
+                        Label = $"Week {g.Key}",
+                        TotalSales = g.Sum(x => (double)x.SalePrice)
+                    }),
+
+                "quarterly" => sales
+                    .GroupBy(s => (s.TransactionDate.Month - 1) / 3 + 1)
+                    .OrderBy(g => g.Key)
+                    .Select(g => new {
+                        Label = $"Q{g.Key}",
+                        TotalSales = g.Sum(x => (double)x.SalePrice)
+                    }),
+
+                "yearly" => sales
+                    .GroupBy(s => s.TransactionDate.Year)
+                    .OrderBy(g => g.Key)
+                    .Select(g => new {
+                        Label = g.Key.ToString(),
+                        TotalSales = g.Sum(x => (double)x.SalePrice)
+                    }),
+
+                _ => sales // Default: Monthly
+                    .GroupBy(s => new { s.TransactionDate.Year, s.TransactionDate.Month })
+                    .OrderBy(g => g.Key.Year)
+                    .ThenBy(g => g.Key.Month)
+                    .Select(g => new {
+                        Label = $"{System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetAbbreviatedMonthName(g.Key.Month)} {g.Key.Year}",
+                        TotalSales = g.Sum(x => (double)x.SalePrice)
+                    })
+            };
+
+            return Json(grouped.ToList());
+        }
+
 
         public IActionResult Products(int page = 1)
         {
@@ -145,50 +289,12 @@ namespace Sheessential_Sales_Finance.Controllers
         }
 
 
-        //public async Task<IActionResult> Invoices()
-        //{
-        //    var invoices = await _mongo.Invoices
-        //        .Find(_ => true)
-        //        .SortByDescending(i => i.CreatedAt)
-        //        .ToListAsync();
 
-        //    var overdueAmount = invoices.Where(i => i.Status == "Overdue").Sum(i => i.Total);
-        //    var openAmount = invoices.Where(i => i.Status == "Unpaid" || i.Status == "Unpaid").Sum(i => i.Total);
-        //    var draftedAmount = invoices.Where(i => i.Status == "Draft").Sum(i => i.Total);
-
-        //    foreach (var invoice in invoices)
-        //    {
-        //        var billedTo = await _mongo.Users.Find(u => u.Id == invoice.BilledTo).FirstOrDefaultAsync();
-        //        invoice.BilledTo = billedTo?.FullName ?? "Unknown Customer";
-        //    }
-
-        //    var availableProducts = await _mongo.Inventories.Find(_ => true).SortBy(p => p.Item).ToListAsync();
-
-        //    //  Fetch customer list
-        //    var customers = await _mongo.Users
-        //        .Find(u => u.Role.ToLower() == "customer")
-        //        .SortBy(u => u.FirstName)
-        //        .ToListAsync();
-
-
-        //    var viewModel = new InvoiceListViewModel
-        //    {
-        //        Invoices = invoices,
-        //        OverdueAmount = overdueAmount,
-        //        OpenAmount = openAmount,
-        //        DraftedAmount = draftedAmount,
-        //        AvailableProducts = availableProducts,
-        //        Customers = customers,
-        //    };
-
-        //    ViewBag.NextInvoiceNumber = await GenerateInvoiceNumber();
-        //    return View(viewModel);
-        //}
         public async Task<IActionResult> Invoices()
         {
             // Fetch all invoices first
             var invoices = await _mongo.Invoices
-                .Find(_ => true)
+                .Find(invoice => !invoice.IsArchived)
                 .SortByDescending(i => i.CreatedAt)
                 .ToListAsync();
 
@@ -261,27 +367,37 @@ namespace Sheessential_Sales_Finance.Controllers
         [HttpPost]
         public async Task<IActionResult> DeleteInvoice(string id)
         {
-            _logger.LogInformation("\n\n\n\nThis is your id you bum!!! Id:" + id + "\n\n\n\n");
+            _logger.LogInformation($"\n\n Archiving invoice with Id: {id} \n\n");
 
-            var filter = Builders<Invoice>.Filter.Eq(i => i.Id, id);
-            var result = await _mongo.Invoices.DeleteOneAsync(filter);
+            // Find the invoice
+            var invoice = await _mongo.Invoices.Find(i => i.Id == id).FirstOrDefaultAsync();
+            if (invoice == null)
+                return NotFound(new { success = false, message = $"Invoice not found. Id: {id}" });
 
-            if (result.DeletedCount == 0)
-                return NotFound(new { success = false, message = "Invoice not found Id: " + id });
+            // Mark as archived instead of deleting
+            var update = Builders<Invoice>.Update
+                .Set(i => i.IsArchived, true)
+                .Set(i => i.UpdatedAt, DateTime.UtcNow);
 
+            await _mongo.Invoices.UpdateOneAsync(i => i.Id == id, update);
 
-            var userId = HttpContext.Session.GetString("UserId");
-            var actionLog = new ActionLog(
-                userId: userId, // or your actual logged-in user’s ID
-                entity: "Invoice",
-                entityId: id, // use the generated Id here
-                action: "CREATE",
-                description: $"Deleted invoice #{id}"
-            );
+            // Log the action
+            var userId = HttpContext.Session.GetString("UserId") ?? "unknown";
+            var actionLog = new ActionLog
+            {
+                UserId = userId,
+                Entity = "Invoice",
+                EntityId = id,
+                Action = "ARCHIVE",
+                Description = $"Archived invoice #{invoice.InvoiceNumber}",
+                TimeStamp = DateTime.UtcNow
+            };
+
             await _mongo.ActionLog.InsertOneAsync(actionLog);
 
-            return Json(new { success = true });
+            return Json(new { success = true, message = "Invoice archived successfully." });
         }
+
 
 
         [HttpPost]
@@ -377,7 +493,8 @@ namespace Sheessential_Sales_Finance.Controllers
             if (string.IsNullOrEmpty(id) || string.IsNullOrEmpty(newStatus))
                 return BadRequest("Invalid invoice ID or status.");
 
-
+            var invoice = _mongo.Invoices.Find(i => i.Id == id).FirstOrDefault();
+            if (invoice == null) return NotFound("Noto foundo");
             var filter = Builders<Invoice>.Filter.Eq(i => i.Id, id);
             var update = Builders<Invoice>.Update
                 .Set(i => i.Status, newStatus)
@@ -390,11 +507,11 @@ namespace Sheessential_Sales_Finance.Controllers
 
             var userId = HttpContext.Session.GetString("UserId");
             var actionLog = new ActionLog(
-                userId: userId, // or your actual logged-in user’s ID
+                userId: userId, 
                 entity: "Invoice",
-                entityId: id, // use the generated Id here
+                entityId: id, 
                 action: "Update",
-                description: $"Updated status of invoice #{id} to {newStatus}"
+                description: $"Updated status of invoice #{invoice.InvoiceNumber} to {newStatus}"
             );
             await _mongo.ActionLog.InsertOneAsync(actionLog);
 

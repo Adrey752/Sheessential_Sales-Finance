@@ -20,7 +20,7 @@
         <ul class="w-full mt-5 space-y-2">
             <!-- Dashboard -->
             <li>
-                <a asp-controller="Sales_Finance" asp-action="Index"
+                <a asp-controller="Sales_Finance" asp-action="DashBoard"
                    class="flex items-center px-5 py-3 rounded-xl hover:bg-pink-50 hover:text-pink-500 text-gray-600 font-medium transition active:bg-pink-100">
                     <i class="fa-solid fa-house w-6 mr-2"></i>Dashboard
                 </a>
@@ -110,11 +110,31 @@
                 <!-- Icons -->
                 <i class="fa-regular fa-envelope text-gray-500 hover:text-pink-500 cursor-pointer transition"></i>
 
-                <!-- Profile -->
-                <img src="~/images/profile.jpg" class="w-10 h-10 rounded-full border-2 border-pink-400 object-cover shadow-sm" alt="Profile" />
-                <span class="text-gray-700 font-medium">
-                    @Context.Session.GetString("UserName")
-                </span>
+                @{
+                    var fullName = Context.Session.GetString("UserName") ?? "User";
+                    var email = Context.Session.GetString("Email") ?? "user@example.com";
+
+                    // Generate initials (first letter of each name)
+                    var initials = string.Join("", fullName
+                    .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(n => n[0]))
+                    .ToUpper();
+                }
+
+                <div class="flex items-center space-x-3">
+                    <!-- Circle with initials -->
+                    <div class="w-12 h-12 flex items-center justify-center rounded-full bg-white text-pink-500 font-semibold border-2 border-pink-400 shadow-sm">
+                        @initials
+                    </div>
+
+                    <!-- Name + email -->
+                    <div class="flex flex-col leading-tight">
+                        <span class="text-gray-800 font-medium">@fullName</span>
+                        <span class="text-gray-500 text-sm">@email</span>
+                    </div>
+                </div>
+
+
             </div>
         </header>
 

@@ -63,11 +63,12 @@ namespace Sheessential_Sales_Finance.Controllers
             HttpContext.Session.SetString("UserId", user.Id ?? "");
             HttpContext.Session.SetString("UserName", $"{user.FirstName} {user.LastName}");
             HttpContext.Session.SetString("UserRole", user.Role);
+            HttpContext.Session.SetString("Email", user.Email);
 
             user.LastLogin = DateTime.Now;
             await _mongo.Users.ReplaceOneAsync(u => u.Id == user.Id, user);
 
-            return RedirectToAction("Index", "Sales_Finance");
+            return RedirectToAction("DashBoard", "Sales_Finance");
         }
 
 
