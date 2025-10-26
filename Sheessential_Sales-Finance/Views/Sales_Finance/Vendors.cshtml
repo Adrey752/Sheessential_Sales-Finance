@@ -1,0 +1,224 @@
+﻿@model IEnumerable<Sheessential_Sales_Finance.Models.Vendor>
+
+@{
+    ViewData["Title"] = "Vendors Page";
+}
+
+<link href="~/css/output.css" rel="stylesheet" />
+
+<div class="p-10 bg-gray-50 min-h-screen">
+    <!-- ADD VENDOR BUTTON -->
+    <button onclick="openAddModal()"
+            class="bg-blue-600 text-white px-5 py-2 rounded-lg hover:bg-blue-700 transition">
+        + Add New Vendor
+    </button>
+
+    <!-- SUMMARY CARDS -->
+    <div class="grid grid-cols-4 gap-6 mb-10 mt-6">
+        <div class="bg-white p-6 rounded-2xl shadow-md">
+            <p class="text-gray-500">Total Vendors</p>
+            <h2 class="text-2xl font-bold text-gray-800">@ViewBag.TotalVendors</h2>
+        </div>
+        <div class="bg-white p-6 rounded-2xl shadow-md">
+            <p class="text-gray-500">Active Vendors</p>
+            <h2 class="text-2xl font-bold text-gray-800">@ViewBag.ActiveVendors</h2>
+        </div>
+        <div class="bg-white p-6 rounded-2xl shadow-md">
+            <p class="text-gray-500">Inactive Vendors</p>
+            <h2 class="text-2xl font-bold text-gray-800">@ViewBag.InactiveVendors</h2>
+        </div>
+        <div class="bg-white p-6 rounded-2xl shadow-md">
+            <p class="text-gray-500">Pending Bills</p>
+            <h2 class="text-2xl font-bold text-gray-800">₱@ViewBag.PendingBills.ToString("N0")</h2>
+        </div>
+    </div>
+
+    <!-- VENDOR TABLE -->
+    <div class="bg-white p-6 rounded-2xl shadow-md">
+        <h2 class="text-xl font-semibold mb-4 text-gray-800">Vendor List</h2>
+        <table class="w-full border rounded-lg text-sm">
+            <thead class="bg-gray-100 text-gray-700">
+                <tr>
+                    <th class="p-3 text-left">Vendor ID</th>
+                    <th class="p-3 text-left">Vendor Name</th>
+                    <th class="p-3 text-left">Contact Person</th>
+                    <th class="p-3 text-left">Contact No.</th>
+                    <th class="p-3 text-left">Email</th>
+                    <th class="p-3 text-left">Status</th>
+                    <th class="p-3 text-left">Total Purchases</th>
+                    <th class="p-3 text-left">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var vendor in Model)
+                {
+                    <tr class="border-t hover:bg-gray-50">
+                        <td class="p-3">@vendor.VendorId</td>
+                        <td class="p-3">@vendor.VendorName</td>
+                        <td class="p-3">@vendor.ContactPerson</td>
+                        <td class="p-3">@vendor.ContactNumber</td>
+                        <td class="p-3 truncate">@vendor.Email</td>
+                        <td class="p-3">
+                            @if (vendor.Status == "Active")
+                            {
+                                <span class="bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm">Active</span>
+                            }
+                            else
+                            {
+                                <span class="bg-red-100 text-red-700 px-3 py-1 rounded-full text-sm">Inactive</span>
+                            }
+                        </td>
+                        <td class="p-3">₱@vendor.TotalPurchases.ToString("N0")</td>
+                        <td class="p-3 space-x-2">
+                            <button class="text-blue-600 hover:underline"
+                                    onclick="openViewModal('@vendor.VendorName','@vendor.ContactPerson','@vendor.ContactNumber','@vendor.Email','@vendor.PaymentTerms','@vendor.Status')">
+                                View
+                            </button>
+                            <button class="text-yellow-600 hover:underline">Edit</button>
+                            <button class="text-red-600 hover:underline">Delete</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ✅ ADD MODAL -->
+<div id="addVendorModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-2xl shadow-lg w-full max-w-2xl p-6 relative">
+        <button onclick="closeAddModal()" class="absolute top-4 right-4 text-gray-500 hover:text-gray-800">✕</button>
+        <h2 class="text-xl font-semibold text-gray-800 mb-4">Add New Vendor</h2>
+
+        <form asp-action="AddVendor" asp-controller="Sales_Finance" method="post">
+            <div class="grid grid-cols-2 gap-4 mb-3">
+                <div>
+                    <label class="text-gray-700 font-semibold">Vendor Name</label>
+                    <input type="text" name="VendorName" class="w-full border rounded-lg px-3 py-2 mt-1" required />
+                </div>
+                <div>
+                    <label class="text-gray-700 font-semibold">Company Name</label>
+                    <input type="text" name="CompanyName" class="w-full border rounded-lg px-3 py-2 mt-1" />
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4 mb-3">
+                <div>
+                    <label class="text-gray-700 font-semibold">Address</label>
+                    <input type="text" name="Address" class="w-full border rounded-lg px-3 py-2 mt-1" />
+                </div>
+                <div>
+                    <label class="text-gray-700 font-semibold">Contact Person</label>
+                    <input type="text" name="ContactPerson" class="w-full border rounded-lg px-3 py-2 mt-1" />
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4 mb-3">
+                <div>
+                    <label class="text-gray-700 font-semibold">Contact Number</label>
+                    <input type="text" name="ContactNumber" class="w-full border rounded-lg px-3 py-2 mt-1" />
+                </div>
+                <div>
+                    <label class="text-gray-700 font-semibold">Email</label>
+                    <input type="email" name="Email" class="w-full border rounded-lg px-3 py-2 mt-1" />
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4 mb-3">
+                <div>
+                    <label class="text-gray-700 font-semibold">TIN / Business Permit</label>
+                    <input type="text" name="TIN" class="w-full border rounded-lg px-3 py-2 mt-1" />
+                </div>
+                <div>
+                    <label class="text-gray-700 font-semibold">Payment Terms</label>
+                    <select name="PaymentTerms" class="w-full border rounded-lg px-3 py-2 mt-1">
+                        <option>30 days</option>
+                        <option>60 days</option>
+                        <option>90 days</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="text-gray-700 font-semibold">Notes</label>
+                <textarea name="Notes" class="w-full border rounded-lg px-3 py-2 mt-1" rows="2"></textarea>
+            </div>
+
+            <div class="flex justify-end space-x-2">
+                <button type="button" onclick="closeAddModal()" class="px-4 py-2 bg-gray-300 rounded-lg hover:bg-gray-400">Cancel</button>
+                <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">Save Vendor</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ✅ VIEW MODAL -->
+<div id="viewVendorModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-2xl shadow-lg w-full max-w-2xl p-6 relative">
+        <button onclick="closeViewModal()" class="absolute top-4 right-4 text-gray-500 hover:text-gray-800">✕</button>
+        <h2 class="text-xl font-semibold text-gray-800 mb-4">Vendor Details</h2>
+
+        <div class="grid grid-cols-2 gap-4">
+            <div>
+                <p class="text-gray-500">Vendor Name</p>
+                <p id="viewVendorName" class="font-semibold text-gray-800"></p>
+            </div>
+            <div>
+                <p class="text-gray-500">Contact Person</p>
+                <p id="viewContactPerson" class="font-semibold text-gray-800"></p>
+            </div>
+            <div>
+                <p class="text-gray-500">Contact Number</p>
+                <p id="viewContactNumber" class="font-semibold text-gray-800"></p>
+            </div>
+            <div>
+                <p class="text-gray-500">Email</p>
+                <p id="viewEmail" class="font-semibold text-gray-800"></p>
+            </div>
+            <div>
+                <p class="text-gray-500">Payment Terms</p>
+                <p id="viewPaymentTerms" class="font-semibold text-gray-800"></p>
+            </div>
+            <div>
+                <p class="text-gray-500">Status</p>
+                <span id="viewStatus" class="px-3 py-1 rounded-full text-sm"></span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ✅ SCRIPTS -->
+<script>
+    const addModal = document.getElementById('addVendorModal');
+    const viewModal = document.getElementById('viewVendorModal');
+
+    function openAddModal() {
+        addModal.classList.remove('hidden');
+    }
+
+    function closeAddModal() {
+        addModal.classList.add('hidden');
+    }
+
+    function openViewModal(name, person, number, email, terms, status) {
+        document.getElementById('viewVendorName').innerText = name;
+        document.getElementById('viewContactPerson').innerText = person;
+        document.getElementById('viewContactNumber').innerText = number;
+        document.getElementById('viewEmail').innerText = email;
+        document.getElementById('viewPaymentTerms').innerText = terms;
+
+        const statusEl = document.getElementById('viewStatus');
+        statusEl.innerText = status;
+        if (status === "Active") {
+            statusEl.className = "px-3 py-1 rounded-full text-sm bg-green-100 text-green-700";
+        } else {
+            statusEl.className = "px-3 py-1 rounded-full text-sm bg-red-100 text-red-700";
+        }
+
+        viewModal.classList.remove('hidden');
+    }
+
+    function closeViewModal() {
+        viewModal.classList.add('hidden');
+    }
+</script>

@@ -586,9 +586,85 @@ namespace Sheessential_Sales_Finance.Controllers
 
             return View(productSalesList);
         }
+        public IActionResult Expenses()
+        {
+            // Get all invoices from MongoDB
+            var invoices = _mongo.Invoices.Find(_ => true).ToList();
+
+            if (invoices == null || invoices.Count == 0)
+            {
+                ViewBag.TotalExpenses = 0;
+                ViewBag.PendingBills = 0;
+                ViewBag.PaidBills = 0;
+                ViewBag.PurchasesThisMonth = 0;
+                return View(new List<Invoice>());
+            }
+
+            // Compute totals
+            ViewBag.TotalExpenses = invoices.Sum(i => i.Total);
+            ViewBag.PendingBills = invoices.Where(i => i.Status == "Unpaid" || i.Status == "Pending").Sum(i => i.Total);
+            ViewBag.PaidBills = invoices.Where(i => i.Status == "Paid").Sum(i => i.Total);
+
+            // Purchases this month
+            var now = DateTime.UtcNow;
+            ViewBag.PurchasesThisMonth = invoices.Count(i => i.IssuedAt.Month == now.Month && i.IssuedAt.Year == now.Year);
+
+            return View(invoices);
+        }
+
+
+        public IActionResult Vendors()
+        {
+            var vendors = _mongo.Vendors.Find(_ => true).ToList();
+
+            if (vendors == null || vendors.Count == 0)
+            {
+                ViewBag.TotalVendors = 0;
+                ViewBag.ActiveVendors = 0;
+                ViewBag.InactiveVendors = 0;
+                ViewBag.PendingBills = 0;
+                return View(new List<Vendor>());
+            }
+
+            // Compute vendor statistics
+            ViewBag.TotalVendors = vendors.Count;
+            ViewBag.ActiveVendors = vendors.Count(v => v.Status == "Active");
+            ViewBag.InactiveVendors = vendors.Count(v => v.Status == "Inactive");
+
+            // (Optional) Static placeholder for now
+            ViewBag.PendingBills = 12500; // Replace with real computation later
+
+            return View(vendors);
+        }
+
+
+        // Add new Vendor
+        [HttpPost]
+        public IActionResult AddVendor(Vendor vendor)
+        {
+            if (vendor == null)
+            {
+                TempData["ErrorMessage"] = "Vendor data is missing.";
+                return RedirectToAction("Vendors");
+            }
+
+            // Auto-generate VendorId if not set
+            vendor.VendorId = "VND-" + DateTime.Now.Ticks.ToString().Substring(10);
+            vendor.Status = "Active";
+            vendor.TotalPurchases = 0;
+            vendor.CreatedAt = DateTime.Now;
+            vendor.UpdatedAt = DateTime.Now;
+
+            _mongo.Vendors.InsertOne(vendor);
+
+            TempData["SuccessMessage"] = "Vendor added successfully!";
+            return RedirectToAction("Vendors");
+        }
 
 
     }
+
+
 
 
 }
