@@ -465,6 +465,363 @@ namespace Sheessential_Sales_Finance.Controllers
             return $"INV-{nextNumber:D5}";
         }
 
+
+        //[HttpGet]
+        //public IActionResult GetProductSales(string productId, string period)
+        //{
+        //    try
+        //    {
+        //        _logger.LogInformation("📊 GetProductSales called for ProductId: {ProductId}, Period: {Period}", productId, period);
+
+        //        if (string.IsNullOrEmpty(productId))
+        //            return BadRequest("Invalid productId");
+
+        //        // ✅ Convert to ObjectId safely
+
+
+        //        // ✅ Find all invoices containing this product
+        //        var invoices = _mongo.Invoices
+        //            .Find(i => i.Items.Any(item => item.ProductId.ToString() == productId))
+        //            .ToList();
+
+        //        if (!invoices.Any())
+        //            return Json(new { message = "No invoices found for this product." });
+
+        //        // ✅ Extract matching product sales
+        //        var sales = invoices
+        //            .SelectMany(i => i.Items.Where(item => item.ProductId.ToString() == productId))
+        //            .ToList();
+
+        //        if (!sales.Any())
+        //            return Json(new { message = "No sales data found." });
+
+        //        IEnumerable<object> grouped;
+
+        //        switch (period.ToLower())
+        //        {
+        //            case "week":
+        //                grouped = sales
+        //                    .GroupBy(s => s.TransactionDate.ToLocalTime().ToString("ddd"))
+        //                    .Select(g => new { Label = g.Key, Total = g.Sum(x => x.Quantity) })
+        //                    .OrderBy(g => g.Label)
+        //                    .ToList();
+        //                break;
+
+        //            case "month":
+        //                grouped = sales
+        //                    .GroupBy(s => s.TransactionDate.ToLocalTime().ToString("MMM dd"))
+        //                    .Select(g => new { Label = g.Key, Total = g.Sum(x => x.Quantity) })
+        //                    .OrderBy(g => g.Label)
+        //                    .ToList();
+        //                break;
+
+        //            case "year":
+        //                grouped = sales
+        //                    .GroupBy(s => s.TransactionDate.ToLocalTime().ToString("MMM"))
+        //                    .Select(g => new { Label = g.Key, Total = g.Sum(x => x.Quantity) })
+        //                    .OrderBy(g => g.Label)
+        //                    .ToList();
+        //                break;
+
+        //            default:
+        //                grouped = Enumerable.Empty<object>();
+        //                break;
+        //        }
+
+        //        _logger.LogInformation("✅ Found {Count} grouped sales records", grouped.Count());
+        //        return Json(grouped);
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        _logger.LogError(ex, "❌ Error in GetProductSales for ProductId: {ProductId}", productId);
+        //        return StatusCode(500, new { message = "Internal server error", error = ex.Message });
+        //    }
+        //}
+
+        //[HttpGet]
+        //public IActionResult GetProductSales(string productId, string period)
+        //{
+        //    try
+        //    {
+        //        _logger.LogInformation("📊 GetProductSales called for ProductId: {ProductId}, Period: {Period}", productId, period);
+
+        //        if (string.IsNullOrEmpty(productId))
+        //            return BadRequest("Invalid productId");
+
+        //        // ✅ Find all invoices containing this product
+        //        var invoices = _mongo.Invoices
+        //            .Find(i => i.Items.Any(item => item.ProductId.ToString() == productId))
+        //            .ToList();
+
+        //        if (!invoices.Any())
+        //            return Json(new { message = "No invoices found for this product." });
+
+        //        // ✅ Extract matching product sales
+        //        var sales = invoices
+        //            .SelectMany(i => i.Items.Where(item => item.ProductId.ToString() == productId))
+        //            .ToList();
+
+        //        if (!sales.Any())
+        //            return Json(new { message = "No sales data found." });
+
+        //        IEnumerable<object> grouped;
+
+        //        switch (period.ToLower())
+        //        {
+        //            case "week":
+        //                grouped = sales
+        //                    .GroupBy(s => s.TransactionDate.Date)
+        //                    .Select(g => new
+        //                    {
+        //                        Label = g.Key.ToString("ddd"),
+        //                        OrderKey = g.Key.DayOfWeek,
+        //                        Total = g.Sum(x => x.Quantity)
+        //                    })
+        //                    .OrderBy(g => g.OrderKey)
+        //                    .Select(g => new { g.Label, g.Total })
+        //                    .ToList();
+        //                break;
+
+        //            case "month":
+        //                grouped = sales
+        //                    .GroupBy(s => s.TransactionDate.Date)
+        //                    .Select(g => new
+        //                    {
+        //                        Label = g.Key.ToString("MMM dd"),
+        //                        OrderKey = g.Key,
+        //                        Total = g.Sum(x => x.Quantity)
+        //                    })
+        //                    .OrderBy(g => g.OrderKey)
+        //                    .Select(g => new { g.Label, g.Total })
+        //                    .ToList();
+        //                break;
+
+        //            case "year":
+        //                grouped = sales
+        //                    .GroupBy(s => new { g = s.TransactionDate.Year, m = s.TransactionDate.Month })
+        //                    .Select(g => new
+        //                    {
+        //                        Label = new DateTime(g.Key.g, g.Key.m, 1).ToString("MMM"),
+        //                        OrderKey = g.Key.m,
+        //                        Total = g.Sum(x => x.Quantity)
+        //                    })
+        //                    .OrderBy(g => g.OrderKey)
+        //                    .Select(g => new { g.Label, g.Total })
+        //                    .ToList();
+        //                break;
+
+        //            default:
+        //                grouped = Enumerable.Empty<object>();
+        //                break;
+        //        }
+
+        //        _logger.LogInformation("✅ Found {Count} grouped sales records", grouped.Count());
+        //        return Json(grouped);
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        _logger.LogError(ex, "❌ Error in GetProductSales for ProductId: {ProductId}", productId);
+        //        return StatusCode(500, new { message = "Internal server error", error = ex.Message });
+        //    }
+        //}
+
+        //[HttpGet]
+        //public IActionResult GetProductSales(string productId, string period)
+        //{
+        //    try
+        //    {
+        //        _logger.LogInformation("📊 GetProductSales called for ProductId: {ProductId}, Period: {Period}", productId, period);
+
+        //        if (string.IsNullOrEmpty(productId))
+        //            return BadRequest("Invalid productId");
+
+        //        var invoices = _mongo.Invoices
+        //            .Find(i => i.Items.Any(item => item.ProductId.ToString() == productId))
+        //            .ToList();
+
+        //        if (!invoices.Any())
+        //            return Json(new { message = "No invoices found for this product." });
+
+        //        var sales = invoices
+        //            .SelectMany(i => i.Items.Where(item => item.ProductId.ToString() == productId))
+        //            .ToList();
+
+        //        if (!sales.Any())
+        //            return Json(new { message = "No sales data found." });
+
+        //        IEnumerable<object> grouped;
+
+        //        switch (period.ToLower())
+        //        {
+        //            case "week":
+        //                // ✅ Group all Mondays together, all Tuesdays together, etc.
+        //                grouped = sales
+        //                    .GroupBy(s => s.TransactionDate.DayOfWeek)
+        //                    .Select(g => new
+        //                    {
+        //                        Label = g.Key.ToString(),
+        //                        Total = g.Sum(x => x.Quantity)
+        //                    })
+        //                    .OrderBy(g => (int)Enum.Parse(typeof(DayOfWeek), g.Label))
+        //                    .ToList();
+        //                break;
+
+        //            case "month":
+        //                grouped = sales
+        //                    .GroupBy(s => s.TransactionDate.Date)
+        //                    .Select(g => new
+        //                    {
+        //                        Label = g.Key.ToString("MMM dd"),
+        //                        OrderKey = g.Key,
+        //                        Total = g.Sum(x => x.Quantity)
+        //                    })
+        //                    .OrderBy(g => g.OrderKey)
+        //                    .Select(g => new { g.Label, g.Total })
+        //                    .ToList();
+        //                break;
+
+        //            case "year":
+        //                grouped = sales
+        //                    .GroupBy(s => new { s.TransactionDate.Year, s.TransactionDate.Month })
+        //                    .Select(g => new
+        //                    {
+        //                        Label = new DateTime(g.Key.Year, g.Key.Month, 1).ToString("MMM"),
+        //                        OrderKey = g.Key.Month,
+        //                        Total = g.Sum(x => x.Quantity)
+        //                    })
+        //                    .OrderBy(g => g.OrderKey)
+        //                    .Select(g => new { g.Label, g.Total })
+        //                    .ToList();
+        //                break;
+
+        //            default:
+        //                grouped = Enumerable.Empty<object>();
+        //                break;
+        //        }
+
+        //        _logger.LogInformation("✅ Found {Count} grouped sales records", grouped.Count());
+        //        return Json(grouped);
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        _logger.LogError(ex, "❌ Error in GetProductSales for ProductId: {ProductId}", productId);
+        //        return StatusCode(500, new { message = "Internal server error", error = ex.Message });
+        //    }
+        //}
+
+        [HttpGet]
+        public IActionResult GetProductSales(string productId, string period)
+        {
+            try
+            {
+                _logger.LogInformation("📊 GetProductSales called for ProductId: {ProductId}, Period: {Period}", productId, period);
+
+                if (string.IsNullOrEmpty(productId))
+                    return BadRequest("Invalid productId");
+
+                var invoices = _mongo.Invoices
+                    .Find(i => i.Items.Any(item => item.ProductId.ToString() == productId))
+                    .ToList();
+
+                if (!invoices.Any())
+                    return Json(new { message = "No invoices found for this product." });
+
+                var sales = invoices
+                    .SelectMany(i => i.Items.Where(item => item.ProductId.ToString() == productId))
+                    .ToList();
+
+                if (!sales.Any())
+                    return Json(new { message = "No sales data found." });
+
+                // 🕒 Determine the date range based on period
+                var now = DateTime.Now;
+                DateTime startDate;
+
+                switch (period.ToLower())
+                {
+                    case "week":
+                        int diff = (7 + (now.DayOfWeek - DayOfWeek.Monday)) % 7;
+                        startDate = now.Date.AddDays(-diff);
+                        break;
+
+                    case "month":
+                        startDate = new DateTime(now.Year, now.Month, 1);
+                        break;
+
+                    case "year":
+                        startDate = new DateTime(now.Year, 1, 1);
+                        break;
+
+                    default:
+                        return BadRequest("Invalid period specified.");
+                }
+
+                // ✅ Filter only within the range
+                sales = sales.Where(s => s.TransactionDate >= startDate && s.TransactionDate <= now).ToList();
+
+                IEnumerable<object> grouped;
+
+                switch (period.ToLower())
+                {
+                    case "week":
+                        grouped = sales
+                            .GroupBy(s => s.TransactionDate.DayOfWeek)
+                            .Select(g => new
+                            {
+                                Label = g.Key.ToString(),
+                                Total = g.Sum(x => x.Quantity)
+                            })
+                            .OrderBy(g => (int)Enum.Parse(typeof(DayOfWeek), g.Label))
+                            .ToList();
+                        break;
+
+                    case "month":
+                        grouped = sales
+                            .GroupBy(s => s.TransactionDate.Date)
+                            .Select(g => new
+                            {
+                                Label = g.Key.ToString("MMM dd"),
+                                OrderKey = g.Key,
+                                Total = g.Sum(x => x.Quantity)
+                            })
+                            .OrderBy(g => g.OrderKey)
+                            .Select(g => new { g.Label, g.Total })
+                            .ToList();
+                        break;
+
+                    case "year":
+                        grouped = sales
+                            .GroupBy(s => new { s.TransactionDate.Year, s.TransactionDate.Month })
+                            .Select(g => new
+                            {
+                                Label = new DateTime(g.Key.Year, g.Key.Month, 1).ToString("MMM"),
+                                OrderKey = g.Key.Month,
+                                Total = g.Sum(x => x.Quantity)
+                            })
+                            .OrderBy(g => g.OrderKey)
+                            .Select(g => new { g.Label, g.Total })
+                            .ToList();
+                        break;
+
+                    default:
+                        grouped = Enumerable.Empty<object>();
+                        break;
+                }
+
+                _logger.LogInformation("✅ Found {Count} grouped sales records", grouped.Count());
+                return Json(grouped);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Error in GetProductSales for ProductId: {ProductId}", productId);
+                return StatusCode(500, new { message = "Internal server error", error = ex.Message });
+            }
+        }
+
+
+
+        //
+
         //Update
 
         //[HttpGet]
@@ -572,7 +929,7 @@ namespace Sheessential_Sales_Finance.Controllers
             ViewBag.TotalTransactions = productSalesList.Count;
 
             var monthlyData = productSalesList
-                .GroupBy(s => s.TransactionDate.ToString("MMM yyyy"))
+                .GroupBy(s => s.TransactionDate.ToLocalTime().ToString("MMM yyyy"))
                 .Select(g => new
                 {
                     Month = g.Key,
@@ -613,53 +970,53 @@ namespace Sheessential_Sales_Finance.Controllers
         }
 
 
-        public IActionResult Vendors()
-        {
-            var vendors = _mongo.Vendors.Find(_ => true).ToList();
+        //public IActionResult Vendors()
+        //{
+        //    var vendors = _mongo.Vendors.Find(_ => true).ToList();
 
-            if (vendors == null || vendors.Count == 0)
-            {
-                ViewBag.TotalVendors = 0;
-                ViewBag.ActiveVendors = 0;
-                ViewBag.InactiveVendors = 0;
-                ViewBag.PendingBills = 0;
-                return View(new List<Vendor>());
-            }
+        //    if (vendors == null || vendors.Count == 0)
+        //    {   
+        //        ViewBag.TotalVendors = 0;
+        //        ViewBag.ActiveVendors = 0;
+        //        ViewBag.InactiveVendors = 0;
+        //        ViewBag.PendingBills = 0;
+        //        return View(new List<Vendor>());
+        //    }
 
-            // Compute vendor statistics
-            ViewBag.TotalVendors = vendors.Count;
-            ViewBag.ActiveVendors = vendors.Count(v => v.Status == "Active");
-            ViewBag.InactiveVendors = vendors.Count(v => v.Status == "Inactive");
+        //    // Compute vendor statistics
+        //    ViewBag.TotalVendors = vendors.Count;
+        //    ViewBag.ActiveVendors = vendors.Count(v => v.Status == "Active");
+        //    ViewBag.InactiveVendors = vendors.Count(v => v.Status == "Inactive");
 
-            // (Optional) Static placeholder for now
-            ViewBag.PendingBills = 12500; // Replace with real computation later
+        //    // (Optional) Static placeholder for now
+        //    ViewBag.PendingBills = 12500; // Replace with real computation later
 
-            return View(vendors);
-        }
+        //    return View(vendors);
+        //}
 
 
-        // Add new Vendor
-        [HttpPost]
-        public IActionResult AddVendor(Vendor vendor)
-        {
-            if (vendor == null)
-            {
-                TempData["ErrorMessage"] = "Vendor data is missing.";
-                return RedirectToAction("Vendors");
-            }
+        //// Add new Vendor
+        //[HttpPost]
+        //public IActionResult AddVendor(Vendor vendor)
+        //{
+        //    if (vendor == null)
+        //    {
+        //        TempData["ErrorMessage"] = "Vendor data is missing.";
+        //        return RedirectToAction("Vendors");
+        //    }
 
-            // Auto-generate VendorId if not set
-            vendor.VendorId = "VND-" + DateTime.Now.Ticks.ToString().Substring(10);
-            vendor.Status = "Active";
-            vendor.TotalPurchases = 0;
-            vendor.CreatedAt = DateTime.Now;
-            vendor.UpdatedAt = DateTime.Now;
+        //    // Auto-generate VendorId if not set
+        //    vendor.VendorId = "VND-" + DateTime.Now.Ticks.ToString().Substring(10);
+        //    vendor.Status = "Active";
+        //    vendor.TotalPurchases = 0;
+        //    vendor.CreatedAt = DateTime.Now;
+        //    vendor.UpdatedAt = DateTime.Now;
 
-            _mongo.Vendors.InsertOne(vendor);
+        //    _mongo.Vendors.InsertOne(vendor);
 
-            TempData["SuccessMessage"] = "Vendor added successfully!";
-            return RedirectToAction("Vendors");
-        }
+        //    TempData["SuccessMessage"] = "Vendor added successfully!";
+        //    return RedirectToAction("Vendors");
+        //}
 
 
     }

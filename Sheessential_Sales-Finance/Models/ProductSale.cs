@@ -14,7 +14,7 @@ namespace Sheessential_Sales_Finance.Models
         public string? ProductId { get; set; }
 
         [BsonElement("item")]
-        public string? Item { get; set; }   // ✅ ADD THIS LINE
+        public string? Item { get; set; }  
 
         [BsonElement("quantity")]
         public required int Quantity { get; set; }
