@@ -944,12 +944,9 @@ namespace Sheessential_Sales_Finance.Controllers
             return View(productSalesList);
         }
 
-
-
-
-        public IActionResult Expense()
+        public IActionResult Expenses()
         {
-            // Get all invoices
+            // Get all invoices from MongoDB
             var invoices = _mongo.Invoices.Find(_ => true).ToList();
             var vendors = _mongo.Vendors.Find(_ => true).ToList();
             ExpensesViewModel ExpenseMode;
@@ -967,6 +964,10 @@ namespace Sheessential_Sales_Finance.Controllers
                 return View(ExpenseMode);
             }
 
+            // Compute totals
+            ViewBag.TotalExpenses = invoices.Sum(i => i.Total);
+            ViewBag.PendingBills = invoices.Where(i => i.Status == "Unpaid" || i.Status == "Pending").Sum(i => i.Total);
+            ViewBag.PaidBills = invoices.Where(i => i.Status == "Paid").Sum(i => i.Total);
 
             // Purchases this month
             var now = DateTime.UtcNow;
@@ -979,16 +980,9 @@ namespace Sheessential_Sales_Finance.Controllers
             return View(ExpenseMode);
         }
 
-            // Compute vendor statistics
-            ViewBag.TotalVendors = vendors.Count;
-            ViewBag.ActiveVendors = vendors.Count(v => v.Status == "Active");
-            ViewBag.InactiveVendors = vendors.Count(v => v.Status == "Inactive");
 
-            // (Optional) Static placeholder for now
-            ViewBag.PendingBills = 12500; // Replace with real computation later
 
-            return View(vendors);
-        }
+
 
 
         // Add new Vendor
