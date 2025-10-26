@@ -947,14 +947,20 @@ namespace Sheessential_Sales_Finance.Controllers
         {
             // Get all invoices from MongoDB
             var invoices = _mongo.Invoices.Find(_ => true).ToList();
-
+            var vendors = _mongo.Vendors.Find(_ => true).ToList();
+            ExpensesViewModel ExpenseMode;
             if (invoices == null || invoices.Count == 0)
             {
                 ViewBag.TotalExpenses = 0;
                 ViewBag.PendingBills = 0;
                 ViewBag.PaidBills = 0;
                 ViewBag.PurchasesThisMonth = 0;
-                return View(new List<Invoice>());
+                ExpenseMode = new ExpensesViewModel
+                {
+                    Invoices = new List<Invoice>(),
+                    Vendors = new List<Vendor>()
+                };
+                return View(ExpenseMode);
             }
 
             // Compute totals
@@ -965,8 +971,12 @@ namespace Sheessential_Sales_Finance.Controllers
             // Purchases this month
             var now = DateTime.UtcNow;
             ViewBag.PurchasesThisMonth = invoices.Count(i => i.IssuedAt.Month == now.Month && i.IssuedAt.Year == now.Year);
-
-            return View(invoices);
+            ExpenseMode = new ExpensesViewModel
+            {
+                Invoices = invoices,
+                Vendors = vendors
+            };
+            return View(ExpenseMode);
         }
 
 

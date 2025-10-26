@@ -1,4 +1,6 @@
-﻿@{
+﻿@model ExpensesViewModel;
+
+@{
     ViewData["Title"] = "Expense Page";
 }
 
@@ -39,7 +41,7 @@
     <div class="p-6">
         <h1 class="text-2xl font-bold mb-6">Vendors</h1>
 
-        @if (!Model.Any())
+        @if (!Model.Vendors.Any())
         {
             <p class="text-gray-500">No vendors found.</p>
         }
@@ -57,7 +59,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var vendor in Model)
+                    @foreach (var vendor in Model.Vendors)
                     {
                         <tr class="border-t hover:bg-gray-50">
                             <td class="p-3">@vendor.VendorId</td>

@@ -6,6 +6,10 @@ namespace Sheessential_Sales_Finance.helpers
 {
     public class MongoHelper
     {
+        private readonly ILogger<MongoHelper> _logger;
+        public MongoHelper(ILogger<MongoHelper> logger) { 
+            _logger = logger;
+        }
         private readonly string _connectionString =
             "mongodb+srv://adrial:sarmiento@cluster0.ea8gtts.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
 
@@ -30,10 +34,12 @@ namespace Sheessential_Sales_Finance.helpers
             }
             catch (TimeoutException tex)
             {
+                _logger.LogInformation("\n\n\n⚠️ Mongo connection dropped: " + tex.Message+"\n\n\n");
                 throw new ApplicationException("ConnectionTimeout", tex);
             }
             catch (Exception ex)
             {
+                _logger.LogInformation("\n\n\n⚠️ Mongo connection dropped: " + ex.Message+"\n\n\n");
                 throw new ApplicationException("NoConnection", ex);
             }
         }
@@ -63,17 +69,18 @@ namespace Sheessential_Sales_Finance.helpers
             }
             catch (MongoConnectionException ex)
             {
-                Console.WriteLine("⚠️ Mongo connection dropped: " + ex.Message);
+                Console.WriteLine();
+                _logger.LogInformation("\n\n\n⚠️ Mongo connection dropped: " + ex.Message+"\n\n\n");
                 throw new ApplicationException("NoConnection", ex);
             }
             catch (TimeoutException ex)
             {
-                Console.WriteLine("⏰ Mongo operation timed out: " + ex.Message);
+                _logger.LogInformation("\n\n\n⚠️ Mongo connection timeout: " + ex.Message+"\n\n\n");
                 throw new ApplicationException("ConnectionTimeout", ex);
             }
             catch (Exception ex)
             {
-                Console.WriteLine("💥 Unknown Mongo error: " + ex.Message);
+                _logger.LogInformation("\n\n\n⚠️ Unknown error: " + ex.Message+"\n\n\n");
                 throw new ApplicationException("DatabaseError", ex);
             }
         }
