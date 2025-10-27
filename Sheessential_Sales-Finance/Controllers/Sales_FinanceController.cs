@@ -466,115 +466,70 @@ namespace Sheessential_Sales_Finance.Controllers
             return $"INV-{nextNumber:D5}";
         }
 
+[HttpGet]
+public IActionResult GetProductSales(string productId, string period)
+{
+    if (string.IsNullOrEmpty(productId))
+        return Json(new { message = "Missing product ID" });
 
-        [HttpGet]
-        public IActionResult GetProductSales(string productId, string period)
-        {
-            try
-            {
-                _logger.LogInformation("📊 GetProductSales called for ProductId: {ProductId}, Period: {Period}", productId, period);
+    var collection = _mongo.ProductSales; // Your MongoDB collection reference
 
-                if (string.IsNullOrEmpty(productId))
-                    return BadRequest("Invalid productId");
+    // Filter: all sales for the product
+    var query = collection.Find(x => x.ProductId == productId).ToList();
 
-                var invoices = _mongo.Invoices
-                    .Find(i => i.Items.Any(item => item.ProductId.ToString() == productId))
-                    .ToList();
+    if (query == null || query.Count == 0)
+        return Json(new { message = "No sales data found" });
 
-                if (!invoices.Any())
-                    return Json(new { message = "No invoices found for this product." });
+    // Group data based on selected period
+    IEnumerable<object> grouped = new List<object>();
 
-                var sales = invoices
-                    .SelectMany(i => i.Items.Where(item => item.ProductId.ToString() == productId))
-                    .ToList();
-
-                if (!sales.Any())
-                    return Json(new { message = "No sales data found." });
-
-                // 🕒 Determine the date range based on period
-                var now = DateTime.Now;
-                DateTime startDate;
-
-                switch (period.ToLower())
+    switch (period)
+    {
+        case "week":
+            grouped = query
+                .GroupBy(x => System.Globalization.CultureInfo.CurrentCulture.Calendar
+                    .GetWeekOfYear(x.TransactionDate, System.Globalization.CalendarWeekRule.FirstDay, DayOfWeek.Monday))
+                .Select(g => new
                 {
-                    case "week":
-                        int diff = (7 + (now.DayOfWeek - DayOfWeek.Monday)) % 7;
-                        startDate = now.Date.AddDays(-diff);
-                        break;
+                    Label = $"Week {g.Key}",
+                    Total = g.Sum(x => x.Quantity)
+                });
+            break;
 
-                    case "month":
-                        startDate = new DateTime(now.Year, now.Month, 1);
-                        break;
-
-                    case "year":
-                        startDate = new DateTime(now.Year, 1, 1);
-                        break;
-
-                    default:
-                        return BadRequest("Invalid period specified.");
-                }
-
-                // ✅ Filter only within the range
-                sales = sales.Where(s => s.TransactionDate >= startDate && s.TransactionDate <= now).ToList();
-
-                IEnumerable<object> grouped;
-
-                switch (period.ToLower())
+        case "month":
+            grouped = query
+                .GroupBy(x => x.TransactionDate.ToString("MMM yyyy"))
+                .Select(g => new
                 {
-                    case "week":
-                        grouped = sales
-                            .GroupBy(s => s.TransactionDate.DayOfWeek)
-                            .Select(g => new
-                            {
-                                Label = g.Key.ToString(),
-                                Total = g.Sum(x => x.Quantity)
-                            })
-                            .OrderBy(g => (int)Enum.Parse(typeof(DayOfWeek), g.Label))
-                            .ToList();
-                        break;
+                    Label = g.Key,
+                    Total = g.Sum(x => x.Quantity)
+                });
+            break;
 
-                    case "month":
-                        grouped = sales
-                            .GroupBy(s => s.TransactionDate.Date)
-                            .Select(g => new
-                            {
-                                Label = g.Key.ToString("MMM dd"),
-                                OrderKey = g.Key,
-                                Total = g.Sum(x => x.Quantity)
-                            })
-                            .OrderBy(g => g.OrderKey)
-                            .Select(g => new { g.Label, g.Total })
-                            .ToList();
-                        break;
+        case "year":
+            grouped = query
+                .GroupBy(x => x.TransactionDate.Year)
+                .Select(g => new
+                {
+                    Label = g.Key.ToString(),
+                    Total = g.Sum(x => x.Quantity)
+                });
+            break;
 
-                    case "year":
-                        grouped = sales
-                            .GroupBy(s => new { s.TransactionDate.Year, s.TransactionDate.Month })
-                            .Select(g => new
-                            {
-                                Label = new DateTime(g.Key.Year, g.Key.Month, 1).ToString("MMM"),
-                                OrderKey = g.Key.Month,
-                                Total = g.Sum(x => x.Quantity)
-                            })
-                            .OrderBy(g => g.OrderKey)
-                            .Select(g => new { g.Label, g.Total })
-                            .ToList();
-                        break;
+        default:
+            grouped = query
+                .GroupBy(x => x.TransactionDate.ToString("MMM yyyy"))
+                .Select(g => new
+                {
+                    Label = g.Key,
+                    Total = g.Sum(x => x.Quantity)
+                });
+            break;
+    }
 
-                    default:
-                        grouped = Enumerable.Empty<object>();
-                        break;
-                }
+    return Json(grouped);
+}
 
-                _logger.LogInformation("✅ Found {Count} grouped sales records", grouped.Count());
-                return Json(grouped);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "❌ Error in GetProductSales for ProductId: {ProductId}", productId);
-                return StatusCode(500, new { message = "Internal server error", error = ex.Message });
-            }
-        }
 
 
         [HttpPost]
@@ -680,45 +635,100 @@ namespace Sheessential_Sales_Finance.Controllers
             return View();
         }
 
-
+        //Expenses in expense page
         public IActionResult Expenses()
         {
-            // Get all invoices from MongoDB
-            var invoices = _mongo.Invoices.Find(_ => true).ToList();
-            var vendors = _mongo.Vendors.Find(_ => true).ToList();
-            ExpensesViewModel ExpenseMode;
-            if (invoices == null || invoices.Count == 0)
+            var expenses = _mongo.Expenses.Find(_ => true).ToList();
+
+            // Calculate totals
+            var totalExpenses = expenses.Sum(e => e.Amount);
+            var pendingTotal = expenses.Where(e => e.Status == "Pending").Sum(e => e.Amount);
+            var approvedTotal = expenses.Where(e => e.Status == "Approved").Sum(e => e.Amount);
+            var declinedTotal = expenses.Where(e => e.Status == "Declined").Sum(e => e.Amount);
+
+            // Send both the list and summary data to the view using ViewBag
+            ViewBag.TotalExpenses = totalExpenses;
+            ViewBag.PendingTotal = pendingTotal;
+            ViewBag.ApprovedTotal = approvedTotal;
+            ViewBag.DeclinedTotal = declinedTotal;
+
+            return View(expenses);
+        }
+
+        //accept expense
+        [HttpPost]
+        public IActionResult ApproveExpense(string id)
+        {
+            var filter = Builders<Expenses>.Filter.Eq(e => e.Id, id);
+            var update = Builders<Expenses>.Update
+                .Set(e => e.Status, "Approved")
+                .Set(e => e.RequestedAt, DateTime.UtcNow);
+
+            _mongo.Expenses.UpdateOne(filter, update); // ✅ FIXED: Use _mongo.Expenses
+
+            return RedirectToAction("Expenses");
+        }
+        //decline expense
+        [HttpPost]
+        public IActionResult DeclineExpense(string id)
+        {
+            var filter = Builders<Expenses>.Filter.Eq(e => e.Id, id);
+            var update = Builders<Expenses>.Update
+                .Set(e => e.Status, "Declined")
+                .Set(e => e.RequestedAt, DateTime.UtcNow);
+
+            _mongo.Expenses.UpdateOne(filter, update); // ✅ FIXED: Use _mongo.Expenses
+
+            return RedirectToAction("Expenses");
+        }
+
+        // Add new expense
+        [HttpPost]
+        public IActionResult AddExpense(Expenses newExpense)
+        {
+            // ✅ 1. Get the latest expense by ExpenseId
+            var lastExpense = _mongo.Expenses
+                .Find(_ => true)
+                .SortByDescending(e => e.ExpenseId)
+                .FirstOrDefault();
+
+            // ✅ 2. Generate the next ExpenseId (EXP-0006, etc.)
+            int nextNumber = 1;
+            if (lastExpense != null && !string.IsNullOrEmpty(lastExpense.ExpenseId))
             {
-                ViewBag.TotalExpenses = 0;
-                ViewBag.PendingBills = 0;
-                ViewBag.PaidBills = 0;
-                ViewBag.PurchasesThisMonth = 0;
-                ExpenseMode = new ExpensesViewModel
+                string lastNumberPart = lastExpense.ExpenseId.Replace("EXP-", "");
+                if (int.TryParse(lastNumberPart, out int lastNumber))
                 {
-                    Invoices = new List<Invoice>(),
-                    Vendors = new List<Vendor>()
-                };
-                return View(ExpenseMode);
+                    nextNumber = lastNumber + 1;
+                }
             }
 
-            // Compute totals
-            ViewBag.TotalExpenses = invoices.Sum(i => i.Total);
-            ViewBag.PendingBills = invoices.Where(i => i.Status == "Unpaid" || i.Status == "Pending").Sum(i => i.Total);
-            ViewBag.PaidBills = invoices.Where(i => i.Status == "Paid").Sum(i => i.Total);
+            newExpense.ExpenseId = $"EXP-{nextNumber.ToString("D4")}";
+            newExpense.Status = "Pending";
+            newExpense.RequestedAt = DateTime.UtcNow;
 
-            // Purchases this month
-            var now = DateTime.UtcNow;
-            ViewBag.PurchasesThisMonth = invoices.Count(i => i.IssuedAt.Month == now.Month && i.IssuedAt.Year == now.Year);
-            ExpenseMode = new ExpensesViewModel
-            {
-                Invoices = invoices,
-                Vendors = vendors
-            };
-            return View(ExpenseMode);
+            // ✅ 3. Save to MongoDB
+            _mongo.Expenses.InsertOne(newExpense);
+
+            // ✅ 4. Redirect back to Expense list
+            return RedirectToAction("Expenses");
         }
 
 
 
+        public IActionResult Vendors()
+        {
+            var vendors = _mongo.Vendors.Find(_ => true).ToList();
+
+            ViewBag.TotalVendors = vendors.Count;
+            ViewBag.ActiveVendors = vendors.Count(v => v.Status == "Active");
+            ViewBag.InactiveVendors = vendors.Count(v => v.Status == "Inactive");
+            ViewBag.PendingBills = vendors.Sum(v => v.TotalPurchases);
+
+            return View(vendors);
+        }
+
+    
 
 
 
@@ -853,6 +863,8 @@ namespace Sheessential_Sales_Finance.Controllers
             viewResult.View.RenderAsync(viewContext).GetAwaiter().GetResult();
             return sw.ToString();
         }
+
+
 
     }
 }
