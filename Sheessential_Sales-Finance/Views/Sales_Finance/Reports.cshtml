@@ -24,7 +24,7 @@
 
     <!-- Buttons -->
     <div class="flex justify-end space-x-3 mb-6">
-        <button class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg">Export to PDF</button>
+        <button class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg" onclick="sendChartsToServer()">Export to PDF</button>
         <button class="bg-green-300 hover:bg-green-400 text-white px-4 py-2 rounded-lg">Print Report</button>
     </div>
 
@@ -146,42 +146,11 @@
         }
     });
 
-    // === Revenue vs Expense Bar Chart 
-
-
-    // const revenueExpenseCtx = document.getElementById('revenueExpenseChart');
-    // new Chart(revenueExpenseCtx, {
-    //     type: 'bar',
-    //     data: {
-    //         labels: ['January','February','March','April','May','June','July','August','September','October','November','December'],
-    //         datasets: [
-    //             {
-    //                 label: 'Revenue',
-    //                 data: [60, 45, 70, 90, 20, 35, 55, 40, 75, 95, 80, 65],
-    //                 backgroundColor: '#3b82f6'
-    //             },
-    //             {
-    //                 label: 'Expense',
-    //                 data: [40, 30, 50, 60, 15, 20, 45, 30, 55, 75, 60, 45],
-    //                 backgroundColor: '#ec4899'
-    //             }
-    //         ]
-    //     },
-    //     options: {
-    //         responsive: true,
-    //         plugins: {
-    //             legend: { position: 'bottom' }
-    //         },
-    //         scales: {
-    //             y: { beginAtZero: true }
-    //         }
-    //     }
-    // });
 
 /**
  * 
  * 
- *      Cash Flow Chart
+ *      REVENUE VS EXPENSE CHART
  * 
  */
 
@@ -230,7 +199,7 @@
         });
     }
 
-    // Event listener for dropdown change
+    //  FOR REVENUE VS EXPENSE CHART
     document.getElementById("periodSelect").addEventListener("change", (e) => {
         loadCashFlowChart(e.target.value);
     });
@@ -238,45 +207,75 @@
     // Initial load
     loadCashFlowChart();
 
-// async function loadCashFlowChart() {
-//     const res = await fetch('/Sales_Finance/GetMonthlySalesData');
-//     const data = await res.json();
+        // === Revenue vs Expense Bar Chart
 
-//     const labels = data.map(x => x.month);
-//     const revenue = data.map(x => x.totalRevenue);
-//     const expense = data.map(x => x.totalExpense);
 
-//     const ctx1 = document.getElementById('cashFlowChart').getContext('2d');
-//     new Chart(ctx1, {
-//         type: 'bar',
-//         data: {
-//             labels: labels,
-//             datasets: [
-//                 {
-//                     label: 'Revenue',
-//                     data: revenue,
-//                     backgroundColor: 'rgba(236, 72, 153, 0.6)',
-//                     borderRadius: 6
-//                 },
-//                 {
-//                     label: 'Expense',
-//                     data: expense.map(x => -x),
-//                     backgroundColor: 'rgba(37, 99, 235, 0.6)',
-//                     borderRadius: 6
-//                 }
-//             ]
-//         },
-//         options: {
-//             responsive: true,
-//             plugins: { legend: { position: 'bottom' } },
-//             scales: {
-//                 y: { beginAtZero: true, grid: { drawBorder: false } },
-//                 x: { grid: { display: false } }
-//             }
-//         }
-//     });
-// }
+        // const revenueExpenseCtx = document.getElementById('revenueExpenseChart');
+        // new Chart(revenueExpenseCtx, {
+        //     type: 'bar',
+        //     data: {
+        //         labels: ['January','February','March','April','May','June','July','August','September','October','November','December'],
+        //         datasets: [
+        //             {
+        //                 label: 'Revenue',
+        //                 data: [60, 45, 70, 90, 20, 35, 55, 40, 75, 95, 80, 65],
+        //                 backgroundColor: '#3b82f6'
+        //             },
+        //             {
+        //                 label: 'Expense',
+        //                 data: [40, 30, 50, 60, 15, 20, 45, 30, 55, 75, 60, 45],
+        //                 backgroundColor: '#ec4899'
+        //             }
+        //         ]
+        //     },
+        //     options: {
+        //         responsive: true,
+        //         plugins: {
+        //             legend: { position: 'bottom' }
+        //         },
+        //         scales: {
+        //             y: { beginAtZero: true }
+        //         }
+        //     }
+        // });
+        async function sendChartsToServer() {
+          // get canvases or Chart.js objects
+          const salesCanvas = document.getElementById('salesChart');
+          const expenseCanvas = document.getElementById('expenseChart');
+          const cashFlowCanvas = document.getElementById('cashFlowChart');
 
-// loadCashFlowChart();
+          // use canvas.toDataURL (or chartInstance.toBase64Image())
+          const salesImg = salesCanvas.toDataURL('image/png');
+          const expenseImg = expenseCanvas.toDataURL('image/png');
+          const cashFlowImg = cashFlowCanvas.toDataURL('image/png');
+
+          const payload = {
+            salesImage: salesImg,
+            expenseImage: expenseImg,
+            cashFlowImage: cashFlowImg,
+            generatedAt: new Date().toLocaleString(),
+            revenue: '@(ViewBag.Revenue)',
+            expense: '@(ViewBag.Expense)',
+            totalTransactions: '@(ViewBag.TotalTransactions)'
+          };
+
+          const res = await fetch('/Sales_Finance/ExportPdfFromImages', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+
+          if (!res.ok) { alert('PDF export failed'); return; }
+          const blob = await res.blob();
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'Dashboard_Report.pdf';a
+          a.click();
+          URL.revokeObjectURL(url);
+        }
 
 </script>
+
+
+

@@ -4,6 +4,13 @@ using MongoDB.Driver;
 using Sheessential_Sales_Finance.Models;
 using MongoDB.Bson;
 using System.Text.RegularExpressions;
+using Microsoft.AspNetCore.Mvc.Razor;
+using Microsoft.AspNetCore.Mvc.Rendering;
+using Microsoft.AspNetCore.Mvc.ViewFeatures;
+using System;
+using DinkToPdf;
+using DinkToPdf.Contracts;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 
 namespace Sheessential_Sales_Finance.Controllers
 {
@@ -11,11 +18,13 @@ namespace Sheessential_Sales_Finance.Controllers
     {
         private readonly MongoHelper _mongo;
         private readonly ILogger<AuthController> _logger;
+        private readonly IConverter _converter;
 
-        public Sales_FinanceController(MongoHelper mongo, ILogger<AuthController> logger)
+        public Sales_FinanceController(MongoHelper mongo, ILogger<AuthController> logger, IConverter converter)
         {
             _mongo = mongo;
             _logger = logger;
+            _converter = converter;
         }
         public IActionResult Index()
         {
@@ -117,31 +126,12 @@ namespace Sheessential_Sales_Finance.Controllers
         }
 
 
-        //[HttpGet]
-        //public IActionResult GetMonthlySalesData()
-        //{
-        //    var sales = _mongo.ProductSales.Find(_ => true).ToList();
 
-        //    // Group by month (based on transactionDate)
-        //    var monthlyData = sales
-        //        .GroupBy(s => s.TransactionDate.ToString("MMM"))
-        //        .Select(g => new
-        //        {
-        //            Month = g.Key,
-        //            TotalRevenue = g.Sum(x => (double)x.SalePrice),
-        //            TotalExpense = g.Sum(x => (double)(x.SaleTax + x.SaleDiscounts))
-        //        })
-        //        .OrderBy(x => DateTime.ParseExact(x.Month, "MMM", null))
-        //        .ToList();
-
-        //    return Json(monthlyData);
-        //}
-
-
-        [HttpGet]
+        [HttpGet] // Sale vs Expenses Chart
         public IActionResult GetSalesData(string period = "monthly")
         {
-            var sales = _mongo.ProductSales.Find(_ => true).ToList();
+            var invoices = _mongo.Invoices.Find(allInvoice => true).ToList();
+            var sales = invoices.SelectMany(invoice => invoice.Items).ToList();
 
             var grouped = period.ToLower() switch
             {
@@ -149,7 +139,8 @@ namespace Sheessential_Sales_Finance.Controllers
                     .GroupBy(s => System.Globalization.CultureInfo.CurrentCulture.Calendar
                         .GetWeekOfYear(s.TransactionDate, System.Globalization.CalendarWeekRule.FirstDay, DayOfWeek.Monday))
                     .OrderBy(g => g.Key)
-                    .Select(g => new {
+                    .Select(g => new
+                    {
                         Label = $"Week {g.Key}",
                         TotalRevenue = g.Sum(x => (double)x.SalePrice),
                         TotalExpense = g.Sum(x => (double)(x.SaleTax + x.SaleDiscounts))
@@ -158,7 +149,8 @@ namespace Sheessential_Sales_Finance.Controllers
                 "quarterly" => sales
                     .GroupBy(s => (s.TransactionDate.Month - 1) / 3 + 1)
                     .OrderBy(g => g.Key)
-                    .Select(g => new {
+                    .Select(g => new
+                    {
                         Label = $"Q{g.Key}",
                         TotalRevenue = g.Sum(x => (double)x.SalePrice),
                         TotalExpense = g.Sum(x => (double)(x.SaleTax + x.SaleDiscounts))
@@ -167,7 +159,8 @@ namespace Sheessential_Sales_Finance.Controllers
                 "yearly" => sales
                     .GroupBy(s => s.TransactionDate.Year)
                     .OrderBy(g => g.Key)
-                    .Select(g => new {
+                    .Select(g => new
+                    {
                         Label = g.Key.ToString(),
                         TotalRevenue = g.Sum(x => (double)x.SalePrice),
                         TotalExpense = g.Sum(x => (double)(x.SaleTax + x.SaleDiscounts))
@@ -177,7 +170,8 @@ namespace Sheessential_Sales_Finance.Controllers
                     .GroupBy(s => new { s.TransactionDate.Year, s.TransactionDate.Month })
                     .OrderBy(g => g.Key.Year)
                     .ThenBy(g => g.Key.Month)
-                    .Select(g => new {
+                    .Select(g => new
+                    {
                         Label = $"{System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetAbbreviatedMonthName(g.Key.Month)} {g.Key.Year}",
                         TotalRevenue = g.Sum(x => (double)x.SalePrice),
                         TotalExpense = g.Sum(x => (double)(x.SaleTax + x.SaleDiscounts))
@@ -187,10 +181,13 @@ namespace Sheessential_Sales_Finance.Controllers
             return Json(grouped.ToList());
         }
 
-        [HttpGet]
+
+
+        [HttpGet] // From Reports Page
         public IActionResult GetSalesReportData(string period = "monthly")
         {
-            var sales = _mongo.ProductSales.Find(_ => true).ToList();
+            var invoices = _mongo.Invoices.Find(_ => true).ToList();
+            var sales = invoices.SelectMany(invoice => invoice.Items).ToList();
 
             var grouped = period.ToLower() switch
             {
@@ -198,7 +195,8 @@ namespace Sheessential_Sales_Finance.Controllers
                     .GroupBy(s => System.Globalization.CultureInfo.CurrentCulture.Calendar
                         .GetWeekOfYear(s.TransactionDate, System.Globalization.CalendarWeekRule.FirstDay, DayOfWeek.Monday))
                     .OrderBy(g => g.Key)
-                    .Select(g => new {
+                    .Select(g => new
+                    {
                         Label = $"Week {g.Key}",
                         TotalSales = g.Sum(x => (double)x.SalePrice)
                     }),
@@ -206,7 +204,8 @@ namespace Sheessential_Sales_Finance.Controllers
                 "quarterly" => sales
                     .GroupBy(s => (s.TransactionDate.Month - 1) / 3 + 1)
                     .OrderBy(g => g.Key)
-                    .Select(g => new {
+                    .Select(g => new
+                    {
                         Label = $"Q{g.Key}",
                         TotalSales = g.Sum(x => (double)x.SalePrice)
                     }),
@@ -214,7 +213,8 @@ namespace Sheessential_Sales_Finance.Controllers
                 "yearly" => sales
                     .GroupBy(s => s.TransactionDate.Year)
                     .OrderBy(g => g.Key)
-                    .Select(g => new {
+                    .Select(g => new
+                    {
                         Label = g.Key.ToString(),
                         TotalSales = g.Sum(x => (double)x.SalePrice)
                     }),
@@ -223,7 +223,8 @@ namespace Sheessential_Sales_Finance.Controllers
                     .GroupBy(s => new { s.TransactionDate.Year, s.TransactionDate.Month })
                     .OrderBy(g => g.Key.Year)
                     .ThenBy(g => g.Key.Month)
-                    .Select(g => new {
+                    .Select(g => new
+                    {
                         Label = $"{System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetAbbreviatedMonthName(g.Key.Month)} {g.Key.Year}",
                         TotalSales = g.Sum(x => (double)x.SalePrice)
                     })
@@ -466,249 +467,6 @@ namespace Sheessential_Sales_Finance.Controllers
         }
 
 
-        //[HttpGet]
-        //public IActionResult GetProductSales(string productId, string period)
-        //{
-        //    try
-        //    {
-        //        _logger.LogInformation("📊 GetProductSales called for ProductId: {ProductId}, Period: {Period}", productId, period);
-
-        //        if (string.IsNullOrEmpty(productId))
-        //            return BadRequest("Invalid productId");
-
-        //        // ✅ Convert to ObjectId safely
-
-
-        //        // ✅ Find all invoices containing this product
-        //        var invoices = _mongo.Invoices
-        //            .Find(i => i.Items.Any(item => item.ProductId.ToString() == productId))
-        //            .ToList();
-
-        //        if (!invoices.Any())
-        //            return Json(new { message = "No invoices found for this product." });
-
-        //        // ✅ Extract matching product sales
-        //        var sales = invoices
-        //            .SelectMany(i => i.Items.Where(item => item.ProductId.ToString() == productId))
-        //            .ToList();
-
-        //        if (!sales.Any())
-        //            return Json(new { message = "No sales data found." });
-
-        //        IEnumerable<object> grouped;
-
-        //        switch (period.ToLower())
-        //        {
-        //            case "week":
-        //                grouped = sales
-        //                    .GroupBy(s => s.TransactionDate.ToLocalTime().ToString("ddd"))
-        //                    .Select(g => new { Label = g.Key, Total = g.Sum(x => x.Quantity) })
-        //                    .OrderBy(g => g.Label)
-        //                    .ToList();
-        //                break;
-
-        //            case "month":
-        //                grouped = sales
-        //                    .GroupBy(s => s.TransactionDate.ToLocalTime().ToString("MMM dd"))
-        //                    .Select(g => new { Label = g.Key, Total = g.Sum(x => x.Quantity) })
-        //                    .OrderBy(g => g.Label)
-        //                    .ToList();
-        //                break;
-
-        //            case "year":
-        //                grouped = sales
-        //                    .GroupBy(s => s.TransactionDate.ToLocalTime().ToString("MMM"))
-        //                    .Select(g => new { Label = g.Key, Total = g.Sum(x => x.Quantity) })
-        //                    .OrderBy(g => g.Label)
-        //                    .ToList();
-        //                break;
-
-        //            default:
-        //                grouped = Enumerable.Empty<object>();
-        //                break;
-        //        }
-
-        //        _logger.LogInformation("✅ Found {Count} grouped sales records", grouped.Count());
-        //        return Json(grouped);
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        _logger.LogError(ex, "❌ Error in GetProductSales for ProductId: {ProductId}", productId);
-        //        return StatusCode(500, new { message = "Internal server error", error = ex.Message });
-        //    }
-        //}
-
-        //[HttpGet]
-        //public IActionResult GetProductSales(string productId, string period)
-        //{
-        //    try
-        //    {
-        //        _logger.LogInformation("📊 GetProductSales called for ProductId: {ProductId}, Period: {Period}", productId, period);
-
-        //        if (string.IsNullOrEmpty(productId))
-        //            return BadRequest("Invalid productId");
-
-        //        // ✅ Find all invoices containing this product
-        //        var invoices = _mongo.Invoices
-        //            .Find(i => i.Items.Any(item => item.ProductId.ToString() == productId))
-        //            .ToList();
-
-        //        if (!invoices.Any())
-        //            return Json(new { message = "No invoices found for this product." });
-
-        //        // ✅ Extract matching product sales
-        //        var sales = invoices
-        //            .SelectMany(i => i.Items.Where(item => item.ProductId.ToString() == productId))
-        //            .ToList();
-
-        //        if (!sales.Any())
-        //            return Json(new { message = "No sales data found." });
-
-        //        IEnumerable<object> grouped;
-
-        //        switch (period.ToLower())
-        //        {
-        //            case "week":
-        //                grouped = sales
-        //                    .GroupBy(s => s.TransactionDate.Date)
-        //                    .Select(g => new
-        //                    {
-        //                        Label = g.Key.ToString("ddd"),
-        //                        OrderKey = g.Key.DayOfWeek,
-        //                        Total = g.Sum(x => x.Quantity)
-        //                    })
-        //                    .OrderBy(g => g.OrderKey)
-        //                    .Select(g => new { g.Label, g.Total })
-        //                    .ToList();
-        //                break;
-
-        //            case "month":
-        //                grouped = sales
-        //                    .GroupBy(s => s.TransactionDate.Date)
-        //                    .Select(g => new
-        //                    {
-        //                        Label = g.Key.ToString("MMM dd"),
-        //                        OrderKey = g.Key,
-        //                        Total = g.Sum(x => x.Quantity)
-        //                    })
-        //                    .OrderBy(g => g.OrderKey)
-        //                    .Select(g => new { g.Label, g.Total })
-        //                    .ToList();
-        //                break;
-
-        //            case "year":
-        //                grouped = sales
-        //                    .GroupBy(s => new { g = s.TransactionDate.Year, m = s.TransactionDate.Month })
-        //                    .Select(g => new
-        //                    {
-        //                        Label = new DateTime(g.Key.g, g.Key.m, 1).ToString("MMM"),
-        //                        OrderKey = g.Key.m,
-        //                        Total = g.Sum(x => x.Quantity)
-        //                    })
-        //                    .OrderBy(g => g.OrderKey)
-        //                    .Select(g => new { g.Label, g.Total })
-        //                    .ToList();
-        //                break;
-
-        //            default:
-        //                grouped = Enumerable.Empty<object>();
-        //                break;
-        //        }
-
-        //        _logger.LogInformation("✅ Found {Count} grouped sales records", grouped.Count());
-        //        return Json(grouped);
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        _logger.LogError(ex, "❌ Error in GetProductSales for ProductId: {ProductId}", productId);
-        //        return StatusCode(500, new { message = "Internal server error", error = ex.Message });
-        //    }
-        //}
-
-        //[HttpGet]
-        //public IActionResult GetProductSales(string productId, string period)
-        //{
-        //    try
-        //    {
-        //        _logger.LogInformation("📊 GetProductSales called for ProductId: {ProductId}, Period: {Period}", productId, period);
-
-        //        if (string.IsNullOrEmpty(productId))
-        //            return BadRequest("Invalid productId");
-
-        //        var invoices = _mongo.Invoices
-        //            .Find(i => i.Items.Any(item => item.ProductId.ToString() == productId))
-        //            .ToList();
-
-        //        if (!invoices.Any())
-        //            return Json(new { message = "No invoices found for this product." });
-
-        //        var sales = invoices
-        //            .SelectMany(i => i.Items.Where(item => item.ProductId.ToString() == productId))
-        //            .ToList();
-
-        //        if (!sales.Any())
-        //            return Json(new { message = "No sales data found." });
-
-        //        IEnumerable<object> grouped;
-
-        //        switch (period.ToLower())
-        //        {
-        //            case "week":
-        //                // ✅ Group all Mondays together, all Tuesdays together, etc.
-        //                grouped = sales
-        //                    .GroupBy(s => s.TransactionDate.DayOfWeek)
-        //                    .Select(g => new
-        //                    {
-        //                        Label = g.Key.ToString(),
-        //                        Total = g.Sum(x => x.Quantity)
-        //                    })
-        //                    .OrderBy(g => (int)Enum.Parse(typeof(DayOfWeek), g.Label))
-        //                    .ToList();
-        //                break;
-
-        //            case "month":
-        //                grouped = sales
-        //                    .GroupBy(s => s.TransactionDate.Date)
-        //                    .Select(g => new
-        //                    {
-        //                        Label = g.Key.ToString("MMM dd"),
-        //                        OrderKey = g.Key,
-        //                        Total = g.Sum(x => x.Quantity)
-        //                    })
-        //                    .OrderBy(g => g.OrderKey)
-        //                    .Select(g => new { g.Label, g.Total })
-        //                    .ToList();
-        //                break;
-
-        //            case "year":
-        //                grouped = sales
-        //                    .GroupBy(s => new { s.TransactionDate.Year, s.TransactionDate.Month })
-        //                    .Select(g => new
-        //                    {
-        //                        Label = new DateTime(g.Key.Year, g.Key.Month, 1).ToString("MMM"),
-        //                        OrderKey = g.Key.Month,
-        //                        Total = g.Sum(x => x.Quantity)
-        //                    })
-        //                    .OrderBy(g => g.OrderKey)
-        //                    .Select(g => new { g.Label, g.Total })
-        //                    .ToList();
-        //                break;
-
-        //            default:
-        //                grouped = Enumerable.Empty<object>();
-        //                break;
-        //        }
-
-        //        _logger.LogInformation("✅ Found {Count} grouped sales records", grouped.Count());
-        //        return Json(grouped);
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        _logger.LogError(ex, "❌ Error in GetProductSales for ProductId: {ProductId}", productId);
-        //        return StatusCode(500, new { message = "Internal server error", error = ex.Message });
-        //    }
-        //}
-
         [HttpGet]
         public IActionResult GetProductSales(string productId, string period)
         {
@@ -819,31 +577,6 @@ namespace Sheessential_Sales_Finance.Controllers
         }
 
 
-
-        //
-
-        //Update
-
-        //[HttpGet]
-        //public async Task<IActionResult> GetNextInvoiceNumber()
-        //{
-        //    var last = await _mongo.Invoices
-        //        .Find(_ => true)
-        //        .SortByDescending(i => i.CreatedAt)
-        //        .FirstOrDefaultAsync();
-
-        //    int next = 1;
-        //    if (last != null && last.InvoiceNumber.StartsWith("INV-"))
-        //    {
-        //        var num = last.InvoiceNumber.Replace("INV-", "");
-        //        if (int.TryParse(num, out var n))
-        //            next = n + 1;
-        //    }
-
-        //    var invoiceNumber = $"INV-{next:D5}";
-        //    return Json(new { invoiceNumber });
-        //}
-
         [HttpPost]
         public async Task<IActionResult> UpdateStatus(string id, string newStatus)
         {
@@ -864,9 +597,9 @@ namespace Sheessential_Sales_Finance.Controllers
 
             var userId = HttpContext.Session.GetString("UserId");
             var actionLog = new ActionLog(
-                userId: userId, 
+                userId: userId,
                 entity: "Invoice",
-                entityId: id, 
+                entityId: id,
                 action: "Update",
                 description: $"Updated status of invoice #{invoice.InvoiceNumber} to {newStatus}"
             );
@@ -912,37 +645,41 @@ namespace Sheessential_Sales_Finance.Controllers
         }
 
 
+        [HttpGet]
         public IActionResult Reports()
         {
-            var productSalesList = _mongo.ProductSales.Find(_ => true).ToList();
+            // fitch all invoices (with embedded product sales)
+            var invoices = _mongo.Invoices.Find(_ => true).ToList();
 
-            if (productSalesList == null || productSalesList.Count == 0)
+            // Handol mt data
+            if (invoices == null || invoices.Count == 0)
             {
                 ViewBag.Revenue = 0;
                 ViewBag.Expense = 0;
                 ViewBag.TotalTransactions = 0;
-                return View(new List<ProductSale>());
+                return View();
             }
 
-            ViewBag.Revenue = productSalesList.Sum(x => x.SalePrice);
+            // get product sales from each inboyesesesldkflskdjf
+            var productSalesList = invoices.SelectMany(inv => inv.Items).ToList();
+
+            if (productSalesList.Count == 0)
+            {
+                ViewBag.Revenue = 0;
+                ViewBag.Expense = 0;
+                ViewBag.TotalTransactions = 0;
+                return View();
+            }
+
+
+            ViewBag.Revenue = productSalesList.Sum(x => x.SalePrice * x.Quantity);
             ViewBag.Expense = productSalesList.Sum(x => x.SaleTax + x.SaleDiscounts);
             ViewBag.TotalTransactions = productSalesList.Count;
 
-            var monthlyData = productSalesList
-                .GroupBy(s => s.TransactionDate.ToLocalTime().ToString("MMM yyyy"))
-                .Select(g => new
-                {
-                    Month = g.Key,
-                    TotalRevenue = g.Sum(x => x.SalePrice),
-                    TotalExpense = g.Sum(x => x.SaleTax + x.SaleDiscounts)
-                })
-                .OrderBy(x => DateTime.ParseExact(x.Month, "MMM yyyy", null))
-                .ToList();
 
-            ViewBag.MonthlyData = monthlyData;
-
-            return View(productSalesList);
+            return View();
         }
+
 
         public IActionResult Expenses()
         {
@@ -1008,10 +745,114 @@ namespace Sheessential_Sales_Finance.Controllers
             return RedirectToAction("Vendors");
         }
 
+        public ActionResult ReportPdf()
+        {
+            return View();
+        }
+
+
+
+        //[HttpPost]
+        //public IActionResult ExportPdfFromImages([FromBody] ChartPayload payload)
+        //{
+
+        //    _logger.LogInformation("\n\n\nI'm in Eport to pdf method lil ni....ssan\n\n\n\n");
+        //    // Option A: render a Razor view to HTML string (recommended)
+        //    var html = RenderViewToString("ReportPdf", payload);
+
+        //    var doc = new HtmlToPdfDocument()
+        //    {
+        //        GlobalSettings = {
+        //        Orientation = Orientation.Portrait,
+        //        PaperSize = PaperKind.A4
+        //    },
+        //        Objects = {
+        //        new ObjectSettings {
+        //            HtmlContent = html,
+        //            WebSettings = { DefaultEncoding = "utf-8", LoadImages = true }
+        //        }
+        //    }
+        //    };
+
+        //    var pdf = _converter.Convert(doc);
+        //    return File(pdf, "application/pdf", "Dashboard_Report.pdf");
+        //}
+
+        //// helper to render Razor view to string (same helper you had earlier)
+        //private string RenderViewToString(string viewName, object model)
+        //{
+        //    var viewEngine = HttpContext.RequestServices.GetService(typeof(IRazorViewEngine)) as IRazorViewEngine;
+        //    var tempDataProvider = HttpContext.RequestServices.GetService(typeof(ITempDataProvider)) as ITempDataProvider;
+        //    var actionContext = new ActionContext(HttpContext, RouteData, ControllerContext.ActionDescriptor);
+        //    var viewResult = viewEngine.FindView(actionContext, viewName, false);
+
+        //    if (viewResult.View == null) throw new Exception($"View {viewName} not found.");
+
+        //    using var sw = new StringWriter();
+        //    var viewContext = new ViewContext(actionContext, viewResult.View, new ViewDataDictionary(new EmptyModelMetadataProvider(), new ModelStateDictionary()) { Model = model }, new TempDataDictionary(HttpContext, tempDataProvider), sw, new HtmlHelperOptions());
+        //    viewResult.View.RenderAsync(viewContext).GetAwaiter().GetResult();
+        //    return sw.ToString();
+        //}
+
+        [HttpPost]
+        public IActionResult ExportPdfFromImages([FromBody] ChartPayload payload)
+        {
+            _logger.LogInformation("📄 ExportPdfFromImages method triggered...");
+
+            // 1️⃣ Render Razor View to HTML string
+            var html = RenderViewToString("ReportPdf", payload);
+
+            // 2️⃣ Configure the PDF document
+            var doc = new HtmlToPdfDocument()
+            {
+                GlobalSettings = new GlobalSettings
+                {
+                    Orientation = Orientation.Portrait,
+                    PaperSize = PaperKind.A4,
+                    Margins = new MarginSettings { Top = 10, Bottom = 10 },
+                },
+                Objects = {
+                    new ObjectSettings {
+                        HtmlContent = html,
+                        WebSettings = {
+                            DefaultEncoding = "utf-8",
+                            LoadImages = true
+                        }
+                    }
+                }
+            };
+
+            // 3Convert HTML to PDF
+            var pdf = _converter.Convert(doc);
+
+            // 4 Return as downloadable file
+            return File(pdf, "application/pdf", "Dashboard_Report.pdf");
+        }
+
+        //  Helper method to render Razor view into a string
+        private string RenderViewToString(string viewName, object model)
+        {
+            var viewEngine = HttpContext.RequestServices.GetService(typeof(IRazorViewEngine)) as IRazorViewEngine;
+            var tempDataProvider = HttpContext.RequestServices.GetService(typeof(ITempDataProvider)) as ITempDataProvider;
+            var actionContext = new ActionContext(HttpContext, RouteData, ControllerContext.ActionDescriptor);
+
+            var viewResult = viewEngine.FindView(actionContext, viewName, false);
+            if (viewResult.View == null)
+                throw new Exception($"View '{viewName}' not found.");
+
+            using var sw = new StringWriter();
+            var viewContext = new ViewContext(
+                actionContext,
+                viewResult.View,
+                new ViewDataDictionary(new EmptyModelMetadataProvider(), new ModelStateDictionary()) { Model = model },
+                new TempDataDictionary(HttpContext, tempDataProvider),
+                sw,
+                new HtmlHelperOptions()
+            );
+
+            viewResult.View.RenderAsync(viewContext).GetAwaiter().GetResult();
+            return sw.ToString();
+        }
 
     }
-
-
-
-
 }

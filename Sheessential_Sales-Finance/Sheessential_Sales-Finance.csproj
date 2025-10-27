@@ -13,6 +13,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="ChartJSCore" Version="3.12.0" />
+    <PackageReference Include="DinkToPdf" Version="1.0.8" />
     <PackageReference Include="MongoDB.Driver" Version="3.5.0" />
   </ItemGroup>
 
