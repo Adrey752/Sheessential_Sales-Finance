@@ -127,14 +127,16 @@ namespace Sheessential_Sales_Finance.Controllers
 
 
 
-        [HttpGet] // Sale vs Expenses Chart
+        [HttpGet] // Sale vs Expenses Chart 
         public IActionResult GetSalesData(string period = "monthly")
         {
-            var invoices = _mongo.Invoices.Find(allInvoice => true).ToList();
+            var invoices = _mongo.Invoices.Find(_ => true).ToList();
             var sales = invoices.SelectMany(invoice => invoice.Items).ToList();
+            var expenses = _mongo.Expenses.Find(_ => _.Status == "Approved").ToList();
 
             var grouped = period.ToLower() switch
             {
+                // 🗓 WEEKLY
                 "weekly" => sales
                     .GroupBy(s => System.Globalization.CultureInfo.CurrentCulture.Calendar
                         .GetWeekOfYear(s.TransactionDate, System.Globalization.CalendarWeekRule.FirstDay, DayOfWeek.Monday))
@@ -143,9 +145,15 @@ namespace Sheessential_Sales_Finance.Controllers
                     {
                         Label = $"Week {g.Key}",
                         TotalRevenue = g.Sum(x => (double)x.SalePrice),
-                        TotalExpense = g.Sum(x => (double)(x.SaleTax + x.SaleDiscounts))
+                        TotalExpense = expenses
+                            .Where(e =>
+                                System.Globalization.CultureInfo.CurrentCulture.Calendar
+                                    .GetWeekOfYear(e.RequestedAt, System.Globalization.CalendarWeekRule.FirstDay, DayOfWeek.Monday)
+                                == g.Key)
+                            .Sum(e => (double)e.Amount)
                     }),
 
+                // 🗓 QUARTERLY
                 "quarterly" => sales
                     .GroupBy(s => (s.TransactionDate.Month - 1) / 3 + 1)
                     .OrderBy(g => g.Key)
@@ -153,9 +161,12 @@ namespace Sheessential_Sales_Finance.Controllers
                     {
                         Label = $"Q{g.Key}",
                         TotalRevenue = g.Sum(x => (double)x.SalePrice),
-                        TotalExpense = g.Sum(x => (double)(x.SaleTax + x.SaleDiscounts))
+                        TotalExpense = expenses
+                            .Where(e => (e.RequestedAt.Month - 1) / 3 + 1 == g.Key)
+                            .Sum(e => (double)e.Amount)
                     }),
 
+                // 🗓 YEARLY
                 "yearly" => sales
                     .GroupBy(s => s.TransactionDate.Year)
                     .OrderBy(g => g.Key)
@@ -163,10 +174,13 @@ namespace Sheessential_Sales_Finance.Controllers
                     {
                         Label = g.Key.ToString(),
                         TotalRevenue = g.Sum(x => (double)x.SalePrice),
-                        TotalExpense = g.Sum(x => (double)(x.SaleTax + x.SaleDiscounts))
+                        TotalExpense = expenses
+                            .Where(e => e.RequestedAt.Year == g.Key)
+                            .Sum(e => (double)e.Amount)
                     }),
 
-                _ => sales // Default: Monthly
+                // 🗓 MONTHLY (default)
+                _ => sales
                     .GroupBy(s => new { s.TransactionDate.Year, s.TransactionDate.Month })
                     .OrderBy(g => g.Key.Year)
                     .ThenBy(g => g.Key.Month)
@@ -174,12 +188,15 @@ namespace Sheessential_Sales_Finance.Controllers
                     {
                         Label = $"{System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetAbbreviatedMonthName(g.Key.Month)} {g.Key.Year}",
                         TotalRevenue = g.Sum(x => (double)x.SalePrice),
-                        TotalExpense = g.Sum(x => (double)(x.SaleTax + x.SaleDiscounts))
+                        TotalExpense = expenses
+                            .Where(e => e.RequestedAt.Year == g.Key.Year && e.RequestedAt.Month == g.Key.Month)
+                            .Sum(e => (double)e.Amount)
                     })
             };
 
             return Json(grouped.ToList());
         }
+
 
 
 
@@ -466,69 +483,69 @@ namespace Sheessential_Sales_Finance.Controllers
             return $"INV-{nextNumber:D5}";
         }
 
-[HttpGet]
-public IActionResult GetProductSales(string productId, string period)
-{
-    if (string.IsNullOrEmpty(productId))
-        return Json(new { message = "Missing product ID" });
+        [HttpGet]
+        public IActionResult GetProductSales(string productId, string period)
+        {
+            if (string.IsNullOrEmpty(productId))
+                return Json(new { message = "Missing product ID" });
 
-    var collection = _mongo.ProductSales; // Your MongoDB collection reference
+            var collection = _mongo.ProductSales; // Your MongoDB collection reference
 
-    // Filter: all sales for the product
-    var query = collection.Find(x => x.ProductId == productId).ToList();
+            // Filter: all sales for the product
+            var query = collection.Find(x => x.ProductId == productId).ToList();
 
-    if (query == null || query.Count == 0)
-        return Json(new { message = "No sales data found" });
+            if (query == null || query.Count == 0)
+                return Json(new { message = "No sales data found" });
 
-    // Group data based on selected period
-    IEnumerable<object> grouped = new List<object>();
+            // Group data based on selected period
+            IEnumerable<object> grouped = new List<object>();
 
-    switch (period)
-    {
-        case "week":
-            grouped = query
-                .GroupBy(x => System.Globalization.CultureInfo.CurrentCulture.Calendar
-                    .GetWeekOfYear(x.TransactionDate, System.Globalization.CalendarWeekRule.FirstDay, DayOfWeek.Monday))
-                .Select(g => new
-                {
-                    Label = $"Week {g.Key}",
-                    Total = g.Sum(x => x.Quantity)
-                });
-            break;
+            switch (period)
+            {
+                case "week":
+                    grouped = query
+                        .GroupBy(x => System.Globalization.CultureInfo.CurrentCulture.Calendar
+                            .GetWeekOfYear(x.TransactionDate, System.Globalization.CalendarWeekRule.FirstDay, DayOfWeek.Monday))
+                        .Select(g => new
+                        {
+                            Label = $"Week {g.Key}",
+                            Total = g.Sum(x => x.Quantity)
+                        });
+                    break;
 
-        case "month":
-            grouped = query
-                .GroupBy(x => x.TransactionDate.ToString("MMM yyyy"))
-                .Select(g => new
-                {
-                    Label = g.Key,
-                    Total = g.Sum(x => x.Quantity)
-                });
-            break;
+                case "month":
+                    grouped = query
+                        .GroupBy(x => x.TransactionDate.ToString("MMM yyyy"))
+                        .Select(g => new
+                        {
+                            Label = g.Key,
+                            Total = g.Sum(x => x.Quantity)
+                        });
+                    break;
 
-        case "year":
-            grouped = query
-                .GroupBy(x => x.TransactionDate.Year)
-                .Select(g => new
-                {
-                    Label = g.Key.ToString(),
-                    Total = g.Sum(x => x.Quantity)
-                });
-            break;
+                case "year":
+                    grouped = query
+                        .GroupBy(x => x.TransactionDate.Year)
+                        .Select(g => new
+                        {
+                            Label = g.Key.ToString(),
+                            Total = g.Sum(x => x.Quantity)
+                        });
+                    break;
 
-        default:
-            grouped = query
-                .GroupBy(x => x.TransactionDate.ToString("MMM yyyy"))
-                .Select(g => new
-                {
-                    Label = g.Key,
-                    Total = g.Sum(x => x.Quantity)
-                });
-            break;
-    }
+                default:
+                    grouped = query
+                        .GroupBy(x => x.TransactionDate.ToString("MMM yyyy"))
+                        .Select(g => new
+                        {
+                            Label = g.Key,
+                            Total = g.Sum(x => x.Quantity)
+                        });
+                    break;
+            }
 
-    return Json(grouped);
-}
+            return Json(grouped);
+        }
 
 
 
@@ -728,7 +745,7 @@ public IActionResult GetProductSales(string productId, string period)
             return View(vendors);
         }
 
-    
+
 
 
 
@@ -864,6 +881,26 @@ public IActionResult GetProductSales(string productId, string period)
             return sw.ToString();
         }
 
+        // Donut
+        [HttpGet]
+        public IActionResult GetExpenseBreakdown()
+        {
+            // Get all approved expenses (optional: include others if needed)
+            var expenses = _mongo.Expenses.Find(_ => _.Status == "Approved").ToList();
+
+            // Group by ExpenseType and sum up their total amounts
+            var breakdown = expenses
+                .GroupBy(e => e.ExpenseType)
+                .Select(g => new
+                {
+                    Label = g.Key,
+                    Total = g.Sum(x => (double)x.Amount)
+                })
+                .OrderByDescending(x => x.Total)
+                .ToList();
+
+            return Json(breakdown);
+        }
 
 
     }

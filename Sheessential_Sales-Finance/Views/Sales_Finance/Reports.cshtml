@@ -128,23 +128,45 @@
 
 
     // === Expense Breakdown Donut Chart ===
-    const expenseCtx = document.getElementById('expenseChart');
-    new Chart(expenseCtx, {
-        type: 'doughnut',
-        data: {
-            labels: ['Utilities', 'Salaries & Wages', 'Supplies'],
-            datasets: [{
-                data: [55, 30, 15],
-                backgroundColor: ['#3b82f6', '#22c55e', '#facc15']
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                legend: { position: 'right' }
+    // === Expense Breakdown Donut Chart ===
+    let expenseChart;
+
+    async function loadExpenseBreakdown() {
+        const res = await fetch('/Sales_Finance/GetExpenseBreakdown');
+        const data = await res.json();
+
+        const labels = data.map(x => x.label);
+        const totals = data.map(x => x.total);
+
+        const ctx = document.getElementById('expenseChart').getContext('2d');
+
+        // Destroy existing chart to avoid duplication
+        if (expenseChart) expenseChart.destroy();
+
+        expenseChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels,
+                datasets: [{
+                    data: totals,
+                    backgroundColor: [
+                        '#3b82f6', '#22c55e', '#facc15',
+                        '#ef4444', '#a855f7', '#14b8a6', '#f97316'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { position: 'right' }
+                }
             }
-        }
-    });
+        });
+    }
+
+    // Load on page ready
+    loadExpenseBreakdown();
+
 
 
 /**
