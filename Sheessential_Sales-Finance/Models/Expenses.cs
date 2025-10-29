@@ -39,5 +39,9 @@ namespace Sheessential_Sales_Finance.Models
 
         [BsonElement("attachmentUrl")]
         public string AttachmentUrl { get; set; } = string.Empty;
+
+        [BsonElement("__v")]
+        public int Version { get; set; }
+
     }
 }
