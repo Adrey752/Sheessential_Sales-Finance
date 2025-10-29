@@ -72,7 +72,7 @@ namespace Sheessential_Sales_Finance.Controllers
         }
 
 
-        [HttpGet]
+        [HttpPost]
         public IActionResult Logout()
         {
             HttpContext.Session.Clear();

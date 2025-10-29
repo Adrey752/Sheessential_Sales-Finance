@@ -7,6 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+
 </head>
 
 <body class="bg-[#fafafa] font-[Poppins] flex min-h-screen">
@@ -17,11 +18,21 @@
             <img src="~/images/logo.png" alt="Logo" class="w-60 mb-3" />
         </div>
 
+        @{
+            string currentPath = Context.Request.Path.ToString().ToLower();
+            var isSalesActive = currentPath.Contains("/sales_finance/invoices") || currentPath.Contains("/sales_finance/customers");
+            var isPurchaseActive = currentPath.Contains("/sales_finance/expenses") || currentPath.Contains("/sales_finance/vendors");
+        }
+        
         <ul class="w-full mt-5 space-y-2">
+
             <!-- Dashboard -->
             <li>
                 <a asp-controller="Sales_Finance" asp-action="DashBoard"
-                   class="flex items-center px-5 py-3 rounded-xl hover:bg-pink-50 hover:text-pink-500 text-gray-600 font-medium transition active:bg-pink-100">
+                   class="flex items-center px-5 py-3 rounded-xl font-medium transition
+           @(currentPath.Contains("/sales_finance/dashboard")
+               ? "bg-pink-50 text-pink-500"
+               : "text-gray-600 hover:bg-pink-50 hover:text-pink-500")">
                     <i class="fa-solid fa-house w-6 mr-2"></i>Dashboard
                 </a>
             </li>
@@ -29,67 +40,116 @@
             <!-- Products -->
             <li>
                 <a asp-controller="Sales_Finance" asp-action="Products"
-                   class="flex items-center px-5 py-3 rounded-xl hover:bg-pink-50 hover:text-pink-500 text-gray-600 font-medium transition">
+                   class="flex items-center px-5 py-3 rounded-xl font-medium transition
+           @(currentPath.Contains("/sales_finance/products")
+               ? "bg-pink-50 text-pink-500"
+               : "text-gray-600 hover:bg-pink-50 hover:text-pink-500")">
                     <i class="fa-solid fa-box w-6 mr-2"></i>Products
                 </a>
             </li>
 
-            <!-- Sales (Dropdown) -->
             <li class="relative">
                 <button onclick="toggleDropdown('salesDropdown', this)"
-                        class="w-full flex items-center justify-between px-5 py-3 rounded-xl hover:bg-pink-50 text-gray-600 font-medium transition">
-                    <span class="flex items-center"><i class="fa-solid fa-hand-holding-dollar w-6 mr-2"></i>Sales</span>
-                    <i class="fa-solid fa-chevron-down text-sm transition-transform duration-300"></i>
+                        class="w-full flex items-center justify-between px-5 py-3 rounded-xl transition font-medium
+            text-gray-600 hover:bg-pink-50 hover:text-pink-500">
+
+                    <span class="flex items-center">
+                        <i class="fa-solid fa-hand-holding-dollar w-6 mr-2"></i>Sales
+                    </span>
+
+                    <i class="fa-solid fa-chevron-down text-sm transition-transform duration-300
+           @(isSalesActive ? "rotate-180 text-pink-500" : "text-gray-600")">
+                    </i>
                 </button>
+
                 <ul id="salesDropdown"
-                    class="max-h-0 overflow-hidden transition-all duration-300 ease-in-out pl-10 space-y-1">
+                    class="overflow-hidden transition-all duration-300 ease-in-out pl-10 space-y-1
+               @(isSalesActive ? "max-h-40" : "max-h-0")">
+
                     <li>
                         <a asp-controller="Sales_Finance" asp-action="Invoices"
-                           class="block px-3 py-2 rounded-lg text-gray-600 hover:bg-pink-50 hover:text-pink-500 transition text-sm">
+                           class="block px-3 py-2 rounded-lg transition text-sm
+               @(currentPath.Contains("/sales_finance/invoices")
+                   ? "bg-pink-50 text-pink-500"
+                   : "text-gray-600 hover:bg-pink-50 hover:text-pink-500")">
                             <i class="fa-solid fa-wallet w-4 mr-2"></i>Invoices
                         </a>
                     </li>
+
                     <li>
                         <a asp-controller="Sales_Finance" asp-action="Customers"
-                           class="block px-3 py-2 rounded-lg text-gray-600 hover:bg-pink-50 hover:text-pink-500 transition text-sm">
+                           class="block px-3 py-2 rounded-lg transition text-sm
+               @(currentPath.Contains("/sales_finance/customers")
+                   ? "bg-pink-50 text-pink-500"
+                   : "text-gray-600 hover:bg-pink-50 hover:text-pink-500")">
                             <i class="fa-solid fa-user-group w-4 mr-2"></i>Customers
                         </a>
                     </li>
                 </ul>
             </li>
-
-            <!-- Purchases (Dropdown) -->
             <li class="relative">
                 <button onclick="toggleDropdown('purchasesDropdown', this)"
-                        class="w-full flex items-center justify-between px-5 py-3 rounded-xl hover:bg-pink-50 text-gray-600 font-medium transition">
-                    <span class="flex items-center"><i class="fa-solid fa-cart-shopping w-6 mr-2"></i>Purchases</span>
-                    <i class="fa-solid fa-chevron-down text-sm transition-transform duration-300"></i>
+                        class="w-full flex items-center justify-between px-5 py-3 rounded-xl transition font-medium
+            text-gray-600 hover:bg-pink-50 hover:text-pink-500">
+
+                    <span class="flex items-center">
+                        <i class="fa-solid fa-cart-shopping w-6 mr-2"></i>Purchases
+                    </span>
+
+                    <i class="fa-solid fa-chevron-down text-sm transition-transform duration-300
+           @(isPurchaseActive ? "rotate-180 text-pink-500" : "text-gray-600")">
+                    </i>
                 </button>
+
                 <ul id="purchasesDropdown"
-                    class="max-h-0 overflow-hidden transition-all duration-300 ease-in-out pl-10 space-y-1">
+                    class="overflow-hidden transition-all duration-300 ease-in-out pl-10 space-y-1
+               @(isPurchaseActive ? "max-h-40" : "max-h-0")">
+
                     <li>
                         <a asp-controller="Sales_Finance" asp-action="Expenses"
-                           class="block px-3 py-2 rounded-lg text-gray-600 hover:bg-pink-50 hover:text-pink-500 transition text-sm">
+                           class="block px-3 py-2 rounded-lg transition text-sm
+               @(currentPath.Contains("/sales_finance/expenses")
+                   ? "bg-pink-50 text-pink-500"
+                   : "text-gray-600 hover:bg-pink-50 hover:text-pink-500")">
                             <i class="fa-solid fa-money-bill-wave w-4 mr-2"></i>Expenses
                         </a>
                     </li>
+
                     <li>
                         <a asp-controller="Sales_Finance" asp-action="Vendors"
-                           class="block px-3 py-2 rounded-lg text-gray-600 hover:bg-pink-50 hover:text-pink-500 transition text-sm">
+                           class="block px-3 py-2 rounded-lg transition text-sm
+               @(currentPath.Contains("/sales_finance/vendors")
+                   ? "bg-pink-50 text-pink-500"
+                   : "text-gray-600 hover:bg-pink-50 hover:text-pink-500")">
                             <i class="fa-solid fa-truck-field w-4 mr-2"></i>Vendors
                         </a>
                     </li>
                 </ul>
             </li>
 
+
             <!-- Reports -->
             <li>
                 <a asp-controller="Sales_Finance" asp-action="Reports"
-                   class="flex items-center px-5 py-3 rounded-xl hover:bg-pink-50 hover:text-pink-500 text-gray-600 font-medium transition">
+                   class="flex items-center px-5 py-3 rounded-xl font-medium transition
+           @(currentPath.Contains("/sales_finance/reports")
+               ? "bg-pink-50 text-pink-500"
+               : "text-gray-600 hover:bg-pink-50 hover:text-pink-500")">
                     <i class="fa-solid fa-chart-line w-6 mr-2"></i>Reports
                 </a>
             </li>
+
         </ul>
+
+        <div class="mt-auto w-full px-5">
+            <form asp-controller="Auth" asp-action="Logout" method="post">
+                <button type="submit"
+                        class="flex items-center w-full px-5 py-3 rounded-xl font-medium text-gray-600 hover:bg-red-50 hover:text-red-500 transition">
+                    <i class="fa-solid fa-right-from-bracket w-6 mr-2"></i> Logout
+                </button>
+            </form>
+        </div>
+
     </aside>
 
     <!-- Main Content -->
@@ -100,12 +160,12 @@
             <h1 class="text-2xl font-semibold text-gray-800">@ViewData["Title"]</h1>
 
             <div class="flex items-center gap-5">
-                <!-- Search Bar -->
-                <div class="relative">
-                    <input type="text" placeholder="Search..."
-                           class="pl-10 pr-4 py-2.5 w-80 rounded-2xl bg-gray-50 focus:bg-white focus:ring-2 focus:ring-pink-300 outline-none shadow-md text-gray-600 text-sm transition duration-300 ease-in-out" />
-                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-gray-400"></i>
-                </div>
+                @* <!-- Search Bar --> *@
+                @* <div class="relative"> *@
+                @*     <input type="text" placeholder="Search..." *@
+                @*            class="pl-10 pr-4 py-2.5 w-80 rounded-2xl bg-gray-50 focus:bg-white focus:ring-2 focus:ring-pink-300 outline-none shadow-md text-gray-600 text-sm transition duration-300 ease-in-out" /> *@
+                @*     <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-gray-400"></i> *@
+                @* </div> *@
 
                 <!-- Icons -->
                 <i class="fa-regular fa-envelope text-gray-500 hover:text-pink-500 cursor-pointer transition"></i>
@@ -147,6 +207,17 @@
     @await RenderSectionAsync("Scripts", required: false)
     <script src="~/js/site.js"></script>
 
+    <script>
+        function toggleDropdown(dropdownId, button) {
+            const dropdown = document.getElementById(dropdownId);
+            const chevron = button.querySelector("i.fa-chevron-down");
+
+            dropdown.classList.toggle("max-h-40");
+            dropdown.classList.toggle("max-h-0");
+
+            chevron.classList.toggle("rotate-180");
+        }
+    </script>
 
 </body>
 </html>

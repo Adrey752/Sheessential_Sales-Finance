@@ -153,6 +153,9 @@
             <img src="~/images/topproduct.jpg" alt="Product Image" class="rounded-xl shadow-sm w-full object-cover">
         </div>
     </div>
+    <!-- ✅ Toast Notification Container (Top Right) -->
+    <div id="toastContainer" class="fixed top-5 right-5 space-y-2 z-50"></div>
+
 </div>
 
 <!-- ===== CHART.JS CDN + STATIC CHART SCRIPT ===== -->
@@ -201,7 +204,6 @@
         }
     });
 
-    // Fetch and update chart dynamically
     async function loadProductSales(period) {
         try {
             const response = await fetch(`/Sales_Finance/GetProductSales?productId=${selectedProductId}&period=${period}`);
@@ -210,7 +212,7 @@
             // Check if response is valid and is an array
             if (!Array.isArray(data)) {
                 console.warn("No valid data received:", data);
-                alert(data.message || "No sales data found.");
+                showToast(data.message || "No sales data found.", "warning");
 
                 // Clear chart if no data
                 productChart.data.labels = [];
@@ -219,20 +221,22 @@
                 return;
             }
 
-            // ✅ Clear old chart data before adding new
+            // Clear old chart data before adding new
             productChart.data.labels = [];
             productChart.data.datasets[0].data = [];
 
-            // ✅ Add new data
+            // Add new data
             productChart.data.labels = data.map(d => d.label || d.Label);
             productChart.data.datasets[0].data = data.map(d => d.total || d.Total);
 
-            // ✅ Refresh the chart
+            // Refresh the chart
             productChart.update();
+            showToast("Sales data loaded successfully ✅", "success");
 
         } catch (error) {
             console.error("Error loading sales:", error);
-            alert("Nahhh didn't work brO");
+
+            showToast("Something went wrong 😭", "error");
 
             productChart.data.labels = [];
             productChart.data.datasets[0].data = [];
@@ -240,6 +244,27 @@
         }
     }
 
+    function showToast(message, type = "info") {
+        const toast = document.createElement("div");
+
+        const bgColor = {
+            success: "bg-green-500",
+            error: "bg-red-500",
+            warning: "bg-yellow-500",
+            info: "bg-blue-500"
+        }[type];
+
+        toast.className = `${bgColor} text-white px-4 py-3 rounded-lg shadow-lg animate-slideIn`;
+        toast.innerText = message;
+
+        document.getElementById("toastContainer").appendChild(toast);
+
+        // Remove after animation
+        setTimeout(() => {
+            toast.classList.add("animate-fadeOut");
+            setTimeout(() => toast.remove(), 500);
+        }, 3000);
+    }
 
 </script>
 

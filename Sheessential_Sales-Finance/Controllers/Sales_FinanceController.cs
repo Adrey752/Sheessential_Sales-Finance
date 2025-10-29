@@ -649,7 +649,7 @@ namespace Sheessential_Sales_Finance.Controllers
         //Expenses in expense page
         public IActionResult Expenses()
         {
-            var expenses = _mongo.Expenses.Find(_ => true).ToList();
+            var expenses = _mongo.Expenses.Find(e => true).ToList();
 
             // Calculate totals
             var totalExpenses = expenses.Sum(e => e.Amount);
