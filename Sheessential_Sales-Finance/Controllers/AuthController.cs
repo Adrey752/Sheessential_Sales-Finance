@@ -123,5 +123,70 @@ namespace Sheessential_Sales_Finance.Controllers
                 return BitConverter.ToString(bytes).Replace("-", "").ToLower();
             }
         }
+        [HttpGet]
+        public IActionResult ForgotPassword()
+        {
+            return View();
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> ForgotPassword(string email)
+        {
+            var user = await _mongo.Users.Find(u => u.Email == email).FirstOrDefaultAsync();
+
+            if (user == null)
+            {
+                ViewBag.Error = "Email not found.";
+                return View();
+            }
+
+            // ✅ generate reset token
+            user.ResetToken = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
+            user.ResetTokenExpiry = DateTime.Now.AddMinutes(15);
+
+            await _mongo.Users.ReplaceOneAsync(u => u.Id == user.Id, user);
+
+            string resetLink = Url.Action("ResetPassword", "Auth",
+                                           new { token = user.ResetToken },
+                                           Request.Scheme);
+
+            // send email
+            EmailSender.Send(user.Email,
+                "Password Reset Request",
+                $"<p>Click to reset password:</p><a href='{resetLink}'>Reset Password</a>"
+            );
+
+            ViewBag.Success = "Password reset link sent to your email.";
+            return View();
+        }
+        [HttpGet]
+        public IActionResult ResetPassword(string token)
+        {
+            if (string.IsNullOrEmpty(token))
+                return BadRequest("Invalid token.");
+
+            return View(model: token);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> ResetPassword(string token, string newPassword)
+        {
+            var user = await _mongo.Users
+                .Find(u => u.ResetToken == token && u.ResetTokenExpiry >= DateTime.Now)
+                .FirstOrDefaultAsync();
+
+            if (user == null)
+                return BadRequest("Invalid or expired token.");
+
+            user.Password = ComputeSha256Hash(newPassword);
+            user.ResetToken = null;
+            user.ResetTokenExpiry = null;
+
+            await _mongo.Users.ReplaceOneAsync(u => u.Id == user.Id, user);
+
+            TempData["Success"] = "Password reset successful!";
+            return RedirectToAction("Login");
+        }
+
     }
 }

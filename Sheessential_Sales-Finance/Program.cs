@@ -134,6 +134,8 @@ app.Use(async (context, next) =>
     // Allow public routes
     if (path != null &&
         (path.Contains("/auth/login") ||
+        path.Contains("/auth/forgotpassword") ||
+        path.Contains("/auth/resetpassword") ||
          path.Contains("/auth/register") ||
          path.Contains("/css") ||
          path.Contains("/js") ||

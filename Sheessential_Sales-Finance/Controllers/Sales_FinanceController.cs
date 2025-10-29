@@ -484,28 +484,29 @@ namespace Sheessential_Sales_Finance.Controllers
         }
 
         [HttpGet]
-        public IActionResult GetProductSales(string productId, string period)
+        public IActionResult GetProductSales(string productId, string period = "month")
         {
             if (string.IsNullOrEmpty(productId))
                 return Json(new { message = "Missing product ID" });
 
-            var collection = _mongo.ProductSales; // Your MongoDB collection reference
+            // ✅ Get all invoices and flatten the ProductSale items
+            var productSales = _mongo.Invoices.Find(_ => true).ToList()
+                .SelectMany(inv => inv.Items)                       // Flatten items from invoices
+                .Where(item => item.ProductId == productId)         // Filter specific product
+                .ToList();
 
-            // Filter: all sales for the product
-            var query = collection.Find(x => x.ProductId == productId).ToList();
-
-            if (query == null || query.Count == 0)
+            if (!productSales.Any())
                 return Json(new { message = "No sales data found" });
 
-            // Group data based on selected period
-            IEnumerable<object> grouped = new List<object>();
+            IEnumerable<object> grouped;
 
-            switch (period)
+            switch (period.ToLower())
             {
                 case "week":
-                    grouped = query
-                        .GroupBy(x => System.Globalization.CultureInfo.CurrentCulture.Calendar
-                            .GetWeekOfYear(x.TransactionDate, System.Globalization.CalendarWeekRule.FirstDay, DayOfWeek.Monday))
+                    grouped = productSales
+                        .GroupBy(s => System.Globalization.CultureInfo.CurrentCulture.Calendar
+                            .GetWeekOfYear(s.TransactionDate, System.Globalization.CalendarWeekRule.FirstDay, DayOfWeek.Monday))
+                        .OrderBy(g => g.Key)
                         .Select(g => new
                         {
                             Label = $"Week {g.Key}",
@@ -513,19 +514,10 @@ namespace Sheessential_Sales_Finance.Controllers
                         });
                     break;
 
-                case "month":
-                    grouped = query
-                        .GroupBy(x => x.TransactionDate.ToString("MMM yyyy"))
-                        .Select(g => new
-                        {
-                            Label = g.Key,
-                            Total = g.Sum(x => x.Quantity)
-                        });
-                    break;
-
                 case "year":
-                    grouped = query
-                        .GroupBy(x => x.TransactionDate.Year)
+                    grouped = productSales
+                        .GroupBy(s => s.TransactionDate.Year)
+                        .OrderBy(g => g.Key)
                         .Select(g => new
                         {
                             Label = g.Key.ToString(),
@@ -533,12 +525,13 @@ namespace Sheessential_Sales_Finance.Controllers
                         });
                     break;
 
-                default:
-                    grouped = query
-                        .GroupBy(x => x.TransactionDate.ToString("MMM yyyy"))
+                default: // monthly
+                    grouped = productSales
+                        .GroupBy(s => new { s.TransactionDate.Year, s.TransactionDate.Month })
+                        .OrderBy(g => g.Key.Year).ThenBy(g => g.Key.Month)
                         .Select(g => new
                         {
-                            Label = g.Key,
+                            Label = $"{System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetAbbreviatedMonthName(g.Key.Month)} {g.Key.Year}",
                             Total = g.Sum(x => x.Quantity)
                         });
                     break;
@@ -546,6 +539,7 @@ namespace Sheessential_Sales_Finance.Controllers
 
             return Json(grouped);
         }
+
 
 
 

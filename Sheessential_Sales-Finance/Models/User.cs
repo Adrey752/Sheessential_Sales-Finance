@@ -9,6 +9,12 @@ namespace Sheessential_Sales_Finance.Models
         [BsonRepresentation(BsonType.ObjectId)]
         public string? Id { get; set; }
 
+        [BsonElement("resetToken")]
+        public string? ResetToken { get; set; }
+
+        [BsonElement("resetTokenExpiry")]
+        public DateTime? ResetTokenExpiry { get; set; }
+
         [BsonElement("firstName")]
         public required string FirstName { get; set; }
 
