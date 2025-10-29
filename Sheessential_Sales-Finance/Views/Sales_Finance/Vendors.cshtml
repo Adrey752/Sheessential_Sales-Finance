@@ -36,7 +36,15 @@
 
     <!-- VENDOR TABLE -->
     <div class="bg-white p-6 rounded-2xl shadow-md">
-        <h2 class="text-xl font-semibold mb-4 text-gray-800">Vendor List</h2>
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-semibold text-gray-800">Vendor List</h2>
+            <!-- Subtle link to view archived vendors on the right -->
+            <p class="text-gray-400 text-sm mt-2 cursor-pointer hover:underline text-right" onclick="openArchivedModal()">
+                View Archived Vendors
+            </p>
+
+        </div>
+
         <table class="w-full border rounded-lg text-sm">
             <thead class="bg-gray-100 text-gray-700">
                 <tr>
@@ -75,14 +83,23 @@
                                     onclick="openViewModal('@vendor.VendorName','@vendor.ContactPerson','@vendor.ContactNumber','@vendor.Email','@vendor.PaymentTerms','@vendor.Status')">
                                 View
                             </button>
-                            <button class="text-yellow-600 hover:underline">Edit</button>
-                            <button class="text-red-600 hover:underline">Delete</button>
+                            <button class="text-yellow-600 hover:underline"
+                                    onclick="openEditModal('@vendor.Id', '@vendor.VendorName', '@vendor.CompanyName', '@vendor.Address', '@vendor.ContactPerson', '@vendor.ContactNumber', '@vendor.Email', '@vendor.PaymentTerms', '@vendor.Status', '@vendor.Notes')">
+                                Edit
+                            </button>
+                            <!-- Archive icon button -->
+                            <button onclick="openArchiveModal('@vendor.Id')" class="text-red-600 hover:text-red-800 p-1 rounded">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5-4h4m-4 0a2 2 0 00-2 2v0a2 2 0 002 2h4a2 2 0 002-2v0a2 2 0 00-2-2m-4 0V3m0 0h4" />
+                                </svg>
+                            </button>
                         </td>
                     </tr>
                 }
             </tbody>
         </table>
     </div>
+
 </div>
 
 <!-- ✅ ADD MODAL -->
@@ -187,6 +204,148 @@
         </div>
     </div>
 </div>
+<!-- ✅ EDIT MODAL -->
+<div id="editVendorModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-2xl shadow-lg w-full max-w-2xl p-6 relative">
+        <button onclick="closeEditModal()" class="absolute top-4 right-4 text-gray-500 hover:text-gray-800">✕</button>
+        <h2 class="text-xl font-semibold text-gray-800 mb-4">Edit Vendor</h2>
+
+        <form asp-action="EditVendor" asp-controller="Sales_Finance" method="post">
+            <input type="hidden" name="Id" id="editVendorId" />
+
+            <div class="grid grid-cols-2 gap-4 mb-3">
+                <div>
+                    <label class="text-gray-700 font-semibold">Vendor Name</label>
+                    <input type="text" name="VendorName" id="editVendorName" class="w-full border rounded-lg px-3 py-2 mt-1" required />
+                </div>
+                <div>
+                    <label class="text-gray-700 font-semibold">Company Name</label>
+                    <input type="text" name="CompanyName" id="editCompanyName" class="w-full border rounded-lg px-3 py-2 mt-1" />
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4 mb-3">
+                <div>
+                    <label class="text-gray-700 font-semibold">Address</label>
+                    <input type="text" name="Address" id="editAddress" class="w-full border rounded-lg px-3 py-2 mt-1" />
+                </div>
+                <div>
+                    <label class="text-gray-700 font-semibold">Contact Person</label>
+                    <input type="text" name="ContactPerson" id="editContactPerson" class="w-full border rounded-lg px-3 py-2 mt-1" />
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4 mb-3">
+                <div>
+                    <label class="text-gray-700 font-semibold">Contact Number</label>
+                    <input type="text" name="ContactNumber" id="editContactNumber" class="w-full border rounded-lg px-3 py-2 mt-1" />
+                </div>
+                <div>
+                    <label class="text-gray-700 font-semibold">Email</label>
+                    <input type="email" name="Email" id="editEmail" class="w-full border rounded-lg px-3 py-2 mt-1" />
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4 mb-3">
+                <div>
+                    <label class="text-gray-700 font-semibold">Payment Terms</label>
+                    <select name="PaymentTerms" id="editPaymentTerms" class="w-full border rounded-lg px-3 py-2 mt-1">
+                        <option>30 days</option>
+                        <option>60 days</option>
+                        <option>90 days</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-gray-700 font-semibold">Status</label>
+                    <select name="Status" id="editStatus" class="w-full border rounded-lg px-3 py-2 mt-1">
+                        <option>Active</option>
+                        <option>Inactive</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="text-gray-700 font-semibold">Notes</label>
+                <textarea name="Notes" id="editNotes" class="w-full border rounded-lg px-3 py-2 mt-1" rows="2"></textarea>
+            </div>
+
+            <div class="flex justify-end space-x-2">
+                <button type="button" onclick="closeEditModal()" class="px-4 py-2 bg-gray-300 rounded-lg hover:bg-gray-400">Cancel</button>
+                <button type="submit" class="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ARCHIVE CONFIRMATION MODAL -->
+<div id="archiveModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-2xl shadow-lg w-full max-w-md p-6 relative">
+        <h2 class="text-xl font-semibold text-gray-800 mb-4">Archive Vendor</h2>
+        <p class="mb-6 text-gray-600">Are you sure you want to archive this vendor?</p>
+
+        <form id="archiveForm" asp-action="ArchiveVendor" asp-controller="Sales_Finance" method="post">
+            <input type="hidden" id="archiveVendorId" name="Id" />
+            <div class="flex justify-end space-x-3">
+                <button type="button" onclick="closeArchiveModal()" class="px-4 py-2 bg-gray-300 rounded-lg hover:bg-gray-400">Cancel</button>
+                <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">Archive</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ARCHIVED VENDORS MODAL -->
+<div id="archivedVendorsModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-auto">
+    <div class="bg-white rounded-2xl shadow-lg w-full max-w-6xl p-6 relative">
+        <button onclick="closeArchivedModal()" class="absolute top-4 right-4 text-gray-500 hover:text-gray-800">✕</button>
+        <h2 class="text-xl font-semibold mb-4 text-gray-800">Archived Vendors</h2>
+
+        <table class="w-full border rounded-lg text-sm">
+            <thead class="bg-gray-100 text-gray-700">
+                <tr>
+                    <th class="p-3 text-left">Vendor ID</th>
+                    <th class="p-3 text-left">Vendor Name</th>
+                    <th class="p-3 text-left">Contact Person</th>
+                    <th class="p-3 text-left">Contact No.</th>
+                    <th class="p-3 text-left">Email</th>
+                    <th class="p-3 text-left">Status</th>
+                    <th class="p-3 text-left">Total Purchases</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Model != null && Model.Count() > 0)
+                {
+                    foreach (var vendor in Model.Where(v => v.IsArchived)) // only archived
+                    {
+                        <tr class="border-t hover:bg-gray-50">
+                            <td class="p-3">@vendor.VendorId</td>
+                            <td class="p-3">@vendor.VendorName</td>
+                            <td class="p-3">@vendor.ContactPerson</td>
+                            <td class="p-3">@vendor.ContactNumber</td>
+                            <td class="p-3 truncate">@vendor.Email</td>
+                            <td class="p-3">
+                                <span class="px-3 py-1 rounded-full text-sm @(vendor.Status == "Inactive" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700")">
+                                    @vendor.Status
+                                </span>
+                            </td>
+                            <td class="p-3">₱@vendor.TotalPurchases.ToString("N0")</td>
+                        </tr>
+                    }
+                }
+                else
+                {
+                    <tr>
+                        <td colspan="7" class="text-center p-3 text-gray-500">No archived vendors found.</td>
+                    </tr>
+                }
+            </tbody>
+
+        </table>
+    </div>
+</div>
+
+
+
+
 
 <!-- ✅ SCRIPTS -->
 <script>
@@ -223,3 +382,56 @@
         viewModal.classList.add('hidden');
     }
 </script>
+<script>
+    function openEditModal(id, name, company, address, person, contact, email, payment, status, notes) {
+        document.getElementById('editVendorId').value = id;
+        document.getElementById('editVendorName').value = name;
+        document.getElementById('editCompanyName').value = company;
+        document.getElementById('editAddress').value = address;
+        document.getElementById('editContactPerson').value = person;
+        document.getElementById('editContactNumber').value = contact;
+        document.getElementById('editEmail').value = email;
+        document.getElementById('editPaymentTerms').value = payment;
+        document.getElementById('editStatus').value = status;
+        document.getElementById('editNotes').value = notes;
+
+        document.getElementById('editVendorModal').classList.remove('hidden');
+    }
+
+    function closeEditModal() {
+        document.getElementById('editVendorModal').classList.add('hidden');
+
+
+    }
+</script>
+
+<script>
+    function openArchiveModal(id) {
+        document.getElementById('archiveVendorId').value = id;
+        document.getElementById('archiveModal').classList.remove('hidden');
+    }
+
+    function closeArchiveModal() {
+        document.getElementById('archiveModal').classList.add('hidden');
+    }
+</script>
+
+<script>
+    // Get the modal element
+    const archivedModal = document.getElementById('archivedVendorsModal');
+
+    // Function to open the modal
+    function openArchivedModal() {
+        archivedModal.classList.remove('hidden');
+    }
+
+    // Function to close the modal
+    function closeArchivedModal() {
+        archivedModal.classList.add('hidden');
+    }
+</script>
+
+
+
+
+

@@ -51,5 +51,9 @@ namespace Sheessential_Sales_Finance.Models
 
         [BsonElement("updatedAt")]
         public DateTime UpdatedAt { get; set; }
+
+        [BsonElement("IsArchived")]
+        public bool IsArchived { get; set; } = false;
+
     }
 }

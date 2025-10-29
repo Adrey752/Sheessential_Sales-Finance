@@ -649,7 +649,7 @@ namespace Sheessential_Sales_Finance.Controllers
         //Expenses in expense page
         public IActionResult Expenses()
         {
-            var expenses = _mongo.Expenses.Find(e => true).ToList();
+            var expenses = _mongo.Expenses.Find(_ => true).ToList();
 
             // Calculate totals
             var totalExpenses = expenses.Sum(e => e.Amount);
@@ -657,14 +657,18 @@ namespace Sheessential_Sales_Finance.Controllers
             var approvedTotal = expenses.Where(e => e.Status == "Approved").Sum(e => e.Amount);
             var declinedTotal = expenses.Where(e => e.Status == "Declined").Sum(e => e.Amount);
 
-            // Send both the list and summary data to the view using ViewBag
+            // Filter for table display (only pending)
+            var pendingExpenses = expenses.Where(e => e.Status == "Pending").ToList();
+
             ViewBag.TotalExpenses = totalExpenses;
             ViewBag.PendingTotal = pendingTotal;
             ViewBag.ApprovedTotal = approvedTotal;
             ViewBag.DeclinedTotal = declinedTotal;
 
-            return View(expenses);
+            // Return only pending expenses to the view
+            return View(pendingExpenses);
         }
+
 
         //accept expense
         [HttpPost]
@@ -726,10 +730,11 @@ namespace Sheessential_Sales_Finance.Controllers
         }
 
 
-
+        //Get all Vendors
         public IActionResult Vendors()
         {
-            var vendors = _mongo.Vendors.Find(_ => true).ToList();
+            // Only get vendors that are not archived
+            var vendors = _mongo.Vendors.Find(v => v.IsArchived == false).ToList();
 
             ViewBag.TotalVendors = vendors.Count;
             ViewBag.ActiveVendors = vendors.Count(v => v.Status == "Active");
@@ -738,6 +743,7 @@ namespace Sheessential_Sales_Finance.Controllers
 
             return View(vendors);
         }
+
 
 
 
@@ -765,6 +771,76 @@ namespace Sheessential_Sales_Finance.Controllers
             TempData["SuccessMessage"] = "Vendor added successfully!";
             return RedirectToAction("Vendors");
         }
+
+        //Edit Vendor
+        [HttpPost]
+        public IActionResult EditVendor(Vendor vendor)
+        {
+            var filter = Builders<Vendor>.Filter.Eq(v => v.Id, vendor.Id);
+            var update = Builders<Vendor>.Update
+                .Set(v => v.VendorName, vendor.VendorName)
+                .Set(v => v.CompanyName, vendor.CompanyName)
+                .Set(v => v.Address, vendor.Address)
+                .Set(v => v.ContactPerson, vendor.ContactPerson)
+                .Set(v => v.ContactNumber, vendor.ContactNumber)
+                .Set(v => v.Email, vendor.Email)
+                .Set(v => v.PaymentTerms, vendor.PaymentTerms)
+                .Set(v => v.Status, vendor.Status)
+                .Set(v => v.Notes, vendor.Notes);
+
+            _mongo.Vendors.UpdateOne(filter, update);
+
+            return RedirectToAction("Vendors");
+        }
+
+        //Archive Vendor
+        [HttpPost]
+public IActionResult ArchiveVendor(string Id)
+{
+    if (string.IsNullOrEmpty(Id))
+    {
+        return BadRequest();
+    }
+
+    // Filter for the vendor by Id
+    var filter = Builders<Vendor>.Filter.Eq(v => v.Id, Id);
+
+    // Update to set IsArchived to true
+    var update = Builders<Vendor>.Update.Set(v => v.IsArchived, true);
+
+    var result = _mongo.Vendors.UpdateOne(filter, update);
+
+    if (result.ModifiedCount > 0)
+    {
+        TempData["SuccessMessage"] = "Vendor archived successfully.";
+    }
+    else
+    {
+        TempData["ErrorMessage"] = "Vendor not found or already archived.";
+    }
+
+    // Redirect back to the Vendors page
+    return RedirectToAction("Vendors"); // or your vendor list action
+}
+
+        //Get all Archived Vendors
+        public IActionResult ArchivedVendors()
+        {
+            // Only get vendors that are not archived
+            var vendors = _mongo.Vendors.Find(v => v.IsArchived == true).ToList();
+
+            ViewBag.TotalVendors = vendors.Count;
+            ViewBag.ActiveVendors = vendors.Count(v => v.Status == "Active");
+            ViewBag.InactiveVendors = vendors.Count(v => v.Status == "Inactive");
+            ViewBag.PendingBills = vendors.Sum(v => v.TotalPurchases);
+
+            return View(vendors);
+        }
+
+
+
+
+
 
         public ActionResult ReportPdf()
         {
