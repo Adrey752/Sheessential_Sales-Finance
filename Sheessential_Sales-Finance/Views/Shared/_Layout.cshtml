@@ -168,7 +168,8 @@
                 @* </div> *@
 
                 <!-- Icons -->
-                <i class="fa-regular fa-envelope text-gray-500 hover:text-pink-500 cursor-pointer transition"></i>
+                    <i onclick="toggleNotifications()"
+                       class="fa-regular fa-bell text-gray-500 hover:text-pink-500 cursor-pointer transition"></i>
 
                 @{
                     var fullName = Context.Session.GetString("UserName") ?? "User";
@@ -192,6 +193,10 @@
                         <span class="text-gray-800 font-medium">@fullName</span>
                         <span class="text-gray-500 text-sm">@email</span>
                     </div>
+                </div>
+                <div class="relative">
+
+                    @await Component.InvokeAsync("Notifications")
                 </div>
 
 
@@ -221,3 +226,20 @@
 
 </body>
 </html>
+<script>
+    function toggleNotifications() {
+        const dropdown = document.getElementById("notifDropdown");
+        dropdown.classList.toggle("hidden");
+    }
+
+    // ✅ Close dropdown when clicking outside
+    document.addEventListener("click", function (event) {
+        const dropdown = document.getElementById("notifDropdown");
+        const bellIcon = document.querySelector(".fa-regular.fa-bell"); // Your bell icon selector
+
+        if (!dropdown.contains(event.target) && !bellIcon.contains(event.target)) {
+            dropdown.classList.add("hidden"); // force close
+        }
+    });
+</script>
+
