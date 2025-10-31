@@ -1,0 +1,212 @@
+﻿@model Sheessential_Sales_Finance.Models.InvoiceListViewModel
+@if (TempData["Restored"] != null)
+{
+    <script>
+        window.onload = () => showSuccessModal();
+    </script>
+}
+
+<div class="flex justify-between items-center mb-6">
+    <div class="flex items-center gap-4">
+        <a href="/Sales_Finance/Invoices"
+           class="flex items-center gap-2 text-sm px-4 py-2 rounded-lg
+                  bg-pink-500 text-white hover:bg-pink-600
+                  transition-all duration-200 shadow-sm">
+            <i class="fa-solid fa-arrow-left"></i> Back to Invoices
+        </a>
+
+        <h2 class="text-xl font-semibold text-gray-800">
+            Archived Invoices
+        </h2>
+    </div>
+</div>
+
+<!-- ========== MAIN GRID ========== -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <!-- ======================================================
+        LEFT: ARCHIVED LIST TABLE
+    ======================================================= -->
+    <div class="col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+
+        <div class="flex justify-between items-center mb-5">
+            <h2 class="text-lg font-semibold text-gray-700">Archived List</h2>
+
+            <!-- Search -->
+            <div class="relative">
+                <input type="text"
+                       id="searchBox"
+                       placeholder="Search archived..."
+                       autocomplete="off"
+                       class="pl-10 pr-4 py-2.5 w-56 rounded-xl bg-gray-50 focus:bg-white
+                              focus:ring-2 focus:ring-pink-300 outline-none text-gray-600 text-sm transition" />
+
+                <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-gray-400"></i>
+
+                <!-- ✅ Search Suggestions (Fixed ID) -->
+                <div id="searchSuggestions"
+                     class="absolute mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-md hidden max-h-48 overflow-y-auto z-10"></div>
+            </div>
+        </div>
+
+        <!-- ========== TABLE ========== -->
+        <div class="overflow-x-auto">
+            <table id="invoiceTable" class="min-w-full text-sm text-left border-t border-gray-100">
+                <thead class="bg-gray-50 text-gray-600 font-medium">
+                    <tr>
+                        <th class="py-3 px-4">Status</th>
+                        <th class="py-3 px-4">Invoice #</th>
+                        <th class="py-3 px-4">Due Date</th>
+                        <th class="py-3 px-4">Customer</th>
+                        <th class="py-3 px-4 text-right">Amount</th>
+                        <th class="py-3 px-4 text-center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var invoice in Model.Invoices)
+                    {
+                        var statusColor = invoice.Status switch
+                        {
+                            "Paid" => "bg-green-100 text-green-600",
+                            "Unpaid" => "bg-pink-100 text-pink-600",
+                            "Overdue" => "bg-yellow-100 text-yellow-600",
+                            "Partial" => "bg-blue-100 text-blue-600",
+                            "Draft" => "bg-gray-100 text-gray-600",
+                            "Cancelled" => "bg-red-100 text-red-600",
+                            _ => "bg-gray-100 text-gray-600"
+                        };
+
+                        <tr class="border-t transition cursor-pointer hover:bg-pink-50"
+                            data-id="@invoice.Id"
+                            data-invoice-number="@invoice.InvoiceNumber.ToLower()"
+                            data-billed-to="@invoice.BilledTo.ToLower()"
+                            data-due-date="@((invoice.DueDate?.ToString("dd MMM yyyy").ToLower()) ?? "")"
+                            onclick="selectInvoice('@invoice.Id')">
+
+                            <td class="py-3 px-4">
+                                <span class="@statusColor text-xs px-3 py-1 rounded-full font-medium">@invoice.Status</span>
+                            </td>
+                            <td class="py-3 px-4 font-medium text-gray-700">@invoice.InvoiceNumber</td>
+                            <td class="py-3 px-4 text-gray-600">@((invoice.DueDate?.ToString("dd MMM yyyy")) ?? "—")</td>
+                            <td class="py-3 px-4 text-gray-700">@invoice.BilledTo</td>
+                            <td class="py-3 px-4 text-right font-semibold text-gray-800">₱@invoice.Total.ToString("N2")</td>
+
+                            <td class="py-3 px-4 text-center">
+                                <button onclick="restoreInvoice('@invoice.Id')"
+                                        class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 text-xs rounded-lg transition">
+                                    Restore
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ======================================================
+        RIGHT: INVOICE DETAIL PREVIEW
+    ======================================================= -->
+    <div id="invoiceDetailContainer"
+         class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 text-sm text-gray-700 min-h-[300px]">
+        <p class="text-gray-500 text-center py-10">Select an invoice to view details</p>
+    </div>
+</div>
+<!-- ✅ Restore Confirmation Modal -->
+<div id="restoreModal"
+     class="hidden fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50">
+
+    <div class="bg-white rounded-2xl w-[380px] p-6 shadow-xl animate-fadeIn">
+
+        <h2 class="text-lg font-semibold text-gray-800 mb-3">
+            Restore Invoice?
+        </h2>
+
+        <p class="text-sm text-gray-600 mb-6">
+            Are you sure you want to restore this archived invoice?
+            Restored invoices will return to the active Invoices list.
+        </p>
+
+        <div class="flex justify-end gap-3">
+            <button onclick="closeRestoreModal()"
+                    class="px-4 py-2 text-sm rounded-lg border border-gray-300 hover:bg-gray-100 transition">
+                Cancel
+            </button>
+
+            <button id="confirmRestoreBtn"
+                    class="px-4 py-2 text-sm rounded-lg text-white bg-pink-500 hover:bg-pink-600 transition">
+                Restore
+            </button>
+        </div>
+
+    </div>
+</div>
+<form id="restoreForm" method="post" asp-action="Restore" asp-controller="Sales_Finance">
+    <input type="hidden" name="id" id="invoiceIdInput" />
+</form>
+<!--  Restore success Modal -->
+<div id="successModal"
+     class="fixed inset-0 flex justify-center items-center bg-black bg-opacity-50 hidden z-50">
+    <div class="bg-white rounded-2xl shadow-xl p-6 w-[350px] text-center">
+        <i class="fa-solid fa-circle-check text-green-500 text-4xl mb-3"></i>
+        <h2 class="text-lg font-semibold text-gray-800 mb-2">Invoice Restored</h2>
+        <p class="text-gray-600 text-sm mb-6">The invoice was successfully restored.</p>
+
+        <button onclick="closeSuccessModal()"
+                class="bg-pink-500 hover:bg-pink-600 text-white px-5 py-2 rounded-xl w-full transition">
+            OK
+        </button>
+    </div>
+</div>
+<style>
+
+</style>
+
+
+@{
+    var invoicesJson = System.Text.Json.JsonSerializer.Serialize(Model.Invoices);
+    var customersJson = System.Text.Json.JsonSerializer.Serialize(Model.Customers);
+    var productsJson = System.Text.Json.JsonSerializer.Serialize(Model.AvailableProducts);
+}
+
+<script>
+    window.appData = {
+        invoices: @Html.Raw(invoicesJson),
+        customers: @Html.Raw(customersJson),
+        availableProducts: @Html.Raw(productsJson)
+    };
+
+    let restoreInvoiceId = null;
+
+    function restoreInvoice(id) {
+        restoreInvoiceId = id;
+        document.getElementById("restoreModal").classList.remove("hidden");
+    }
+
+    function closeRestoreModal() {
+        document.getElementById("restoreModal").classList.add("hidden");
+        restoreInvoiceId = null;
+    }
+
+    document.getElementById("confirmRestoreBtn").addEventListener("click", () => {
+        if (restoreInvoiceId) {
+            document.getElementById("invoiceIdInput").value = restoreInvoiceId;
+            document.getElementById("restoreForm").submit();
+        }
+    });
+
+    // Show success modal after redirect
+    function showSuccessModal() {
+        document.getElementById("successModal").classList.remove("hidden");
+    }
+
+    function closeSuccessModal() {
+        document.getElementById("successModal").classList.add("hidden");
+        window.location.reload();
+    }
+
+
+
+</script>
+
+<script src="~/js/Invoice.js"></script>

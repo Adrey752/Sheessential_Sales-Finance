@@ -20,6 +20,8 @@ html {
 body {
   margin-bottom: 60px;
 }
+
+/* fooooor products toooooosteeeeer*/
 @keyframes slideIn {
     from {
         opacity: 0;
@@ -50,4 +52,21 @@ body {
 
 .animate-fadeOut {
     animation: fadeOut 0.3s ease-in forwards;
+}
+
+/* pooor restore modal */
+.animate-fadeIn {
+    animation: fadeIn 0.18s ease-out;
+}
+
+@keyframes fadeIn {
+    from {
+        transform: scale(0.95);
+        opacity: 0;
+    }
+
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
 }

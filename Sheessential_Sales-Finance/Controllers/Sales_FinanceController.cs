@@ -11,6 +11,7 @@ using System;
 using DinkToPdf;
 using DinkToPdf.Contracts;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
+using System.Security.Cryptography.X509Certificates;
 
 namespace Sheessential_Sales_Finance.Controllers
 {
@@ -368,9 +369,90 @@ namespace Sheessential_Sales_Finance.Controllers
             return View(viewModel);
         }
 
+        public async Task<IActionResult> InvoiceArchieves()
+        {
+            // Fetch all invoices first
+            var invoices = await _mongo.Invoices
+                .Find(invoice => invoice.IsArchived)
+                .SortByDescending(i => i.CreatedAt)
+                .ToListAsync();
+
+            // Update overdue invoices
+            var now = DateTime.UtcNow;
+            var overdueInvoices = invoices
+                .Where(i => i.Status == "Unpaid" && i.DueDate.HasValue && i.DueDate.Value < now)
+                .ToList();
+
+            if (overdueInvoices.Any())
+            {
+                foreach (var invoice in overdueInvoices)
+                {
+                    invoice.Status = "Overdue";
+                    invoice.UpdatedAt = now;
+
+                    // Update in MongoDB
+                    var filter = Builders<Invoice>.Filter.Eq(i => i.Id, invoice.Id);
+                    var update = Builders<Invoice>.Update
+                        .Set(i => i.Status, "Overdue")
+                        .Set(i => i.UpdatedAt, now);
+
+                    await _mongo.Invoices.UpdateOneAsync(filter, update);
+                }
+            }
 
 
+           
 
+
+            // Calculate totals
+            var overdueAmount = invoices.Where(i => i.Status == "Overdue").Sum(i => i.Total);
+            var openAmount = invoices.Where(i => i.Status == "Unpaid").Sum(i => i.Total);
+            var draftedAmount = invoices.Where(i => i.Status == "Draft").Sum(i => i.Total);
+
+            //  Replace billedTo with readable name
+            foreach (var invoice in invoices)
+            {
+                var billedTo = await _mongo.Users.Find(u => u.Id == invoice.BilledTo).FirstOrDefaultAsync();
+                invoice.BilledTo = billedTo?.FullName ?? "Unknown Customer";
+            }
+
+            // Fetch available products
+            var availableProducts = await _mongo.Inventories
+                .Find(_ => true)
+                .SortBy(p => p.Item)
+                .ToListAsync();
+
+            //  Fetch customer list
+            var customers = await _mongo.Users
+                .Find(u => u.Role.ToLower() == "customer")
+                .SortBy(u => u.FirstName)
+                .ToListAsync();
+
+            var viewModel = new InvoiceListViewModel
+            {
+                Invoices = invoices,
+                OverdueAmount = overdueAmount,
+                OpenAmount = openAmount,
+                DraftedAmount = draftedAmount,
+                AvailableProducts = availableProducts,
+                Customers = customers,
+            };
+
+            ViewBag.NextInvoiceNumber = await GenerateInvoiceNumber();
+            return View(viewModel);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> Restore(string id)
+        {
+            var filter = Builders<Invoice>.Filter.Eq(i => i.Id, id);
+            var update = Builders<Invoice>.Update
+                .Set(invoice => invoice.IsArchived, false);
+            TempData["Restored"] = true;
+            _logger.LogInformation("\n\n\nRestore bruhh\n\n\n\n");
+            await _mongo.Invoices.UpdateOneAsync(filter, update);
+            return RedirectToAction("InvoiceArchieves");
+        }
 
 
         [HttpPost]

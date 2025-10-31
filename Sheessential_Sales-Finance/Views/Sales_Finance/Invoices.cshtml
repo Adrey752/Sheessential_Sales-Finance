@@ -42,6 +42,7 @@
                         <i class="fa-solid fa-plus mr-1"></i> New Invoice
                     </a>
 
+
                     <!-- Search Input -->
                     <div class="relative">
                         <input type="text"
@@ -55,6 +56,13 @@
                         <div id="searchSuggestions" 
                              class="absolute left-0 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg hidden z-50 overflow-hidden"></div> 
                     </div>
+                    <!-- Archive Button (small, subtle) -->
+                    <a href="/Sales_Finance/InvoiceArchieves"
+                       class="text-gray-500 hover:text-gray-700 border border-gray-300 hover:border-gray-400
+              px-3 py-2 rounded-xl text-sm flex items-center gap-1 transition"
+                       title="View archived invoices">
+                        <i class="fa-solid fa-box-archive"></i>
+                    </a>
                 </div>
             </div>
 
@@ -170,7 +178,7 @@
                     <i class="fa-solid fa-search absolute left-3 top-2.5 text-gray-400 text-sm"></i>
 
                     <!-- Customer Suggestions -->
-                    <div id="customerSuggestions"
+                <div id="customerSuggestions"
                          class="absolute mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-md hidden max-h-48 overflow-y-auto z-10"></div>
                 </div>
 
