@@ -732,25 +732,60 @@ namespace Sheessential_Sales_Finance.Controllers
         //Expenses in expense page
         public IActionResult Expenses()
         {
-            var expenses = _mongo.Expenses.Find(_ => true).ToList();
+            try
+            {
+                // Fetch all expenses
+                var expenses = _mongo.Expenses.Find(_ => true).ToList() ?? new List<Expenses>();
 
-            // Calculate totals
-            var totalExpenses = expenses.Sum(e => e.Amount);
-            var pendingTotal = expenses.Where(e => e.Status == "Pending").Sum(e => e.Amount);
-            var approvedTotal = expenses.Where(e => e.Status == "Approved").Sum(e => e.Amount);
-            var declinedTotal = expenses.Where(e => e.Status == "Declined").Sum(e => e.Amount);
+                // Fetch the current balance (assuming only 1 document in Balance collection)
+                var balance = _mongo.Balance.Find(_ => true).FirstOrDefault();
 
-            // Filter for table display (only pending)
-            var pendingExpenses = expenses.Where(e => e.Status == "Pending").ToList();
+                // Calculate totals safely
+                var totalExpenses = expenses.Sum(e => e?.Amount ?? 0);
+                var pendingTotal = expenses.Where(e => e?.Status == "Pending").Sum(e => e?.Amount ?? 0);
+                var approvedTotal = expenses.Where(e => e?.Status == "Approved").Sum(e => e?.Amount ?? 0);
+                var declinedTotal = expenses.Where(e => e?.Status == "Declined").Sum(e => e?.Amount ?? 0);
 
-            ViewBag.TotalExpenses = totalExpenses;
-            ViewBag.PendingTotal = pendingTotal;
-            ViewBag.ApprovedTotal = approvedTotal;
-            ViewBag.DeclinedTotal = declinedTotal;
+                // Filter pending expenses for table display
+                var pendingExpenses = expenses.Where(e => e?.Status == "Pending").ToList();
 
-            // Return only pending expenses to the view
-            return View(pendingExpenses);
+                // Pass totals to ViewBag
+                ViewBag.TotalExpenses = totalExpenses;
+                ViewBag.PendingTotal = pendingTotal;
+                ViewBag.ApprovedTotal = approvedTotal;
+                ViewBag.DeclinedTotal = declinedTotal;
+
+                // Prepare ViewModel
+                var viewModel = new ExpensesWithBalanceViewModel
+                {
+                    Expenses = pendingExpenses,
+                    Balance = balance
+                };
+
+                return View(viewModel);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error loading Expenses page.");
+
+                // Prepare empty ViewModel
+                var viewModel = new ExpensesWithBalanceViewModel
+                {
+                    Expenses = new List<Expenses>(),
+                    Balance = new Balance { CurrentBalance = 0 }
+                };
+
+                // Pass zero totals to ViewBag
+                ViewBag.TotalExpenses = 0;
+                ViewBag.PendingTotal = 0;
+                ViewBag.ApprovedTotal = 0;
+                ViewBag.DeclinedTotal = 0;
+
+                return View(viewModel);
+            }
         }
+
+
 
 
         //accept expense
@@ -972,8 +1007,6 @@ public IActionResult ArchiveVendor(string Id)
 
             return RedirectToAction("Vendors"); // or wherever your restore page is
         }
-
-
 
 
 
