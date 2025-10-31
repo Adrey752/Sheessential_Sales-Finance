@@ -98,6 +98,34 @@
                 }
             </tbody>
         </table>
+        <!-- PAGINATION -->
+        <div class="flex justify-center items-center mt-6 space-x-2">
+            @if (ViewBag.Page > 1)
+            {
+                <a href="@Url.Action("Vendors", new { page = ViewBag.Page - 1 })"
+                   class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">Previous</a>
+            }
+
+            @for (int i = 1; i <= ViewBag.TotalPages; i++)
+            {
+                if (i == ViewBag.Page)
+                {
+                    <span class="px-4 py-2 bg-blue-600 text-white rounded-lg">@i</span>
+                }
+                else
+                {
+                    <a href="@Url.Action("Vendors", new { page = i })"
+                       class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">@i</a>
+                }
+            }
+
+            @if (ViewBag.Page < ViewBag.TotalPages)
+            {
+                <a href="@Url.Action("Vendors", new { page = ViewBag.Page + 1 })"
+                   class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">Next</a>
+            }
+        </div>
+
     </div>
 
 </div>
@@ -309,12 +337,13 @@
                     <th class="p-3 text-left">Email</th>
                     <th class="p-3 text-left">Status</th>
                     <th class="p-3 text-left">Total Purchases</th>
+                    <th class="p-3 text-left">Action</th>
                 </tr>
             </thead>
             <tbody>
                 @if (Model != null && Model.Count() > 0)
                 {
-                    foreach (var vendor in Model.Where(v => v.IsArchived)) // only archived
+                    @foreach (var vendor in ViewBag.ArchivedVendors as List<Sheessential_Sales_Finance.Models.Vendor>)
                     {
                         <tr class="border-t hover:bg-gray-50">
                             <td class="p-3">@vendor.VendorId</td>
@@ -328,20 +357,58 @@
                                 </span>
                             </td>
                             <td class="p-3">₱@vendor.TotalPurchases.ToString("N0")</td>
+                            <td class="p-3">
+
+                                <form asp-action="RestoreVendor" method="post">
+                                    <input type="hidden" name="id" value="@vendor.Id" />
+                                    <button type="submit" class="btn btn-success">Restore</button>
+                                </form>
+
+                            </td>
                         </tr>
                     }
                 }
                 else
                 {
                     <tr>
-                        <td colspan="7" class="text-center p-3 text-gray-500">No archived vendors found.</td>
+                        <td colspan="8" class="text-center p-3 text-gray-500">No archived vendors found.</td>
                     </tr>
                 }
             </tbody>
-
         </table>
+        <!-- ACTIVE VENDORS PAGINATION -->
+        <!-- ARCHIVED VENDORS PAGINATION -->
+        <div class="flex justify-center items-center mt-6 space-x-2">
+            @if (ViewBag.ArchivedPage > 1)
+            {
+                <a href="@Url.Action("Vendors", new { page = ViewBag.Page, archivedPage = ViewBag.ArchivedPage - 1, showArchived = true })"
+                   class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">Previous</a>
+            }
+
+            @for (int i = 1; i <= ViewBag.TotalArchivedPages; i++)
+            {
+                if (i == ViewBag.ArchivedPage)
+                {
+                    <span class="px-4 py-2 bg-blue-600 text-white rounded-lg">@i</span>
+                }
+                else
+                {
+                    <a href="@Url.Action("Vendors", new { page = ViewBag.Page, archivedPage = i, showArchived = true })"
+                       class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">@i</a>
+                }
+            }
+
+            @if (ViewBag.ArchivedPage < ViewBag.TotalArchivedPages)
+            {
+                <a href="@Url.Action("Vendors", new { page = ViewBag.Page, archivedPage = ViewBag.ArchivedPage + 1, showArchived = true })"
+                   class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">Next</a>
+            }
+        </div>
+
+
     </div>
 </div>
+
 
 
 
@@ -432,6 +499,15 @@
 </script>
 
 
+<script>
+    // Auto-open the Archived Vendors modal if "showArchived=true" is in the URL
+    document.addEventListener("DOMContentLoaded", function () {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get("showArchived") === "true") {
+            openArchivedModal();
+        }
+    });
+</script>
 
 
 

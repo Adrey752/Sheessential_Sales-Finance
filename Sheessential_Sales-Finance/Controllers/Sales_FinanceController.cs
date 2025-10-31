@@ -814,18 +814,39 @@ namespace Sheessential_Sales_Finance.Controllers
 
 
         //Get all Vendors
-        public IActionResult Vendors()
+        public IActionResult Vendors(int page = 1)
         {
-            // Only get vendors that are not archived
-            var vendors = _mongo.Vendors.Find(v => v.IsArchived == false).ToList();
+            int pageSize = 5; // ✅ show only 5 vendors per page
+            int skip = (page - 1) * pageSize;
 
-            ViewBag.TotalVendors = vendors.Count;
-            ViewBag.ActiveVendors = vendors.Count(v => v.Status == "Active");
-            ViewBag.InactiveVendors = vendors.Count(v => v.Status == "Inactive");
-            ViewBag.PendingBills = vendors.Sum(v => v.TotalPurchases);
+            // Filter only non-archived vendors
+            var vendorsQuery = _mongo.Vendors.Find(v => v.IsArchived == false);
+
+            // Get total count
+            var totalVendors = vendorsQuery.CountDocuments();
+
+            // Apply pagination
+            var vendors = vendorsQuery
+                .Skip(skip)
+                .Limit(pageSize)
+                .ToList();
+
+            // Archived Vendors for the modal
+            var archivedVendors = _mongo.Vendors.Find(v => v.IsArchived == true).ToList();
+
+            // Store pagination data for the view
+            ViewBag.TotalVendors = totalVendors;
+            ViewBag.Page = page;
+            ViewBag.TotalPages = (int)Math.Ceiling(totalVendors / (double)pageSize);
+
+            ViewBag.ActiveVendors = _mongo.Vendors.CountDocuments(v => v.Status == "Active" && !v.IsArchived);
+            ViewBag.InactiveVendors = _mongo.Vendors.CountDocuments(v => v.Status == "Inactive" && !v.IsArchived);
+            ViewBag.PendingBills = 0; // placeholder
+            ViewBag.ArchivedVendors = archivedVendors;
 
             return View(vendors);
         }
+
 
 
 
@@ -906,7 +927,7 @@ public IActionResult ArchiveVendor(string Id)
     return RedirectToAction("Vendors"); // or your vendor list action
 }
 
-        //Get all Archived Vendors
+        //Get all Archived Vendors I think we are not using this one
         public IActionResult ArchivedVendors()
         {
             // Only get vendors that are not archived
@@ -919,6 +940,39 @@ public IActionResult ArchiveVendor(string Id)
 
             return View(vendors);
         }
+
+
+
+        // ✅ RESTORE VENDOR
+        [HttpPost]
+        public IActionResult RestoreVendor(string id)
+        {
+            if (string.IsNullOrEmpty(id))
+            {
+                return BadRequest();
+            }
+
+            try
+            {
+                var objectId = new MongoDB.Bson.ObjectId(id); // convert string to ObjectId
+                var filter = Builders<Vendor>.Filter.Eq(v => v.Id, id);
+                var update = Builders<Vendor>.Update.Set(v => v.IsArchived, false);
+
+                var result = _mongo.Vendors.UpdateOne(filter, update);
+
+                if (result.ModifiedCount > 0)
+                    TempData["SuccessMessage"] = "Vendor restored successfully.";
+                else
+                    TempData["ErrorMessage"] = "Vendor not found or already active.";
+            }
+            catch (FormatException)
+            {
+                TempData["ErrorMessage"] = "Invalid vendor ID format.";
+            }
+
+            return RedirectToAction("Vendors"); // or wherever your restore page is
+        }
+
 
 
 
