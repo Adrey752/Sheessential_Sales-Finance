@@ -730,35 +730,47 @@ namespace Sheessential_Sales_Finance.Controllers
         }
 
         //Expenses in expense page
-        public IActionResult Expenses()
+        public IActionResult Expenses(string status, DateTime? startDate, DateTime? endDate)
         {
             try
             {
-                // Fetch all expenses
-                var expenses = _mongo.Expenses.Find(_ => true).ToList() ?? new List<Expenses>();
+                // ✅ Default to "Pending" if no filter is provided
+                if (string.IsNullOrEmpty(status))
+                    status = "Pending";
 
-                // Fetch the current balance (assuming only 1 document in Balance collection)
+                var filter = Builders<Expenses>.Filter.Empty;
+
+                // ✅ Apply Status Filter
+                if (!string.IsNullOrEmpty(status))
+                {
+                    filter &= Builders<Expenses>.Filter.Eq(e => e.Status, status);
+                }
+
+                // ✅ Apply Date Range Filter
+                if (startDate.HasValue && endDate.HasValue)
+                {
+                    filter &= Builders<Expenses>.Filter.Gte(e => e.RequestedAt, startDate.Value)
+                           & Builders<Expenses>.Filter.Lte(e => e.RequestedAt, endDate.Value);
+                }
+
+                // ✅ Fetch filtered expenses
+                var expenses = _mongo.Expenses.Find(filter).ToList() ?? new List<Expenses>();
+
+                // ✅ Fetch current balance
                 var balance = _mongo.Balance.Find(_ => true).FirstOrDefault();
 
-                // Calculate totals safely
-                var totalExpenses = expenses.Sum(e => e?.Amount ?? 0);
-                var pendingTotal = expenses.Where(e => e?.Status == "Pending").Sum(e => e?.Amount ?? 0);
-                var approvedTotal = expenses.Where(e => e?.Status == "Approved").Sum(e => e?.Amount ?? 0);
-                var declinedTotal = expenses.Where(e => e?.Status == "Declined").Sum(e => e?.Amount ?? 0);
+                // ✅ Totals
+                ViewBag.TotalExpenses = expenses.Sum(e => e?.Amount ?? 0);
+                ViewBag.PendingTotal = expenses.Where(e => e.Status == "Pending").Sum(e => e.Amount);
+                ViewBag.ApprovedTotal = expenses.Where(e => e.Status == "Approved").Sum(e => e.Amount);
+                ViewBag.DeclinedTotal = expenses.Where(e => e.Status == "Declined").Sum(e => e.Amount);
 
-                // Filter pending expenses for table display
-                var pendingExpenses = expenses.Where(e => e?.Status == "Pending").ToList();
+                // ✅ Pass the selected filter to the view so dropdown keeps selected value
+                ViewBag.SelectedStatus = status;
 
-                // Pass totals to ViewBag
-                ViewBag.TotalExpenses = totalExpenses;
-                ViewBag.PendingTotal = pendingTotal;
-                ViewBag.ApprovedTotal = approvedTotal;
-                ViewBag.DeclinedTotal = declinedTotal;
-
-                // Prepare ViewModel
                 var viewModel = new ExpensesWithBalanceViewModel
                 {
-                    Expenses = pendingExpenses,
+                    Expenses = expenses,
                     Balance = balance
                 };
 
@@ -767,23 +779,15 @@ namespace Sheessential_Sales_Finance.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error loading Expenses page.");
-
-                // Prepare empty ViewModel
-                var viewModel = new ExpensesWithBalanceViewModel
+                return View(new ExpensesWithBalanceViewModel
                 {
                     Expenses = new List<Expenses>(),
                     Balance = new Balance { CurrentBalance = 0 }
-                };
-
-                // Pass zero totals to ViewBag
-                ViewBag.TotalExpenses = 0;
-                ViewBag.PendingTotal = 0;
-                ViewBag.ApprovedTotal = 0;
-                ViewBag.DeclinedTotal = 0;
-
-                return View(viewModel);
+                });
             }
         }
+
+
 
 
 
@@ -792,28 +796,63 @@ namespace Sheessential_Sales_Finance.Controllers
         [HttpPost]
         public IActionResult ApproveExpense(string id)
         {
-            var filter = Builders<Expenses>.Filter.Eq(e => e.Id, id);
-            var update = Builders<Expenses>.Update
-                .Set(e => e.Status, "Approved")
-                .Set(e => e.RequestedAt, DateTime.UtcNow);
+            try
+            {
+                // ✅ 1. Find the expense record
+                var expense = _mongo.Expenses.Find(e => e.Id == id).FirstOrDefault();
+                if (expense == null)
+                {
+                    _logger.LogWarning($"Expense with ID {id} not found.");
+                    return RedirectToAction("Expenses");
+                }
 
-            _mongo.Expenses.UpdateOne(filter, update); // ✅ FIXED: Use _mongo.Expenses
+                // ✅ 2. Find the current balance (assuming only 1 record)
+                var balance = _mongo.Balance.Find(_ => true).FirstOrDefault();
 
-            return RedirectToAction("Expenses");
+                if (balance != null)
+                {
+                    // ✅ 3. Check if there's enough balance
+                    if (balance.CurrentBalance >= expense.Amount)
+                    {
+                        // Deduct the expense amount
+                        balance.CurrentBalance -= expense.Amount;
+
+                        // ✅ 4. Update the Balance collection
+                        var balanceFilter = Builders<Balance>.Filter.Eq(b => b.Id, balance.Id);
+                        var balanceUpdate = Builders<Balance>.Update
+                            .Set(b => b.CurrentBalance, balance.CurrentBalance);
+                        _mongo.Balance.UpdateOne(balanceFilter, balanceUpdate);
+
+                        // ✅ 5. Update the Expense status
+                        var expenseFilter = Builders<Expenses>.Filter.Eq(e => e.Id, id);
+                        var expenseUpdate = Builders<Expenses>.Update
+                            .Set(e => e.Status, "Approved")
+                            .Set(e => e.RequestedAt, DateTime.UtcNow);
+                        _mongo.Expenses.UpdateOne(expenseFilter, expenseUpdate);
+
+                        _logger.LogInformation($"Expense {id} approved and balance updated.");
+                    }
+                    else
+                    {
+                        // Not enough balance to approve
+                        TempData["Error"] = "Insufficient balance to approve this expense.";
+                    }
+                }
+                else
+                {
+                    _logger.LogWarning("No balance record found in the database.");
+                }
+
+                return RedirectToAction("Expenses");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error approving expense with ID {id}");
+                TempData["Error"] = "An error occurred while approving the expense.";
+                return RedirectToAction("Expenses");
+            }
         }
-        //decline expense
-        [HttpPost]
-        public IActionResult DeclineExpense(string id)
-        {
-            var filter = Builders<Expenses>.Filter.Eq(e => e.Id, id);
-            var update = Builders<Expenses>.Update
-                .Set(e => e.Status, "Declined")
-                .Set(e => e.RequestedAt, DateTime.UtcNow);
 
-            _mongo.Expenses.UpdateOne(filter, update); // ✅ FIXED: Use _mongo.Expenses
-
-            return RedirectToAction("Expenses");
-        }
 
         // Add new expense
         [HttpPost]
