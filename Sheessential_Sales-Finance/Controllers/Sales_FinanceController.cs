@@ -732,25 +732,60 @@ namespace Sheessential_Sales_Finance.Controllers
         //Expenses in expense page
         public IActionResult Expenses()
         {
-            var expenses = _mongo.Expenses.Find(_ => true).ToList();
+            try
+            {
+                // Fetch all expenses
+                var expenses = _mongo.Expenses.Find(_ => true).ToList() ?? new List<Expenses>();
 
-            // Calculate totals
-            var totalExpenses = expenses.Sum(e => e.Amount);
-            var pendingTotal = expenses.Where(e => e.Status == "Pending").Sum(e => e.Amount);
-            var approvedTotal = expenses.Where(e => e.Status == "Approved").Sum(e => e.Amount);
-            var declinedTotal = expenses.Where(e => e.Status == "Declined").Sum(e => e.Amount);
+                // Fetch the current balance (assuming only 1 document in Balance collection)
+                var balance = _mongo.Balance.Find(_ => true).FirstOrDefault();
 
-            // Filter for table display (only pending)
-            var pendingExpenses = expenses.Where(e => e.Status == "Pending").ToList();
+                // Calculate totals safely
+                var totalExpenses = expenses.Sum(e => e?.Amount ?? 0);
+                var pendingTotal = expenses.Where(e => e?.Status == "Pending").Sum(e => e?.Amount ?? 0);
+                var approvedTotal = expenses.Where(e => e?.Status == "Approved").Sum(e => e?.Amount ?? 0);
+                var declinedTotal = expenses.Where(e => e?.Status == "Declined").Sum(e => e?.Amount ?? 0);
 
-            ViewBag.TotalExpenses = totalExpenses;
-            ViewBag.PendingTotal = pendingTotal;
-            ViewBag.ApprovedTotal = approvedTotal;
-            ViewBag.DeclinedTotal = declinedTotal;
+                // Filter pending expenses for table display
+                var pendingExpenses = expenses.Where(e => e?.Status == "Pending").ToList();
 
-            // Return only pending expenses to the view
-            return View(pendingExpenses);
+                // Pass totals to ViewBag
+                ViewBag.TotalExpenses = totalExpenses;
+                ViewBag.PendingTotal = pendingTotal;
+                ViewBag.ApprovedTotal = approvedTotal;
+                ViewBag.DeclinedTotal = declinedTotal;
+
+                // Prepare ViewModel
+                var viewModel = new ExpensesWithBalanceViewModel
+                {
+                    Expenses = pendingExpenses,
+                    Balance = balance
+                };
+
+                return View(viewModel);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error loading Expenses page.");
+
+                // Prepare empty ViewModel
+                var viewModel = new ExpensesWithBalanceViewModel
+                {
+                    Expenses = new List<Expenses>(),
+                    Balance = new Balance { CurrentBalance = 0 }
+                };
+
+                // Pass zero totals to ViewBag
+                ViewBag.TotalExpenses = 0;
+                ViewBag.PendingTotal = 0;
+                ViewBag.ApprovedTotal = 0;
+                ViewBag.DeclinedTotal = 0;
+
+                return View(viewModel);
+            }
         }
+
+
 
 
         //accept expense
@@ -814,18 +849,39 @@ namespace Sheessential_Sales_Finance.Controllers
 
 
         //Get all Vendors
-        public IActionResult Vendors()
+        public IActionResult Vendors(int page = 1)
         {
-            // Only get vendors that are not archived
-            var vendors = _mongo.Vendors.Find(v => v.IsArchived == false).ToList();
+            int pageSize = 5; // ✅ show only 5 vendors per page
+            int skip = (page - 1) * pageSize;
 
-            ViewBag.TotalVendors = vendors.Count;
-            ViewBag.ActiveVendors = vendors.Count(v => v.Status == "Active");
-            ViewBag.InactiveVendors = vendors.Count(v => v.Status == "Inactive");
-            ViewBag.PendingBills = vendors.Sum(v => v.TotalPurchases);
+            // Filter only non-archived vendors
+            var vendorsQuery = _mongo.Vendors.Find(v => v.IsArchived == false);
+
+            // Get total count
+            var totalVendors = vendorsQuery.CountDocuments();
+
+            // Apply pagination
+            var vendors = vendorsQuery
+                .Skip(skip)
+                .Limit(pageSize)
+                .ToList();
+
+            // Archived Vendors for the modal
+            var archivedVendors = _mongo.Vendors.Find(v => v.IsArchived == true).ToList();
+
+            // Store pagination data for the view
+            ViewBag.TotalVendors = totalVendors;
+            ViewBag.Page = page;
+            ViewBag.TotalPages = (int)Math.Ceiling(totalVendors / (double)pageSize);
+
+            ViewBag.ActiveVendors = _mongo.Vendors.CountDocuments(v => v.Status == "Active" && !v.IsArchived);
+            ViewBag.InactiveVendors = _mongo.Vendors.CountDocuments(v => v.Status == "Inactive" && !v.IsArchived);
+            ViewBag.PendingBills = 0; // placeholder
+            ViewBag.ArchivedVendors = archivedVendors;
 
             return View(vendors);
         }
+
 
 
 
@@ -906,7 +962,7 @@ namespace Sheessential_Sales_Finance.Controllers
             return RedirectToAction("Vendors"); // or your vendor list action
         }
 
-        //Get all Archived Vendors
+        //Get all Archived Vendors I think we are not using this one
         public IActionResult ArchivedVendors()
         {
             // Only get vendors that are not archived
@@ -920,6 +976,37 @@ namespace Sheessential_Sales_Finance.Controllers
             return View(vendors);
         }
 
+
+
+        // ✅ RESTORE VENDOR
+        [HttpPost]
+        public IActionResult RestoreVendor(string id)
+        {
+            if (string.IsNullOrEmpty(id))
+            {
+                return BadRequest();
+            }
+
+            try
+            {
+                var objectId = new MongoDB.Bson.ObjectId(id); // convert string to ObjectId
+                var filter = Builders<Vendor>.Filter.Eq(v => v.Id, id);
+                var update = Builders<Vendor>.Update.Set(v => v.IsArchived, false);
+
+                var result = _mongo.Vendors.UpdateOne(filter, update);
+
+                if (result.ModifiedCount > 0)
+                    TempData["SuccessMessage"] = "Vendor restored successfully.";
+                else
+                    TempData["ErrorMessage"] = "Vendor not found or already active.";
+            }
+            catch (FormatException)
+            {
+                TempData["ErrorMessage"] = "Invalid vendor ID format.";
+            }
+
+            return RedirectToAction("Vendors"); // or wherever your restore page is
+        }
 
 
 

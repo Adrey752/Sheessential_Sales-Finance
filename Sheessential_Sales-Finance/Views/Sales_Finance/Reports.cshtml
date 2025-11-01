@@ -2,79 +2,216 @@
     ViewBag.Title = "Dashboard";
 }
 
-<div class="p-8 bg-gray-50 min-h-screen">
+<style>
+    @@keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @@keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateX(-20px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+
+    .fade-in {
+        animation: fadeIn 0.5s ease-out forwards;
+    }
+
+    .slide-in {
+        animation: slideIn 0.6s ease-out forwards;
+    }
+
+    .card-hover {
+        transition: all 0.3s ease;
+    }
+
+        .card-hover:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
+        }
+
+    .btn-primary {
+        transition: all 0.2s ease;
+    }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+        }
+
+    .stat-card {
+        position: relative;
+        overflow: hidden;
+    }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 100px;
+            height: 100px;
+            background: linear-gradient(135deg, rgba(236, 72, 153, 0.1), transparent);
+            border-radius: 0 0 0 100%;
+        }
+
+    .chart-container {
+        position: relative;
+        padding: 1.5rem;
+    }
+
+    .loading-spinner {
+        display: none;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+    }
+
+    select {
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M10.293 3.293L6 7.586 1.707 3.293A1 1 0 00.293 4.707l5 5a1 1 0 001.414 0l5-5a1 1 0 10-1.414-1.414z'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 0.75rem center;
+        padding-right: 2.5rem;
+    }
+</style>
+
+<div class="p-4 md:p-8 bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
+    <!-- Header Section -->
+    <div class="mb-8 slide-in">
+        <h1 class="text-3xl md:text-4xl font-bold text-gray-800 mb-2">Financial Dashboard</h1>
+        <p class="text-gray-600">Overview of your business performance</p>
+    </div>
+
     <!-- Summary Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-    <div class="bg-white rounded-2xl shadow p-6 text-center">
-        <div class="text-gray-500 mb-2">Total Revenue</div>
-        <div class="text-2xl font-semibold text-gray-800">₱ @ViewBag.Revenue.ToString("N2")</div>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-8">
+        <div class="stat-card bg-white rounded-2xl shadow-lg p-6 card-hover fade-in" style="animation-delay: 0.1s;">
+            <div class="flex items-start justify-between mb-3">
+                <div class="p-3 bg-green-100 rounded-xl">
+                    <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                </div>
+                <span class="text-xs font-medium text-green-600 bg-green-50 px-2 py-1 rounded-full">Income</span>
+            </div>
+            <div class="text-sm text-gray-500 mb-1">Total Revenue</div>
+            <div class="text-3xl font-bold text-gray-800">₱ @ViewBag.Revenue.ToString("N2")</div>
+        </div>
+
+        <div class="stat-card bg-white rounded-2xl shadow-lg p-6 card-hover fade-in" style="animation-delay: 0.2s;">
+            <div class="flex items-start justify-between mb-3">
+                <div class="p-3 bg-red-100 rounded-xl">
+                    <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"></path>
+                    </svg>
+                </div>
+                <span class="text-xs font-medium text-red-600 bg-red-50 px-2 py-1 rounded-full">Expenses</span>
+            </div>
+            <div class="text-sm text-gray-500 mb-1">Total Expense</div>
+            <div class="text-3xl font-bold text-gray-800">₱ @ViewBag.Expense.ToString("N2")</div>
+        </div>
+
+        <div class="stat-card bg-white rounded-2xl shadow-lg p-6 card-hover fade-in" style="animation-delay: 0.3s;">
+            <div class="flex items-start justify-between mb-3">
+                <div class="p-3 bg-blue-100 rounded-xl">
+                    <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                    </svg>
+                </div>
+                <span class="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded-full">Activity</span>
+            </div>
+            <div class="text-sm text-gray-500 mb-1">Total Transactions</div>
+            <div class="text-3xl font-bold text-gray-800">@ViewBag.TotalTransactions</div>
+        </div>
     </div>
 
-    <div class="bg-white rounded-2xl shadow p-6 text-center">
-        <div class="text-gray-500 mb-2">Total Expense</div>
-        <div class="text-2xl font-semibold text-gray-800">₱ @ViewBag.Expense.ToString("N2")</div>
-    </div>
-
-    <div class="bg-white rounded-2xl shadow p-6 text-center">
-        <div class="text-gray-500 mb-2">Total Transactions</div>
-        <div class="text-2xl font-semibold text-gray-800">@ViewBag.TotalTransactions</div>
-    </div>
-</div>
-
-
-    <!-- Buttons -->
-    <div class="flex justify-end space-x-3 mb-6">
-        <button class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg" onclick="sendChartsToServer()">Export to PDF</button>
-        <button class="bg-green-300 hover:bg-green-400 text-white px-4 py-2 rounded-lg">Print Report</button>
+    <!-- Action Buttons -->
+    <div class="flex flex-col sm:flex-row justify-end gap-3 mb-6 fade-in" style="animation-delay: 0.4s;">
+        <button class="btn-primary bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-6 py-3 rounded-xl font-medium shadow-lg flex items-center justify-center gap-2" onclick="sendChartsToServer()">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+            </svg>
+            Export to PDF
+        </button>
+        <button class="bg-white hover:bg-gray-50 text-gray-700 px-6 py-3 rounded-xl font-medium shadow-lg border border-gray-200 flex items-center justify-center gap-2 transition-all">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+            </svg>
+            Print Report
+        </button>
     </div>
 
     <!-- Charts Section -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 mb-6 md:mb-8">
         <!-- Sales Report -->
-        <!-- Sales Report -->
-        <div class="bg-white rounded-2xl shadow p-6">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="font-semibold text-gray-700">Sales Report</h2>
+        <div class="bg-white rounded-2xl shadow-lg overflow-hidden fade-in" style="animation-delay: 0.5s;">
+            <div class="bg-gradient-to-r from-pink-500 to-pink-600 p-6">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                    <div>
+                        <h2 class="text-xl font-bold text-white mb-1">Sales Report</h2>
+                        <p class="text-pink-100 text-sm">Track your sales performance</p>
+                    </div>
+                    <select id="salesPeriodSelect"
+                            class="bg-white border-0 text-sm rounded-lg px-4 py-2 focus:ring-2 focus:ring-pink-300 focus:outline-none shadow-md text-gray-700 font-medium">
+                        <option value="monthly" selected>Monthly</option>
+                        <option value="weekly">Weekly</option>
+                        <option value="yearly">Yearly</option>
+                    </select>
+                </div>
+            </div>
+            <div class="chart-container">
+                <canvas id="salesChart"></canvas>
+            </div>
+        </div>
 
-                <!-- Period Dropdown -->
-                <select id="salesPeriodSelect"
-                        class="border border-gray-300 text-sm rounded-xl px-3 py-1.5 focus:ring-2 focus:ring-pink-400 focus:border-pink-400">
+        <!-- Expense Breakdown -->
+        <div class="bg-white rounded-2xl shadow-lg overflow-hidden fade-in" style="animation-delay: 0.6s;">
+            <div class="bg-gradient-to-r from-blue-500 to-blue-600 p-6">
+                <h2 class="text-xl font-bold text-white mb-1">Expense Breakdown</h2>
+                <p class="text-blue-100 text-sm">Distribution of your expenses</p>
+            </div>
+            <div class="chart-container">
+                <canvas id="expenseChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Revenue vs Expense -->
+    <div class="bg-white rounded-2xl shadow-lg overflow-hidden fade-in" style="animation-delay: 0.7s;">
+        <div class="bg-gradient-to-r from-purple-500 to-purple-600 p-6">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                <div>
+                    <h2 class="text-xl font-bold text-white mb-1">Revenue vs Expense</h2>
+                    <p class="text-purple-100 text-sm">Compare income and spending trends</p>
+                </div>
+                <select id="periodSelect"
+                        class="bg-white border-0 text-sm rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-300 focus:outline-none shadow-md text-gray-700 font-medium">
                     <option value="monthly" selected>Monthly</option>
                     <option value="weekly">Weekly</option>
+                    <option value="quarterly">Quarterly</option>
                     <option value="yearly">Yearly</option>
                 </select>
             </div>
-
-            <canvas id="salesChart"></canvas>
         </div>
-
-
-        <!-- Expense Breakdown -->
-        <div class="bg-white rounded-2xl shadow p-6">
-            <h2 class="font-semibold text-gray-700 mb-4">Expense Breakdown</h2>
-            <canvas id="expenseChart"></canvas>
+        <div class="chart-container">
+            <canvas id="cashFlowChart"></canvas>
         </div>
     </div>
-
-    <!-- Revenue vs Expense -->
-    <!-- Revenue vs Expense -->
-    <div class="bg-white rounded-2xl shadow p-6">
-        <div class="flex justify-between items-center mb-4">
-            <h2 class="font-semibold text-gray-700">Revenue vs Expense</h2>
-
-            <!-- Period Dropdown -->
-            <select id="periodSelect"
-                    class="border border-gray-300 text-sm rounded-xl px-3 py-1.5 focus:ring-2 focus:ring-pink-400 focus:border-pink-400">
-                <option value="monthly" selected>Monthly</option>
-                <option value="weekly">Weekly</option>
-                <option value="quarterly">Quarterly</option>
-                <option value="yearly">Yearly</option>
-            </select>
-        </div>
-
-        <canvas id="cashFlowChart"></canvas>
-    </div>
-
 </div>
 
 <!-- Chart.js -->
@@ -93,7 +230,6 @@
 
         const ctx = document.getElementById('salesChart').getContext('2d');
 
-        // Destroy old chart if it exists (to prevent overlay)
         if (salesChart) salesChart.destroy();
 
         salesChart = new Chart(ctx, {
@@ -106,27 +242,49 @@
                     borderColor: '#ec4899',
                     backgroundColor: 'rgba(236,72,153,0.15)',
                     fill: true,
-                    tension: 0.4
+                    tension: 0.4,
+                    borderWidth: 3,
+                    pointRadius: 4,
+                    pointBackgroundColor: '#ec4899',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    pointHoverRadius: 6
                 }]
             },
             options: {
                 responsive: true,
-                plugins: { legend: { display: false } },
-                scales: { y: { beginAtZero: true } }
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        padding: 12,
+                        titleFont: { size: 14, weight: 'bold' },
+                        bodyFont: { size: 13 },
+                        cornerRadius: 8
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(0, 0, 0, 0.05)' },
+                        ticks: { font: { size: 11 } }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { font: { size: 11 } }
+                    }
+                }
             }
         });
     }
 
-    // Handle dropdown change
     document.getElementById("salesPeriodSelect").addEventListener("change", (e) => {
         loadSalesChart(e.target.value);
     });
 
-    // Initial load
     loadSalesChart();
 
-
-    // === Expense Breakdown Donut Chart ===
     // === Expense Breakdown Donut Chart ===
     let expenseChart;
 
@@ -139,7 +297,6 @@
 
         const ctx = document.getElementById('expenseChart').getContext('2d');
 
-        // Destroy existing chart to avoid duplication
         if (expenseChart) expenseChart.destroy();
 
         expenseChart = new Chart(ctx, {
@@ -151,30 +308,40 @@
                     backgroundColor: [
                         '#3b82f6', '#22c55e', '#facc15',
                         '#ef4444', '#a855f7', '#14b8a6', '#f97316'
-                    ]
+                    ],
+                    borderWidth: 3,
+                    borderColor: '#fff',
+                    hoverOffset: 15
                 }]
             },
             options: {
                 responsive: true,
+                maintainAspectRatio: true,
                 plugins: {
-                    legend: { position: 'right' }
+                    legend: {
+                        position: 'right',
+                        labels: {
+                            padding: 15,
+                            font: { size: 12 },
+                            usePointStyle: true,
+                            pointStyle: 'circle'
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        padding: 12,
+                        titleFont: { size: 14, weight: 'bold' },
+                        bodyFont: { size: 13 },
+                        cornerRadius: 8
+                    }
                 }
             }
         });
     }
 
-    // Load on page ready
     loadExpenseBreakdown();
 
-
-
-/**
- * 
- * 
- *      REVENUE VS EXPENSE CHART
- * 
- */
-
+    // === Revenue vs Expense Chart ===
     let cashFlowChart;
 
     async function loadCashFlowChart(period = "monthly") {
@@ -187,7 +354,6 @@
 
         const ctx1 = document.getElementById('cashFlowChart').getContext('2d');
 
-        // Destroy previous chart to avoid overlay
         if (cashFlowChart) cashFlowChart.destroy();
 
         cashFlowChart = new Chart(ctx1, {
@@ -198,79 +364,74 @@
                     {
                         label: 'Revenue',
                         data: revenue,
-                        backgroundColor: 'rgba(236, 72, 153, 0.6)',
-                        borderRadius: 6
+                        backgroundColor: 'rgba(236, 72, 153, 0.8)',
+                        borderRadius: 8,
+                        borderSkipped: false
                     },
                     {
                         label: 'Expense',
                         data: expense.map(x => -x),
-                        backgroundColor: 'rgba(37, 99, 235, 0.6)',
-                        borderRadius: 6
+                        backgroundColor: 'rgba(37, 99, 235, 0.8)',
+                        borderRadius: 8,
+                        borderSkipped: false
                     }
                 ]
             },
             options: {
                 responsive: true,
-                plugins: { legend: { position: 'bottom' } },
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 20,
+                            font: { size: 13, weight: '500' },
+                            usePointStyle: true,
+                            pointStyle: 'rect'
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        padding: 12,
+                        titleFont: { size: 14, weight: 'bold' },
+                        bodyFont: { size: 13 },
+                        cornerRadius: 8
+                    }
+                },
                 scales: {
-                    y: { beginAtZero: true, grid: { drawBorder: false } },
-                    x: { grid: { display: false } }
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.05)',
+                            drawBorder: false
+                        },
+                        ticks: { font: { size: 11 } }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { font: { size: 11 } }
+                    }
                 }
             }
         });
     }
 
-    //  FOR REVENUE VS EXPENSE CHART
     document.getElementById("periodSelect").addEventListener("change", (e) => {
         loadCashFlowChart(e.target.value);
     });
 
-    // Initial load
     loadCashFlowChart();
 
-        // === Revenue vs Expense Bar Chart
+    async function sendChartsToServer() {
+        const salesCanvas = document.getElementById('salesChart');
+        const expenseCanvas = document.getElementById('expenseChart');
+        const cashFlowCanvas = document.getElementById('cashFlowChart');
 
+        const salesImg = salesCanvas.toDataURL('image/png');
+        const expenseImg = expenseCanvas.toDataURL('image/png');
+        const cashFlowImg = cashFlowCanvas.toDataURL('image/png');
 
-        // const revenueExpenseCtx = document.getElementById('revenueExpenseChart');
-        // new Chart(revenueExpenseCtx, {
-        //     type: 'bar',
-        //     data: {
-        //         labels: ['January','February','March','April','May','June','July','August','September','October','November','December'],
-        //         datasets: [
-        //             {
-        //                 label: 'Revenue',
-        //                 data: [60, 45, 70, 90, 20, 35, 55, 40, 75, 95, 80, 65],
-        //                 backgroundColor: '#3b82f6'
-        //             },
-        //             {
-        //                 label: 'Expense',
-        //                 data: [40, 30, 50, 60, 15, 20, 45, 30, 55, 75, 60, 45],
-        //                 backgroundColor: '#ec4899'
-        //             }
-        //         ]
-        //     },
-        //     options: {
-        //         responsive: true,
-        //         plugins: {
-        //             legend: { position: 'bottom' }
-        //         },
-        //         scales: {
-        //             y: { beginAtZero: true }
-        //         }
-        //     }
-        // });
-        async function sendChartsToServer() {
-          // get canvases or Chart.js objects
-          const salesCanvas = document.getElementById('salesChart');
-          const expenseCanvas = document.getElementById('expenseChart');
-          const cashFlowCanvas = document.getElementById('cashFlowChart');
-
-          // use canvas.toDataURL (or chartInstance.toBase64Image())
-          const salesImg = salesCanvas.toDataURL('image/png');
-          const expenseImg = expenseCanvas.toDataURL('image/png');
-          const cashFlowImg = cashFlowCanvas.toDataURL('image/png');
-
-          const payload = {
+        const payload = {
             salesImage: salesImg,
             expenseImage: expenseImg,
             cashFlowImage: cashFlowImg,
@@ -278,25 +439,21 @@
             revenue: '@(ViewBag.Revenue)',
             expense: '@(ViewBag.Expense)',
             totalTransactions: '@(ViewBag.TotalTransactions)'
-          };
+        };
 
-          const res = await fetch('/Sales_Finance/ExportPdfFromImages', {
+        const res = await fetch('/Sales_Finance/ExportPdfFromImages', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
-          });
+        });
 
-          if (!res.ok) { alert('PDF export failed'); return; }
-          const blob = await res.blob();
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = 'Dashboard_Report.pdf';a
-          a.click();
-          URL.revokeObjectURL(url);
-        }
-
+        if (!res.ok) { alert('PDF export failed'); return; }
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'Dashboard_Report.pdf';
+        a.click();
+        URL.revokeObjectURL(url);
+    }
 </script>
-
-
-
