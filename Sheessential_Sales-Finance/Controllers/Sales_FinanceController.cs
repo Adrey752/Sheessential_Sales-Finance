@@ -401,7 +401,7 @@ namespace Sheessential_Sales_Finance.Controllers
             }
 
 
-           
+
 
 
             // Calculate totals
@@ -878,33 +878,33 @@ namespace Sheessential_Sales_Finance.Controllers
 
         //Archive Vendor
         [HttpPost]
-public IActionResult ArchiveVendor(string Id)
-{
-    if (string.IsNullOrEmpty(Id))
-    {
-        return BadRequest();
-    }
+        public IActionResult ArchiveVendor(string Id)
+        {
+            if (string.IsNullOrEmpty(Id))
+            {
+                return BadRequest();
+            }
 
-    // Filter for the vendor by Id
-    var filter = Builders<Vendor>.Filter.Eq(v => v.Id, Id);
+            // Filter for the vendor by Id
+            var filter = Builders<Vendor>.Filter.Eq(v => v.Id, Id);
 
-    // Update to set IsArchived to true
-    var update = Builders<Vendor>.Update.Set(v => v.IsArchived, true);
+            // Update to set IsArchived to true
+            var update = Builders<Vendor>.Update.Set(v => v.IsArchived, true);
 
-    var result = _mongo.Vendors.UpdateOne(filter, update);
+            var result = _mongo.Vendors.UpdateOne(filter, update);
 
-    if (result.ModifiedCount > 0)
-    {
-        TempData["SuccessMessage"] = "Vendor archived successfully.";
-    }
-    else
-    {
-        TempData["ErrorMessage"] = "Vendor not found or already archived.";
-    }
+            if (result.ModifiedCount > 0)
+            {
+                TempData["SuccessMessage"] = "Vendor archived successfully.";
+            }
+            else
+            {
+                TempData["ErrorMessage"] = "Vendor not found or already archived.";
+            }
 
-    // Redirect back to the Vendors page
-    return RedirectToAction("Vendors"); // or your vendor list action
-}
+            // Redirect back to the Vendors page
+            return RedirectToAction("Vendors"); // or your vendor list action
+        }
 
         //Get all Archived Vendors
         public IActionResult ArchivedVendors()
@@ -1055,6 +1055,10 @@ public IActionResult ArchiveVendor(string Id)
             return Json(breakdown);
         }
 
+        public IActionResult ReportsDashBoard()
+        {
+            return View();
+        }
 
     }
 }
