@@ -43,6 +43,12 @@
     <div class="bg-white rounded-2xl shadow-sm p-6">
         <h2 class="text-xl font-semibold text-gray-800 mb-4">Products Overview</h2>
         <div class="overflow-x-auto">
+            <!--  SEARCH BAR -->
+            <div class="flex justify-end mb-3">
+                <input id="productSearch" type="text" placeholder="Search product..."
+                       class="border border-gray-300 px-4 py-2 rounded-lg w-60 focus:ring-2 focus:ring-pink-400" />
+            </div>
+
             <table class="min-w-full text-sm text-gray-700">
                 <thead class="bg-gray-100 text-gray-600 uppercase text-xs tracking-wider">
                     <tr>
@@ -131,7 +137,7 @@
     </div>
 </div>
 
-<!-- ===== PRODUCT MODAL (unchanged) ===== -->
+<!-- ===== PRODUCT MODAL ===== -->
 <div id="productModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
     <div class="bg-white rounded-3xl shadow-xl w-[700px] p-8 relative flex gap-6">
         <button onclick="closeModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
@@ -265,6 +271,17 @@
             setTimeout(() => toast.remove(), 500);
         }, 3000);
     }
+
+        // ✅ PRODUCT TABLE SEARCH
+        document.getElementById("productSearch").addEventListener("keyup", function () {
+            const searchValue = this.value.toLowerCase();
+            const rows = document.querySelectorAll("tbody tr");
+
+            rows.forEach(row => {
+                const text = row.innerText.toLowerCase();
+                row.style.display = text.includes(searchValue) ? "" : "none";
+            });
+        });
 
 </script>
  
