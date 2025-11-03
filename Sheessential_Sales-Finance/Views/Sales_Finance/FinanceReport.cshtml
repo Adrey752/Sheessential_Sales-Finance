@@ -1,0 +1,280 @@
+﻿@{
+    ViewData["Title"] = "Finance Report";
+}
+
+<div class="px-6 py-4">
+    <!-- Page Header -->
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h1 class="text-xl font-semibold">Reports</h1>
+            <p class="text-sm text-gray-500">Finance Report</p>
+        </div>
+
+        <!-- Right side dropdown + button -->
+        <div class="flex gap-3">
+            <select class="border border-gray-300 rounded-lg px-3 py-1 text-sm cursor-pointer">
+                <option selected>Weekly</option>
+                <option>Monthly</option>
+            </select>
+
+            <button class="bg-green-500 hover:bg-green-600 text-white text-sm px-4 py-2 rounded-lg">
+                Generate Report
+            </button>
+        </div>
+    </div>
+
+    <!-- Top Summary Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
+
+        <!-- Total Income -->
+        <div class="bg-white rounded-xl shadow-lg px-6 py-5">
+            <div class="flex items-center gap-3">
+                <div class="h-10 w-10 rounded-full bg-pink-100 flex items-center justify-center">
+                    💰
+                </div>
+                <p class="font-medium text-gray-700">Total Income</p>
+            </div>
+
+            <h2 class="text-3xl font-bold mt-4">₱149,283.00</h2>
+            <p class="text-xs text-gray-400 mt-2">In this month</p>
+        </div>
+
+        <!-- Total Expenses -->
+        <div class="bg-white rounded-xl shadow-lg px-6 py-5">
+            <div class="flex items-center gap-3">
+                <div class="h-10 w-10 rounded-full bg-pink-100 flex items-center justify-center">
+                    🧾
+                </div>
+                <p class="font-medium text-gray-700">Total Expenses</p>
+            </div>
+
+            <h2 class="text-3xl font-bold mt-4">₱123,490</h2>
+            <p class="text-xs text-gray-400 mt-2">In this month</p>
+        </div>
+
+        <!-- Net Profit -->
+        <div class="bg-white rounded-xl shadow-lg px-6 py-5">
+            <div class="flex items-center gap-3">
+                <div class="h-10 w-10 rounded-full bg-pink-100 flex items-center justify-center">
+                    📈
+                </div>
+                <p class="font-medium text-gray-700">Net Profit</p>
+            </div>
+
+            <h2 class="text-3xl font-bold mt-4">₱100,000</h2>
+            <p class="text-xs text-gray-400 mt-2">In this month</p>
+        </div>
+
+        <!-- Net Profit % -->
+        <div class="bg-white rounded-xl shadow-lg px-6 py-5">
+            <div class="flex items-center gap-3">
+                <div class="h-10 w-10 rounded-full bg-pink-100 flex items-center justify-center">
+                    🏦
+                </div>
+                <p class="font-medium text-gray-700">Net Profit</p>
+            </div>
+
+            <h2 class="text-3xl font-bold mt-4">₱100,000</h2>
+            <p class="text-xs text-gray-400 mt-2">In this month</p>
+        </div>
+
+    </div>
+
+
+
+    <!-- Charts -->
+
+        <!-- Charts -->
+        <!-- Charts (corrected layout: 2 charts side by side above table) -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
+
+            <!-- Bar Chart -->
+            <div class="bg-white shadow-lg rounded-2xl p-6 flex flex-col"
+                 style="height: 380px;">
+
+                <div class="flex justify-between items-center mb-3">
+                    <p class="font-semibold text-sm">Revenue vs Expense</p>
+
+                    @* <select id="chartFilter" *@
+                    @*         class="text-sm border border-gray-300 rounded-lg px-3 py-1 focus:outline-none cursor-pointer"> *@
+                    @*     <option value="Weekly" selected>Weekly</option> *@
+                    @*     <option value="Monthly">Monthly</option> *@
+                    @* </select> *@
+                </div>
+
+                <canvas id="financeChart" style="height: 300px;"></canvas>
+            </div>
+
+            <!-- Doughnut Chart -->
+            <div class="bg-white shadow-lg rounded-2xl p-6 flex flex-col"
+                 style="height: 380px;">
+
+                <p class="font-semibold text-sm mb-3">Expense Breakdown</p>
+
+                <div class="flex justify-center items-center flex-1">
+                    <canvas id="expenseBreakdown" style="height: 290px;"></canvas>
+                </div>
+            </div>
+
+        </div>
+
+
+    <!-- Finance Overview Table -->
+    <div class="bg-white shadow-md rounded-xl p-5">
+        <h2 class="font-semibold text-lg mb-4">Finance Overview</h2>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-[#2D6CDF] text-white text-sm">
+                        <th class="py-3 px-4 rounded-l-lg">Reference No.</th>
+                        <th class="py-3 px-4">Date</th>
+                        <th class="py-3 px-4">Description</th>
+                        <th class="py-3 px-4">Type</th>
+                        <th class="py-3 px-4">Category</th>
+                        <th class="py-3 px-4">Department</th>
+                        <th class="py-3 px-4 rounded-r-lg">Amount</th>
+                    </tr>
+                </thead>
+
+                <tbody class="text-sm text-gray-700">
+                    <tr class="border-b">
+                        <td class="py-3 px-4">EXP-1043</td>
+                        <td class="px-4">2025-10-28</td>
+                        <td class="px-4">Office Supplies</td>
+                        <td class="px-4">Expense</td>
+                        <td class="px-4">Supplies</td>
+                        <td class="px-4">HR</td>
+                        <td class="px-4 font-medium">₱3,200</td>
+                    </tr>
+
+                    <tr class="border-b">
+                        <td class="py-3 px-4">EXP-1043</td>
+                        <td class="px-4">2025-10-28</td>
+                        <td class="px-4">Influencer Deal</td>
+                        <td class="px-4">Expense</td>
+                        <td class="px-4">Promotions</td>
+                        <td class="px-4">Marketing</td>
+                        <td class="px-4 font-medium">₱13,900</td>
+                    </tr>
+
+                    <tr class="border-b">
+                        <td class="py-3 px-4">IN-1229</td>
+                        <td class="px-4">2025-10-29</td>
+                        <td class="px-4">Sale of Products</td>
+                        <td class="px-4">Income</td>
+                        <td class="px-4">Sales</td>
+                        <td class="px-4">—</td>
+                        <td class="px-4 font-medium">₱42,000</td>
+                    </tr>
+
+                    <tr class="border-b">
+                        <td class="py-3 px-4">EXP-1043</td>
+                        <td class="px-4">2025-10-28</td>
+                        <td class="px-4">Payroll for October</td>
+                        <td class="px-4">Expense</td>
+                        <td class="px-4">Payroll</td>
+                        <td class="px-4">HR</td>
+                        <td class="px-4 font-medium">₱33,200</td>
+                    </tr>
+
+                    <tr class="border-b">
+                        <td class="py-3 px-4">EXP-1043</td>
+                        <td class="px-4">2025-10-28</td>
+                        <td class="px-4">Electricity</td>
+                        <td class="px-4">Expense</td>
+                        <td class="px-4">Utilities</td>
+                        <td class="px-4">Finance</td>
+                        <td class="px-4 font-medium">₱33,200</td>
+                    </tr>
+
+                    <tr>
+                        <td class="py-3 px-4">IN-1229</td>
+                        <td class="px-4">2025-10-29</td>
+                        <td class="px-4">Sale of Products</td>
+                        <td class="px-4">Income</td>
+                        <td class="px-4">Sales</td>
+                        <td class="px-4">—</td>
+                        <td class="px-4 font-medium">₱92,000</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+
+<!-- ChartJS -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+            <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+        <script>
+            // Bar Chart
+            new Chart(document.getElementById("financeChart"), {
+                type: "bar",
+                data: {
+                    labels: [
+                        "January", "February", "March", "April", "May", "June",
+                        "July", "August", "September", "October", "November", "December"
+                    ],
+                    datasets: [
+                        {
+                            label: "Revenue",
+                            data: [70, 50, 40, 80, 60, 30, 18, 60, 90, 85, 92, 40],
+                            backgroundColor: "#ec4899",
+                            borderRadius: 8,
+                        },
+                        {
+                            label: "Expense",
+                            data: [45, 30, 38, 50, 30, 22, 12, 40, 65, 80, 60, 25],
+                            backgroundColor: "#3b82f6",
+                            borderRadius: 8,
+                        }
+                    ]
+                },
+                options: {
+                    maintainAspectRatio: false,
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: "bottom",
+                            labels: { boxWidth: 12 }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 20
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Doughnut Chart
+            new Chart(document.getElementById("expenseBreakdown"), {
+                type: "doughnut",
+                data: {
+                    labels: ["Utilities", "Salaries & Wages", "Supplies"],
+                    datasets: [
+                        {
+                            data: [50, 35, 15],
+                            backgroundColor: ["#3b82f6", "#ec4899", "#10b981"],
+                            cutout: "70%",
+                        }
+                    ]
+                },
+                options: {
+                    maintainAspectRatio: false,
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: "right",
+                            labels: { boxWidth: 10 }
+                        }
+                    }
+                }
+            });
+        </script>
+

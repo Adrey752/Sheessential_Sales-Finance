@@ -1,0 +1,191 @@
+﻿@{
+    ViewData["Title"] = "Sales Report";
+}
+
+<div class="px-6 py-4">
+
+    <!-- Page Header -->
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h1 class="text-xl font-semibold">Reports</h1>
+            <p class="text-sm text-gray-500">Sales Report</p>
+        </div>
+
+        <div class="flex gap-3">
+            <select class="border border-gray-300 rounded-lg px-3 py-1 text-sm cursor-pointer">
+                <option selected>Weekly</option>
+                <option>Monthly</option>
+            </select>
+
+            <button class="bg-green-500 hover:bg-green-600 text-white text-sm px-4 py-2 rounded-lg">
+                Generate Report
+            </button>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6 mb-8">
+
+        <!-- Total Sales -->
+        <div class="bg-white rounded-xl shadow-lg px-6 py-5">
+            <div class="flex items-center gap-3">
+                <div class="h-10 w-10 rounded-full bg-pink-100 flex items-center justify-center">💰</div>
+                <p class="font-medium text-gray-700">Total Sales</p>
+            </div>
+
+            <h2 class="text-3xl font-bold mt-4">₱149,283.00</h2>
+            <p class="text-xs text-gray-400 mt-2">In this month</p>
+        </div>
+
+        <!-- Total Orders -->
+        <div class="bg-white rounded-xl shadow-lg px-6 py-5">
+            <div class="flex items-center gap-3">
+                <div class="h-10 w-10 rounded-full bg-pink-100 flex items-center justify-center">🧾</div>
+                <p class="font-medium text-gray-700">Total Orders</p>
+            </div>
+
+            <h2 class="text-3xl font-bold mt-4">123,490</h2>
+            <p class="text-xs text-gray-400 mt-2">In this month</p>
+        </div>
+
+        <!-- Active Customers -->
+        <div class="bg-white rounded-xl shadow-lg px-6 py-5">
+            <div class="flex items-center gap-3">
+                <div class="h-10 w-10 rounded-full bg-pink-100 flex items-center justify-center">👥</div>
+                <p class="font-medium text-gray-700">Active Customers</p>
+            </div>
+
+            <h2 class="text-3xl font-bold mt-4">13</h2>
+            <p class="text-xs text-gray-400 mt-2">In this month</p>
+        </div>
+
+    </div>
+
+    <!-- Charts + Top Products -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- Sales Revenue Chart -->
+        <div class="col-span-2 bg-white shadow-lg rounded-2xl p-6 flex flex-col"
+             style="height: 350px;">
+            <div class="flex justify-between items-center mb-2">
+                <p class="font-semibold text-sm">Total Revenue</p>
+
+                <select class="text-sm border border-gray-300 rounded-lg px-2 py-1 cursor-pointer">
+                    <option selected>Weekly</option>
+                    <option>Monthly</option>
+                </select>
+            </div>
+
+            <h3 class="text-lg font-bold mb-3">₱124,106.00</h3>
+
+            <canvas id="salesRevenueChart" style="max-height: 260px;"></canvas>
+        </div>
+
+        <!-- Top Products Table -->
+        <div class="bg-white shadow-lg rounded-2xl p-6">
+            <h2 class="font-semibold mb-4">Top 5 Products</h2>
+
+            <table class="w-full text-sm">
+                <tbody class="text-gray-700">
+                    <tr class="border-b">
+                        <td class="py-3">Hydrating Face Cream</td>
+                        <td>₱30,089</td>
+                    </tr>
+                    <tr class="border-b">
+                        <td class="py-3">Toner (50ml)</td>
+                        <td>₱29,976</td>
+                    </tr>
+                    <tr class="border-b">
+                        <td class="py-3">Hydrating Face Cream</td>
+                        <td>₱30,089</td>
+                    </tr>
+                    <tr class="border-b">
+                        <td class="py-3">Serum Glow</td>
+                        <td>₱21,899</td>
+                    </tr>
+                    <tr>
+                        <td class="pt-3">Face Mask (10pcs)</td>
+                        <td>₱18,500</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+</div>
+<!-- Product Sales Report Table -->
+<div class="bg-white shadow-lg rounded-2xl p-6 mt-10">
+
+    <h2 class="font-semibold text-lg mb-4">Product Sales Report</h2>
+
+    <div class="overflow-x-auto">
+        <table class="w-full border-collapse text-sm">
+            <thead>
+                <tr class="bg-[#2D6CDF] text-white text-left">
+                    <th class="py-3 px-4 rounded-l-lg">Product ID</th>
+                    <th class="py-3 px-4">Product Name</th>
+                    <th class="py-3 px-4">Product Description</th>
+                    <th class="py-3 px-4">Unit Price</th>
+                    <th class="py-3 px-4">Quantity</th>
+                    <th class="py-3 px-4 rounded-r-lg">Total Amount</th>
+                </tr>
+            </thead>
+
+            <tbody class="text-gray-700">
+
+                <!-- Row 1 -->
+                <tr class="border-b">
+                    <td class="py-3 px-4">P0001</td>
+                    <td class="px-4">Hydrating Sheet Mask</td>
+                    <td class="px-4">Calming facial mask</td>
+                    <td class="px-4">₱20.00</td>
+                    <td class="px-4">49</td>
+                    <td class="px-4 font-medium">₱980.00</td>
+                </tr>
+
+                <!-- Duplicate for static sample rows -->
+                @for (int i = 0; i < 8; i++)
+                {
+                    <tr class="border-b">
+                        <td class="py-3 px-4">P0001</td>
+                        <td class="px-4">Hydrating Sheet Mask</td>
+                        <td class="px-4">Calming facial mask</td>
+                        <td class="px-4">₱20.00</td>
+                        <td class="px-4">49</td>
+                        <td class="px-4 font-medium">₱980.00</td>
+                    </tr>
+                }
+
+            </tbody>
+        </table>
+    </div>
+
+</div>
+
+<!-- ChartJS -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+    new Chart(document.getElementById("salesRevenueChart"), {
+        type: "line",
+        data: {
+            labels: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul"],
+            datasets: [{
+                label: "Sales",
+                data: [600, 700, 850, 950, 780, 920, 650],
+                borderColor: "#a855f7",
+                backgroundColor: "rgba(168, 85, 247, .15)",
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { beginAtZero: true }
+            }
+        }
+    });
+</script>

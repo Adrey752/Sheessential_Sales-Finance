@@ -1186,5 +1186,14 @@ namespace Sheessential_Sales_Finance.Controllers
             return View();
         }
 
+        public IActionResult FinanceReport()
+        {
+            return View();
+        }        
+        public IActionResult SalesReport()
+        {
+            return View();
+        }
+
     }
 }
