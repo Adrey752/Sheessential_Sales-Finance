@@ -12,6 +12,7 @@ using DinkToPdf;
 using DinkToPdf.Contracts;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using System.Security.Cryptography.X509Certificates;
+using System.Globalization;
 
 namespace Sheessential_Sales_Finance.Controllers
 {
@@ -1195,5 +1196,209 @@ namespace Sheessential_Sales_Finance.Controllers
             return View();
         }
 
+        [HttpGet]
+        public async Task<IActionResult> FinanceReportData(string period = "week")
+
+        {
+
+            _logger.LogInformation("\n\n\n\nI'm in Finance Report \n\n\n\n");
+            // normalize period string
+            period = (period ?? "week").ToLowerInvariant();
+
+            DateTime utcNow = DateTime.UtcNow.Date; // date only UTC
+            DateTime start;
+            DateTime end = utcNow.AddDays(1).AddTicks(-1); // inclusive end (end of today)
+
+            if (period == "week")
+            {
+                // start from Monday of current week to today
+                int diff = ((int)utcNow.DayOfWeek - (int)DayOfWeek.Monday + 7) % 7;
+                start = utcNow.AddDays(-diff);
+            }
+            else if (period == "month")
+            {
+                start = new DateTime(utcNow.Year, utcNow.Month, 1);
+            }
+            else if (period == "year")
+            {
+                start = new DateTime(utcNow.Year, 1, 1);
+            }
+            else // alltime
+            {
+                // get earliest transaction date from invoices' items or from expenses
+                var invoiceEarliest = await _mongo.Invoices
+                    .Find(FilterDefinition<Invoice>.Empty)
+                    .Project(i => i.Items.OrderBy(x => x.TransactionDate).FirstOrDefault().TransactionDate)
+                    .SortBy(x => x)
+                    .FirstOrDefaultAsync();
+
+                var expenseEarliest = await _mongo.Expenses
+                    .Find(FilterDefinition<Expenses>.Empty)
+                    .Project(e => e.RequestedAt)
+                    .SortBy(x => x)
+                    .FirstOrDefaultAsync();
+
+                DateTime earliest = DateTime.MaxValue;
+                if (invoiceEarliest != default(DateTime)) earliest = invoiceEarliest < earliest ? invoiceEarliest : earliest;
+                if (expenseEarliest != default(DateTime)) earliest = expenseEarliest < earliest ? expenseEarliest : earliest;
+
+                if (earliest == DateTime.MaxValue)
+                {
+                    // fallback - 1 year ago
+                    earliest = utcNow.AddYears(-1);
+                }
+
+                start = new DateTime(earliest.Year, earliest.Month, 1);
+            }
+
+            // load invoices with at least one item in range
+            var invoiceFilter = Builders<Invoice>.Filter.ElemMatch(i => i.Items,
+                it => it.TransactionDate >= start && it.TransactionDate <= end);
+
+            var invoicesInRange = await _mongo.Invoices.Find(invoiceFilter).ToListAsync();
+
+            // load expenses in range
+            var expenseFilter = Builders<Expenses>.Filter.And(
+                Builders<Expenses>.Filter.Gte(e => e.RequestedAt, start),
+                Builders<Expenses>.Filter.Lte(e => e.RequestedAt, end)
+            );
+            var expensesInRange = await _mongo.Expenses.Find(expenseFilter).ToListAsync();
+
+            // define labels and buckets
+            List<DateTime> bucketStarts = new List<DateTime>();
+            List<string> labels = new List<string>();
+
+            if (period == "week")
+            {
+                // each day from start (Monday) to today
+                for (var d = start; d.Date <= utcNow.Date; d = d.AddDays(1))
+                {
+                    bucketStarts.Add(d.Date);
+                    labels.Add(d.ToString("ddd")); // Mon, Tue ...
+                }
+            }
+            else if (period == "month")
+            {
+                for (int day = 1; day <= utcNow.Day; day++)
+                {
+                    var d = new DateTime(utcNow.Year, utcNow.Month, day);
+                    bucketStarts.Add(d.Date);
+                    labels.Add(day.ToString());
+                }
+            }
+            else // year or alltime monthly buckets
+            {
+                DateTime bucket = new DateTime(start.Year, start.Month, 1);
+                DateTime endBucket = new DateTime(utcNow.Year, utcNow.Month, 1);
+
+                while (bucket <= endBucket)
+                {
+                    bucketStarts.Add(bucket);
+                    labels.Add(bucket.ToString("MMM yyyy", CultureInfo.InvariantCulture)); // "Jan 2025"
+                    bucket = bucket.AddMonths(1);
+                }
+            }
+
+            var revenueBuckets = new decimal[bucketStarts.Count];
+            var expenseBuckets = new decimal[bucketStarts.Count];
+
+            // helper to find bucket index for a date
+            int GetBucketIndex(DateTime dt)
+            {
+                dt = dt.Date;
+                for (int i = 0; i < bucketStarts.Count; i++)
+                {
+                    var startBucket = bucketStarts[i];
+                    DateTime bucketEnd;
+                    if (i + 1 < bucketStarts.Count)
+                        bucketEnd = bucketStarts[i + 1].AddTicks(-1);
+                    else
+                        bucketEnd = end;
+
+                    if (dt >= startBucket.Date && dt <= bucketEnd.Date) return i;
+                }
+                return -1;
+            }
+
+            // Sum invoice item amounts into buckets and also create rows
+            List<FinanceRow> rows = new List<FinanceRow>();
+            decimal totalIncome = 0;
+            foreach (var inv in invoicesInRange)
+            {
+                foreach (var item in inv.Items)
+                {
+                    if (item.TransactionDate < start || item.TransactionDate > end) continue;
+                    decimal amt = item.SalePrice * item.Quantity;
+                    var idx = GetBucketIndex(item.TransactionDate);
+                    if (idx >= 0) revenueBuckets[idx] += amt;
+                    totalIncome += amt;
+
+                    rows.Add(new FinanceRow
+                    {
+                        Reference = inv.InvoiceNumber,
+                        Date = item.TransactionDate,
+                        Description = item.Item ?? "Sale",
+                        Type = "Income",
+                        Category = "Sales",
+                        Department = "—",
+                        Amount = amt
+                    });
+                }
+            }
+
+            // Sum expenses
+            decimal totalExpenses = 0;
+            foreach (var exp in expensesInRange)
+            {
+                var idx = GetBucketIndex(exp.RequestedAt);
+                if (idx >= 0) expenseBuckets[idx] += exp.Amount;
+                totalExpenses += exp.Amount;
+
+                rows.Add(new FinanceRow
+                {
+                    Reference = exp.ExpenseId,
+                    Date = exp.RequestedAt,
+                    Description = exp.Description,
+                    Type = "Expense",
+                    Category = exp.ExpenseType,
+                    Department = exp.Department,
+                    Amount = exp.Amount
+                });
+            }
+
+            // Expense breakdown by type (top 6)
+            var breakdown = expensesInRange
+                .GroupBy(e => e.ExpenseType)
+                .Select(g => new { Type = g.Key, Amount = g.Sum(x => x.Amount) })
+                .OrderByDescending(x => x.Amount)
+                .ToList();
+
+            var breakdownLabels = breakdown.Select(b => b.Type).ToList();
+            var breakdownData = breakdown.Select(b => b.Amount).ToList();
+
+            // sort rows descending by date
+            rows = rows.OrderByDescending(r => r.Date).ToList();
+
+            decimal netProfit = totalIncome - totalExpenses;
+            decimal netProfitPct = totalIncome == 0 ? 0 : Math.Round((netProfit / totalIncome) * 100, 2);
+
+            var response = new FinanceReportResponse
+            {
+                TotalIncome = Math.Round(totalIncome, 2),
+                TotalExpenses = Math.Round(totalExpenses, 2),
+                NetProfit = Math.Round(netProfit, 2),
+                NetProfitPercent = netProfitPct,
+                Labels = labels,
+                Revenue = revenueBuckets.Select(x => Math.Round(x, 2)).ToList(),
+                Expense = expenseBuckets.Select(x => Math.Round(x, 2)).ToList(),
+                BreakdownLabels = breakdownLabels,
+                BreakdownData = breakdownData.Select(x => Math.Round(x, 2)).ToList(),
+                Rows = rows,
+                StartDateIso = start.ToString("o"),
+                EndDateIso = end.ToString("o")
+            };
+
+            return Ok(response);
+        }
     }
 }

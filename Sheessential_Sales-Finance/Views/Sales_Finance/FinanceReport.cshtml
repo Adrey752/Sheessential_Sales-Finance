@@ -12,12 +12,14 @@
 
         <!-- Right side dropdown + button -->
         <div class="flex gap-3">
-            <select class="border border-gray-300 rounded-lg px-3 py-1 text-sm cursor-pointer">
-                <option selected>Weekly</option>
-                <option>Monthly</option>
+            <select id="periodFilter" class="border border-gray-300 rounded-lg px-3 py-1 text-sm cursor-pointer">
+                <option value="week" selected>Weekly</option>
+                <option value="month">Monthly</option>
+                <option value="year">Yearly</option>
+                <option value="alltime">All time</option>
             </select>
 
-            <button class="bg-green-500 hover:bg-green-600 text-white text-sm px-4 py-2 rounded-lg">
+            <button id="generateReport" class="bg-green-500 hover:bg-green-600 text-white text-sm px-4 py-2 rounded-lg">
                 Generate Report
             </button>
         </div>
@@ -35,8 +37,8 @@
                 <p class="font-medium text-gray-700">Total Income</p>
             </div>
 
-            <h2 class="text-3xl font-bold mt-4">₱149,283.00</h2>
-            <p class="text-xs text-gray-400 mt-2">In this month</p>
+            <h2 id="cardIncome" class="text-3xl font-bold mt-4">₱0.00</h2>
+            <p id="cardIncomeSub" class="text-xs text-gray-400 mt-2">—</p>
         </div>
 
         <!-- Total Expenses -->
@@ -48,8 +50,8 @@
                 <p class="font-medium text-gray-700">Total Expenses</p>
             </div>
 
-            <h2 class="text-3xl font-bold mt-4">₱123,490</h2>
-            <p class="text-xs text-gray-400 mt-2">In this month</p>
+            <h2 id="cardExpenses" class="text-3xl font-bold mt-4">₱0.00</h2>
+            <p id="cardExpensesSub" class="text-xs text-gray-400 mt-2">—</p>
         </div>
 
         <!-- Net Profit -->
@@ -61,8 +63,8 @@
                 <p class="font-medium text-gray-700">Net Profit</p>
             </div>
 
-            <h2 class="text-3xl font-bold mt-4">₱100,000</h2>
-            <p class="text-xs text-gray-400 mt-2">In this month</p>
+            <h2 id="cardProfit" class="text-3xl font-bold mt-4">₱0.00</h2>
+            <p id="cardProfitSub" class="text-xs text-gray-400 mt-2">—</p>
         </div>
 
         <!-- Net Profit % -->
@@ -71,53 +73,35 @@
                 <div class="h-10 w-10 rounded-full bg-pink-100 flex items-center justify-center">
                     🏦
                 </div>
-                <p class="font-medium text-gray-700">Net Profit</p>
+                <p class="font-medium text-gray-700">Net Profit %</p>
             </div>
 
-            <h2 class="text-3xl font-bold mt-4">₱100,000</h2>
-            <p class="text-xs text-gray-400 mt-2">In this month</p>
+            <h2 id="cardProfitPct" class="text-3xl font-bold mt-4">0%</h2>
+            <p id="cardProfitPctSub" class="text-xs text-gray-400 mt-2">—</p>
         </div>
 
     </div>
 
-
-
     <!-- Charts -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
 
-        <!-- Charts -->
-        <!-- Charts (corrected layout: 2 charts side by side above table) -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
-
-            <!-- Bar Chart -->
-            <div class="bg-white shadow-lg rounded-2xl p-6 flex flex-col"
-                 style="height: 380px;">
-
-                <div class="flex justify-between items-center mb-3">
-                    <p class="font-semibold text-sm">Revenue vs Expense</p>
-
-                    @* <select id="chartFilter" *@
-                    @*         class="text-sm border border-gray-300 rounded-lg px-3 py-1 focus:outline-none cursor-pointer"> *@
-                    @*     <option value="Weekly" selected>Weekly</option> *@
-                    @*     <option value="Monthly">Monthly</option> *@
-                    @* </select> *@
-                </div>
-
-                <canvas id="financeChart" style="height: 300px;"></canvas>
+        <!-- Bar Chart -->
+        <div class="bg-white shadow-lg rounded-2xl p-6 flex flex-col" style="height: 380px;">
+            <div class="flex justify-between items-center mb-3">
+                <p class="font-semibold text-sm">Revenue vs Expense</p>
             </div>
-
-            <!-- Doughnut Chart -->
-            <div class="bg-white shadow-lg rounded-2xl p-6 flex flex-col"
-                 style="height: 380px;">
-
-                <p class="font-semibold text-sm mb-3">Expense Breakdown</p>
-
-                <div class="flex justify-center items-center flex-1">
-                    <canvas id="expenseBreakdown" style="height: 290px;"></canvas>
-                </div>
-            </div>
-
+            <canvas id="financeChart" style="height: 300px;"></canvas>
         </div>
 
+        <!-- Doughnut Chart -->
+        <div class="bg-white shadow-lg rounded-2xl p-6 flex flex-col" style="height: 380px;">
+            <p class="font-semibold text-sm mb-3">Expense Breakdown</p>
+            <div class="flex justify-center items-center flex-1">
+                <canvas id="expenseBreakdown" style="height: 290px;"></canvas>
+            </div>
+        </div>
+
+    </div>
 
     <!-- Finance Overview Table -->
     <div class="bg-white shadow-md rounded-xl p-5">
@@ -137,144 +121,173 @@
                     </tr>
                 </thead>
 
-                <tbody class="text-sm text-gray-700">
-                    <tr class="border-b">
-                        <td class="py-3 px-4">EXP-1043</td>
-                        <td class="px-4">2025-10-28</td>
-                        <td class="px-4">Office Supplies</td>
-                        <td class="px-4">Expense</td>
-                        <td class="px-4">Supplies</td>
-                        <td class="px-4">HR</td>
-                        <td class="px-4 font-medium">₱3,200</td>
-                    </tr>
-
-                    <tr class="border-b">
-                        <td class="py-3 px-4">EXP-1043</td>
-                        <td class="px-4">2025-10-28</td>
-                        <td class="px-4">Influencer Deal</td>
-                        <td class="px-4">Expense</td>
-                        <td class="px-4">Promotions</td>
-                        <td class="px-4">Marketing</td>
-                        <td class="px-4 font-medium">₱13,900</td>
-                    </tr>
-
-                    <tr class="border-b">
-                        <td class="py-3 px-4">IN-1229</td>
-                        <td class="px-4">2025-10-29</td>
-                        <td class="px-4">Sale of Products</td>
-                        <td class="px-4">Income</td>
-                        <td class="px-4">Sales</td>
-                        <td class="px-4">—</td>
-                        <td class="px-4 font-medium">₱42,000</td>
-                    </tr>
-
-                    <tr class="border-b">
-                        <td class="py-3 px-4">EXP-1043</td>
-                        <td class="px-4">2025-10-28</td>
-                        <td class="px-4">Payroll for October</td>
-                        <td class="px-4">Expense</td>
-                        <td class="px-4">Payroll</td>
-                        <td class="px-4">HR</td>
-                        <td class="px-4 font-medium">₱33,200</td>
-                    </tr>
-
-                    <tr class="border-b">
-                        <td class="py-3 px-4">EXP-1043</td>
-                        <td class="px-4">2025-10-28</td>
-                        <td class="px-4">Electricity</td>
-                        <td class="px-4">Expense</td>
-                        <td class="px-4">Utilities</td>
-                        <td class="px-4">Finance</td>
-                        <td class="px-4 font-medium">₱33,200</td>
-                    </tr>
-
-                    <tr>
-                        <td class="py-3 px-4">IN-1229</td>
-                        <td class="px-4">2025-10-29</td>
-                        <td class="px-4">Sale of Products</td>
-                        <td class="px-4">Income</td>
-                        <td class="px-4">Sales</td>
-                        <td class="px-4">—</td>
-                        <td class="px-4 font-medium">₱92,000</td>
-                    </tr>
+                <tbody id="financeTableBody" class="text-sm text-gray-700">
+                    <!-- rows inserted dynamically -->
                 </tbody>
             </table>
         </div>
     </div>
-
+</div>
 
 <!-- ChartJS -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-            <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    const currencyFormatter = amount => {
+        return amount.toLocaleString('en-PH', { style: 'currency', currency: 'PHP' });
+    }
 
-        <script>
-            // Bar Chart
-            new Chart(document.getElementById("financeChart"), {
-                type: "bar",
-                data: {
-                    labels: [
-                        "January", "February", "March", "April", "May", "June",
-                        "July", "August", "September", "October", "November", "December"
-                    ],
-                    datasets: [
-                        {
-                            label: "Revenue",
-                            data: [70, 50, 40, 80, 60, 30, 18, 60, 90, 85, 92, 40],
-                            backgroundColor: "#ec4899",
-                            borderRadius: 8,
-                        },
-                        {
-                            label: "Expense",
-                            data: [45, 30, 38, 50, 30, 22, 12, 40, 65, 80, 60, 25],
-                            backgroundColor: "#3b82f6",
-                            borderRadius: 8,
-                        }
-                    ]
-                },
-                options: {
-                    maintainAspectRatio: false,
-                    responsive: true,
-                    plugins: {
-                        legend: {
-                            position: "bottom",
-                            labels: { boxWidth: 12 }
-                        }
+    let financeChartInstance = null;
+    let expenseBreakdownInstance = null;
+
+    const defaultLabels = ["Jan", "Feb", "Mar"];
+
+    function createCharts() {
+        const ctxFinance = document.getElementById("financeChart").getContext("2d");
+        financeChartInstance = new Chart(ctxFinance, {
+            type: 'bar',
+            data: {
+                labels: defaultLabels,
+                datasets: [
+                    {
+                        label: "Revenue",
+                        data: [0, 0, 0],
+                        backgroundColor: "#ec4899",
+                        borderRadius: 8,
                     },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: {
-                                stepSize: 20
-                            }
-                        }
+                    {
+                        label: "Expense",
+                        data: [0, 0, 0],
+                        backgroundColor: "#3b82f6",
+                        borderRadius: 8,
                     }
-                }
-            });
-
-            // Doughnut Chart
-            new Chart(document.getElementById("expenseBreakdown"), {
-                type: "doughnut",
-                data: {
-                    labels: ["Utilities", "Salaries & Wages", "Supplies"],
-                    datasets: [
-                        {
-                            data: [50, 35, 15],
-                            backgroundColor: ["#3b82f6", "#ec4899", "#10b981"],
-                            cutout: "70%",
-                        }
-                    ]
+                ]
+            },
+            options: {
+                maintainAspectRatio: false,
+                responsive: true,
+                plugins: {
+                    legend: { position: "bottom", labels: { boxWidth: 12 } }
                 },
-                options: {
-                    maintainAspectRatio: false,
-                    responsive: true,
-                    plugins: {
-                        legend: {
-                            position: "right",
-                            labels: { boxWidth: 10 }
-                        }
-                    }
+                scales: {
+                    y: { beginAtZero: true }
                 }
-            });
-        </script>
+            }
+        });
 
+        const ctxDough = document.getElementById("expenseBreakdown").getContext("2d");
+        expenseBreakdownInstance = new Chart(ctxDough, {
+            type: 'doughnut',
+            data: {
+                labels: ["No data"],
+                datasets: [{
+                    data: [1],
+                    backgroundColor: ["#3b82f6"],
+                    cutout: "70%",
+                }]
+            },
+            options: {
+                maintainAspectRatio: false,
+                responsive: true,
+                plugins: { legend: { position: "right", labels: { boxWidth: 10 } } }
+            }
+        });
+    }
+
+    function updateCards(data, periodLabel) {
+        document.getElementById("cardIncome").textContent = currencyFormatter(data.totalIncome);
+        document.getElementById("cardExpenses").textContent = currencyFormatter(data.totalExpenses);
+        document.getElementById("cardProfit").textContent = currencyFormatter(data.netProfit);
+        document.getElementById("cardProfitPct").textContent = (data.netProfitPercent ?? 0) + "%";
+
+        const subText = `From ${new Date(data.startDate).toLocaleDateString()} to ${new Date(data.endDate).toLocaleDateString()}`;
+        document.getElementById("cardIncomeSub").textContent = subText;
+        document.getElementById("cardExpensesSub").textContent = subText;
+        document.getElementById("cardProfitSub").textContent = subText;
+        document.getElementById("cardProfitPctSub").textContent = periodLabel;
+    }
+
+    function updateFinanceChart(labels, revenueData, expenseData) {
+        financeChartInstance.data.labels = labels;
+        financeChartInstance.data.datasets[0].data = revenueData;
+        financeChartInstance.data.datasets[1].data = expenseData;
+        financeChartInstance.update();
+    }
+
+    function updateBreakdown(labels, data) {
+        if (!labels || labels.length === 0) {
+            labels = ["No data"];
+            data = [1];
+        }
+        expenseBreakdownInstance.data.labels = labels;
+        expenseBreakdownInstance.data.datasets[0].data = data;
+        expenseBreakdownInstance.update();
+    }
+
+    function updateTable(rows) {
+        const tbody = document.getElementById("financeTableBody");
+        tbody.innerHTML = "";
+        for (const r of rows) {
+            const date = new Date(r.date).toISOString().split('T')[0];
+            const tr = document.createElement("tr");
+            tr.className = "border-b";
+            tr.innerHTML = `
+                <td class="py-3 px-4">${r.reference}</td>
+                <td class="px-4">${date}</td>
+                <td class="px-4">${r.description}</td>
+                <td class="px-4">${r.type}</td>
+                <td class="px-4">${r.category}</td>
+                <td class="px-4">${r.department}</td>
+                <td class="px-4 font-medium">${currencyFormatter(r.amount)}</td>
+            `;
+            tbody.appendChild(tr);
+        }
+    }
+
+    async function loadReport(period) {
+        const resp = await fetch(`/Sales_Finance/FinanceReportData?period=${encodeURIComponent(period)}`);
+        if (!resp.ok) {
+            console.error("Failed to load report data", resp.statusText);
+            return;
+        }
+        const json = await resp.json();
+
+        // normalize response names (server returns e.g. TotalIncome)
+        const payload = {
+            totalIncome: json.totalIncome ?? json.TotalIncome ?? 0,
+            totalExpenses: json.totalExpenses ?? json.TotalExpenses ?? 0,
+            netProfit: json.netProfit ?? json.NetProfit ?? 0,
+            netProfitPercent: json.netProfitPercent ?? json.NetProfitPercent ?? 0,
+            labels: json.labels ?? json.Labels ?? [],
+            revenue: json.revenue ?? json.Revenue ?? [],
+            expense: json.expense ?? json.Expense ?? [],
+            breakdownLabels: json.breakdownLabels ?? json.BreakdownLabels ?? [],
+            breakdownData: json.breakdownData ?? json.BreakdownData ?? [],
+            rows: json.rows ?? json.Rows ?? [],
+            startDate: json.startDateIso ?? json.StartDateIso ?? json.startDate ?? json.StartDate,
+            endDate: json.endDateIso ?? json.EndDateIso ?? json.endDate ?? json.EndDate
+        };
+
+        const periodLabelMap = {
+            week: "Week",
+            month: "Month",
+            year: "Year",
+            alltime: "All time"
+        };
+
+        updateCards(payload, periodLabelMap[period] ?? period);
+        updateFinanceChart(payload.labels, payload.revenue, payload.expense);
+        updateBreakdown(payload.breakdownLabels, payload.breakdownData);
+        updateTable(payload.rows);
+    }
+
+    // init
+    createCharts();
+    // default load
+    const select = document.getElementById("periodFilter");
+    loadReport(select.value);
+
+    // onchange + generate button
+    select.addEventListener("change", () => loadReport(select.value));
+    document.getElementById("generateReport").addEventListener("click", () => loadReport(select.value));
+</script>
