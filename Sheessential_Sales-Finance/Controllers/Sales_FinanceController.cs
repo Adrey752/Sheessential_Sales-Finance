@@ -1190,7 +1190,7 @@ namespace Sheessential_Sales_Finance.Controllers
         public IActionResult FinanceReport()
         {
             return View();
-        }        
+        }
         public IActionResult SalesReport()
         {
             return View();
@@ -1198,34 +1198,36 @@ namespace Sheessential_Sales_Finance.Controllers
 
         [HttpGet]
         public async Task<IActionResult> FinanceReportData(string period = "week")
-
         {
-
             _logger.LogInformation("\n\n\n\nI'm in Finance Report \n\n\n\n");
-            // normalize period string
+
+            // Normalize period string
             period = (period ?? "week").ToLowerInvariant();
 
-            DateTime utcNow = DateTime.UtcNow.Date; // date only UTC
-            DateTime start;
-            DateTime end = utcNow.AddDays(1).AddTicks(-1); // inclusive end (end of today)
+            // ✅ Always use local timezone (PH TIME)
+            var phTime = TimeZoneInfo.FindSystemTimeZoneById("Asia/Manila");
+            DateTime localNow = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, phTime).Date;
 
+            DateTime start;
+            DateTime end = localNow.AddDays(1).AddTicks(-1); // end of today PH time
+
+            // ==== PERIOD RANGE LOGIC =====
             if (period == "week")
             {
-                // start from Monday of current week to today
-                int diff = ((int)utcNow.DayOfWeek - (int)DayOfWeek.Monday + 7) % 7;
-                start = utcNow.AddDays(-diff);
+                // Monday start of current week
+                int diff = ((int)localNow.DayOfWeek - (int)DayOfWeek.Monday + 7) % 7;
+                start = localNow.AddDays(-diff);
             }
             else if (period == "month")
             {
-                start = new DateTime(utcNow.Year, utcNow.Month, 1);
+                start = new DateTime(localNow.Year, localNow.Month, 1);
             }
             else if (period == "year")
             {
-                start = new DateTime(utcNow.Year, 1, 1);
+                start = new DateTime(localNow.Year, 1, 1);
             }
             else // alltime
             {
-                // get earliest transaction date from invoices' items or from expenses
                 var invoiceEarliest = await _mongo.Invoices
                     .Find(FilterDefinition<Invoice>.Empty)
                     .Project(i => i.Items.OrderBy(x => x.TransactionDate).FirstOrDefault().TransactionDate)
@@ -1243,58 +1245,64 @@ namespace Sheessential_Sales_Finance.Controllers
                 if (expenseEarliest != default(DateTime)) earliest = expenseEarliest < earliest ? expenseEarliest : earliest;
 
                 if (earliest == DateTime.MaxValue)
-                {
-                    // fallback - 1 year ago
-                    earliest = utcNow.AddYears(-1);
-                }
+                    earliest = localNow.AddYears(-1);
 
+                earliest = TimeZoneInfo.ConvertTimeFromUtc(earliest, phTime);
                 start = new DateTime(earliest.Year, earliest.Month, 1);
             }
 
-            // load invoices with at least one item in range
-            var invoiceFilter = Builders<Invoice>.Filter.ElemMatch(i => i.Items,
+            // ==== DB DATA ====
+
+            var builder = Builders<Invoice>.Filter;
+
+            var dateFilter = builder.ElemMatch(i => i.Items,
                 it => it.TransactionDate >= start && it.TransactionDate <= end);
+
+            // new paid filter
+            var paidFilter = builder.Eq(i => i.Status, "Paid");
+
+            // combine them
+            var invoiceFilter = builder.And(dateFilter, paidFilter);
 
             var invoicesInRange = await _mongo.Invoices.Find(invoiceFilter).ToListAsync();
 
-            // load expenses in range
             var expenseFilter = Builders<Expenses>.Filter.And(
                 Builders<Expenses>.Filter.Gte(e => e.RequestedAt, start),
                 Builders<Expenses>.Filter.Lte(e => e.RequestedAt, end)
             );
+
             var expensesInRange = await _mongo.Expenses.Find(expenseFilter).ToListAsync();
 
-            // define labels and buckets
+            // ==== LABELS & BUCKETS ====
             List<DateTime> bucketStarts = new List<DateTime>();
             List<string> labels = new List<string>();
 
             if (period == "week")
             {
-                // each day from start (Monday) to today
-                for (var d = start; d.Date <= utcNow.Date; d = d.AddDays(1))
+                for (var d = start; d.Date <= localNow.Date; d = d.AddDays(1))
                 {
                     bucketStarts.Add(d.Date);
-                    labels.Add(d.ToString("ddd")); // Mon, Tue ...
+                    labels.Add(d.ToString("ddd")); // Mon, Tue, ...
                 }
             }
             else if (period == "month")
             {
-                for (int day = 1; day <= utcNow.Day; day++)
+                for (int day = 1; day <= localNow.Day; day++)
                 {
-                    var d = new DateTime(utcNow.Year, utcNow.Month, day);
+                    var d = new DateTime(localNow.Year, localNow.Month, day);
                     bucketStarts.Add(d.Date);
                     labels.Add(day.ToString());
                 }
             }
-            else // year or alltime monthly buckets
+            else
             {
                 DateTime bucket = new DateTime(start.Year, start.Month, 1);
-                DateTime endBucket = new DateTime(utcNow.Year, utcNow.Month, 1);
+                DateTime endBucket = new DateTime(localNow.Year, localNow.Month, 1);
 
                 while (bucket <= endBucket)
                 {
                     bucketStarts.Add(bucket);
-                    labels.Add(bucket.ToString("MMM yyyy", CultureInfo.InvariantCulture)); // "Jan 2025"
+                    labels.Add(bucket.ToString("MMM yyyy", CultureInfo.InvariantCulture));
                     bucket = bucket.AddMonths(1);
                 }
             }
@@ -1302,41 +1310,44 @@ namespace Sheessential_Sales_Finance.Controllers
             var revenueBuckets = new decimal[bucketStarts.Count];
             var expenseBuckets = new decimal[bucketStarts.Count];
 
-            // helper to find bucket index for a date
+            // ✅ Converts to PH time before evaluating bucket
             int GetBucketIndex(DateTime dt)
             {
-                dt = dt.Date;
+                dt = TimeZoneInfo.ConvertTimeFromUtc(dt, phTime).Date;
+
                 for (int i = 0; i < bucketStarts.Count; i++)
                 {
                     var startBucket = bucketStarts[i];
-                    DateTime bucketEnd;
-                    if (i + 1 < bucketStarts.Count)
-                        bucketEnd = bucketStarts[i + 1].AddTicks(-1);
-                    else
-                        bucketEnd = end;
+                    DateTime bucketEnd = (i + 1 < bucketStarts.Count)
+                        ? bucketStarts[i + 1].AddTicks(-1)
+                        : end;
 
-                    if (dt >= startBucket.Date && dt <= bucketEnd.Date) return i;
+                    if (dt >= startBucket.Date && dt <= bucketEnd.Date)
+                        return i;
                 }
                 return -1;
             }
 
-            // Sum invoice item amounts into buckets and also create rows
+            // ==== INCOME + ROW GENERATION ====
             List<FinanceRow> rows = new List<FinanceRow>();
             decimal totalIncome = 0;
+
             foreach (var inv in invoicesInRange)
             {
                 foreach (var item in inv.Items)
                 {
                     if (item.TransactionDate < start || item.TransactionDate > end) continue;
+
                     decimal amt = item.SalePrice * item.Quantity;
                     var idx = GetBucketIndex(item.TransactionDate);
+
                     if (idx >= 0) revenueBuckets[idx] += amt;
                     totalIncome += amt;
 
                     rows.Add(new FinanceRow
                     {
                         Reference = inv.InvoiceNumber,
-                        Date = item.TransactionDate,
+                        Date = TimeZoneInfo.ConvertTimeFromUtc(item.TransactionDate, phTime),
                         Description = item.Item ?? "Sale",
                         Type = "Income",
                         Category = "Sales",
@@ -1346,8 +1357,9 @@ namespace Sheessential_Sales_Finance.Controllers
                 }
             }
 
-            // Sum expenses
+            // ==== EXPENSES ====
             decimal totalExpenses = 0;
+
             foreach (var exp in expensesInRange)
             {
                 var idx = GetBucketIndex(exp.RequestedAt);
@@ -1357,7 +1369,7 @@ namespace Sheessential_Sales_Finance.Controllers
                 rows.Add(new FinanceRow
                 {
                     Reference = exp.ExpenseId,
-                    Date = exp.RequestedAt,
+                    Date = TimeZoneInfo.ConvertTimeFromUtc(exp.RequestedAt, phTime),
                     Description = exp.Description,
                     Type = "Expense",
                     Category = exp.ExpenseType,
@@ -1366,15 +1378,12 @@ namespace Sheessential_Sales_Finance.Controllers
                 });
             }
 
-            // Expense breakdown by type (top 6)
+            // ==== EXPENSE BREAKDOWN ====
             var breakdown = expensesInRange
                 .GroupBy(e => e.ExpenseType)
                 .Select(g => new { Type = g.Key, Amount = g.Sum(x => x.Amount) })
                 .OrderByDescending(x => x.Amount)
                 .ToList();
-
-            var breakdownLabels = breakdown.Select(b => b.Type).ToList();
-            var breakdownData = breakdown.Select(b => b.Amount).ToList();
 
             // sort rows descending by date
             rows = rows.OrderByDescending(r => r.Date).ToList();
@@ -1382,7 +1391,7 @@ namespace Sheessential_Sales_Finance.Controllers
             decimal netProfit = totalIncome - totalExpenses;
             decimal netProfitPct = totalIncome == 0 ? 0 : Math.Round((netProfit / totalIncome) * 100, 2);
 
-            var response = new FinanceReportResponse
+            return Ok(new FinanceReportResponse
             {
                 TotalIncome = Math.Round(totalIncome, 2),
                 TotalExpenses = Math.Round(totalExpenses, 2),
@@ -1391,14 +1400,125 @@ namespace Sheessential_Sales_Finance.Controllers
                 Labels = labels,
                 Revenue = revenueBuckets.Select(x => Math.Round(x, 2)).ToList(),
                 Expense = expenseBuckets.Select(x => Math.Round(x, 2)).ToList(),
-                BreakdownLabels = breakdownLabels,
-                BreakdownData = breakdownData.Select(x => Math.Round(x, 2)).ToList(),
+                BreakdownLabels = breakdown.Select(b => b.Type).ToList(),
+                BreakdownData = breakdown.Select(b => Math.Round(b.Amount, 2)).ToList(),
                 Rows = rows,
                 StartDateIso = start.ToString("o"),
                 EndDateIso = end.ToString("o")
+            });
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> SalesReportData(string period = "week")
+        {
+            period = period.ToLowerInvariant();
+            var now = DateTime.UtcNow;
+
+            // ✅ Determine start date based on dropdown
+            DateTime start = period switch
+            {
+                "week" => now.AddDays(-(int)now.DayOfWeek + (int)DayOfWeek.Monday),    // start of week (Monday)
+                "month" => new DateTime(now.Year, now.Month, 1),                       // start of month
+                "year" => new DateTime(now.Year, 1, 1),                                // Jan 1
+                "all" => DateTime.MinValue,                                            // all data
+                _ => now.AddDays(-7)
             };
 
-            return Ok(response);
+            // Fetch invoices with items in desired date range
+            var invoices = await _mongo.Invoices.Find(i =>
+                    i.Status == "Paid" &&
+                    i.Items.Any(it => it.TransactionDate >= start && it.TransactionDate <= now))
+                .ToListAsync();
+
+            var viewModel = new SalesReportViewModel
+            {
+                TotalSales = invoices.Sum(inv => inv.Total),
+                TotalOrders = invoices.Count,
+                ActiveCustomers = invoices.Select(inv => inv.BilledTo).Distinct().Count(),
+            };
+
+            // Flatten items and filter by selected period
+            var items = invoices
+                .SelectMany(i => i.Items)
+                .Where(i => i.TransactionDate >= start && i.TransactionDate <= now)
+                .ToList();
+
+            // ✅ Get distinct ProductIds
+            var productIds = items.Select(i => i.ProductId).Distinct().ToList();
+
+            // ✅ Fetch product names from Products collection
+            var products = await _mongo.Inventories
+                .Find(p => productIds.Contains(p.Id))
+                .ToListAsync();
+
+            var productLookup = products.ToDictionary(p => p.Id, p => p.Item);
+
+            // ✅ Chart Label logic adjusts depending on period
+            if (period == "all" || period == "year")
+            {
+                // Group per month for YEAR and ALL TIME
+                viewModel.ChartLabels = items
+                    .GroupBy(i => new { i.TransactionDate.Year, i.TransactionDate.Month })
+                    .OrderBy(g => g.Key.Year).ThenBy(g => g.Key.Month)
+                    .Select(g => new DateTime(g.Key.Year, g.Key.Month, 1).ToString("MMM yyyy"))
+                    .ToList();
+
+                viewModel.ChartValues = items
+                    .GroupBy(i => new { i.TransactionDate.Year, i.TransactionDate.Month })
+                    .Select(g => g.Sum(x => (decimal)x.SalePrice * x.Quantity))
+                    .ToList();
+            }
+            else
+            {
+                // Week / Month grouping (per day)
+                viewModel.ChartLabels = items
+                    .GroupBy(i => i.TransactionDate.Date)
+                    .OrderBy(g => g.Key)
+                    .Select(g => g.Key.ToString("MMM dd"))
+                    .ToList();
+
+                viewModel.ChartValues = items
+                    .GroupBy(i => i.TransactionDate.Date)
+                    .Select(g => g.Sum(x => (decimal)x.SalePrice * x.Quantity))
+                    .ToList();
+            }
+
+            // ✅ Top Products
+            viewModel.TopProducts = items
+                .GroupBy(i => i.ProductId)
+                .Select(g => new TopProductDto
+                {
+                    ProductName = productLookup.ContainsKey(g.Key)
+                        ? productLookup[g.Key]
+                        : "(Unknown Product)",
+
+                    TotalAmount = g.Sum(x => (decimal)x.SalePrice * x.Quantity)
+                })
+                .OrderByDescending(p => p.TotalAmount)
+                .Take(5)
+                .ToList();
+
+            // ✅ Full Sales Table
+            viewModel.SalesRows = items
+                .Select(x => new ProductSalesRow
+                {
+                    ProductId = x.ProductId.ToString(),
+                    ProductName = productLookup.ContainsKey(x.ProductId)
+                        ? productLookup[x.ProductId]
+                        : "(Unknown Product)",
+
+                    UnitPrice = (decimal)x.SalePrice,
+                    Quantity = x.Quantity,
+                    TotalAmount = x.Quantity * (decimal)x.SalePrice,
+                    TransactionDate = x.TransactionDate
+                })
+                .OrderByDescending(x => x.TransactionDate)
+                .ToList();
+
+            return Json(viewModel);
         }
+
+
+
     }
 }

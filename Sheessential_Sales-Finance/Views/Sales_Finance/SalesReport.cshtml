@@ -12,10 +12,13 @@
         </div>
 
         <div class="flex gap-3">
-            <select class="border border-gray-300 rounded-lg px-3 py-1 text-sm cursor-pointer">
-                <option selected>Weekly</option>
-                <option>Monthly</option>
+            <select id="periodSelect" class="border border-gray-300 rounded-lg px-3 py-1 text-sm cursor-pointer">
+                <option value="week" selected>This Week</option>
+                <option value="month">This Month</option>
+                <option value="year">This Year</option>
+                <option value="all">All Time</option>
             </select>
+
 
             <button class="bg-green-500 hover:bg-green-600 text-white text-sm px-4 py-2 rounded-lg">
                 Generate Report
@@ -32,9 +35,8 @@
                 <div class="h-10 w-10 rounded-full bg-pink-100 flex items-center justify-center">💰</div>
                 <p class="font-medium text-gray-700">Total Sales</p>
             </div>
-
-            <h2 class="text-3xl font-bold mt-4">₱149,283.00</h2>
-            <p class="text-xs text-gray-400 mt-2">In this month</p>
+            <h2 id="totalSales" class="text-3xl font-bold mt-4">₱0.00</h2>
+            <p class="text-xs text-gray-400 mt-2">In selected period</p>
         </div>
 
         <!-- Total Orders -->
@@ -43,9 +45,8 @@
                 <div class="h-10 w-10 rounded-full bg-pink-100 flex items-center justify-center">🧾</div>
                 <p class="font-medium text-gray-700">Total Orders</p>
             </div>
-
-            <h2 class="text-3xl font-bold mt-4">123,490</h2>
-            <p class="text-xs text-gray-400 mt-2">In this month</p>
+            <h2 id="totalOrders" class="text-3xl font-bold mt-4">0</h2>
+            <p class="text-xs text-gray-400 mt-2">In selected period</p>
         </div>
 
         <!-- Active Customers -->
@@ -54,9 +55,8 @@
                 <div class="h-10 w-10 rounded-full bg-pink-100 flex items-center justify-center">👥</div>
                 <p class="font-medium text-gray-700">Active Customers</p>
             </div>
-
-            <h2 class="text-3xl font-bold mt-4">13</h2>
-            <p class="text-xs text-gray-400 mt-2">In this month</p>
+            <h2 id="activeCustomers" class="text-3xl font-bold mt-4">0</h2>
+            <p class="text-xs text-gray-400 mt-2">In selected period</p>
         </div>
 
     </div>
@@ -65,18 +65,10 @@
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
         <!-- Sales Revenue Chart -->
-        <div class="col-span-2 bg-white shadow-lg rounded-2xl p-6 flex flex-col"
-             style="height: 350px;">
+        <div class="col-span-2 bg-white shadow-lg rounded-2xl p-6 flex flex-col" style="height: 350px;">
             <div class="flex justify-between items-center mb-2">
                 <p class="font-semibold text-sm">Total Revenue</p>
-
-                <select class="text-sm border border-gray-300 rounded-lg px-2 py-1 cursor-pointer">
-                    <option selected>Weekly</option>
-                    <option>Monthly</option>
-                </select>
             </div>
-
-            <h3 class="text-lg font-bold mb-3">₱124,106.00</h3>
 
             <canvas id="salesRevenueChart" style="max-height: 260px;"></canvas>
         </div>
@@ -86,36 +78,17 @@
             <h2 class="font-semibold mb-4">Top 5 Products</h2>
 
             <table class="w-full text-sm">
-                <tbody class="text-gray-700">
-                    <tr class="border-b">
-                        <td class="py-3">Hydrating Face Cream</td>
-                        <td>₱30,089</td>
-                    </tr>
-                    <tr class="border-b">
-                        <td class="py-3">Toner (50ml)</td>
-                        <td>₱29,976</td>
-                    </tr>
-                    <tr class="border-b">
-                        <td class="py-3">Hydrating Face Cream</td>
-                        <td>₱30,089</td>
-                    </tr>
-                    <tr class="border-b">
-                        <td class="py-3">Serum Glow</td>
-                        <td>₱21,899</td>
-                    </tr>
-                    <tr>
-                        <td class="pt-3">Face Mask (10pcs)</td>
-                        <td>₱18,500</td>
-                    </tr>
+                <tbody id="topProductTable" class="text-gray-700">
+                    <!-- Injected dynamically -->
                 </tbody>
             </table>
         </div>
 
     </div>
 </div>
+
 <!-- Product Sales Report Table -->
 <div class="bg-white shadow-lg rounded-2xl p-6 mt-10">
-
     <h2 class="font-semibold text-lg mb-4">Product Sales Report</h2>
 
     <div class="overflow-x-auto">
@@ -124,68 +97,93 @@
                 <tr class="bg-[#2D6CDF] text-white text-left">
                     <th class="py-3 px-4 rounded-l-lg">Product ID</th>
                     <th class="py-3 px-4">Product Name</th>
-                    <th class="py-3 px-4">Product Description</th>
                     <th class="py-3 px-4">Unit Price</th>
                     <th class="py-3 px-4">Quantity</th>
                     <th class="py-3 px-4 rounded-r-lg">Total Amount</th>
                 </tr>
             </thead>
 
-            <tbody class="text-gray-700">
-
-                <!-- Row 1 -->
-                <tr class="border-b">
-                    <td class="py-3 px-4">P0001</td>
-                    <td class="px-4">Hydrating Sheet Mask</td>
-                    <td class="px-4">Calming facial mask</td>
-                    <td class="px-4">₱20.00</td>
-                    <td class="px-4">49</td>
-                    <td class="px-4 font-medium">₱980.00</td>
-                </tr>
-
-                <!-- Duplicate for static sample rows -->
-                @for (int i = 0; i < 8; i++)
-                {
-                    <tr class="border-b">
-                        <td class="py-3 px-4">P0001</td>
-                        <td class="px-4">Hydrating Sheet Mask</td>
-                        <td class="px-4">Calming facial mask</td>
-                        <td class="px-4">₱20.00</td>
-                        <td class="px-4">49</td>
-                        <td class="px-4 font-medium">₱980.00</td>
-                    </tr>
-                }
-
+            <tbody id="salesReportTable" class="text-gray-700">
+                <!-- rows will be generated -->
             </tbody>
         </table>
     </div>
-
 </div>
 
-<!-- ChartJS -->
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <script>
-    new Chart(document.getElementById("salesRevenueChart"), {
-        type: "line",
-        data: {
-            labels: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul"],
-            datasets: [{
-                label: "Sales",
-                data: [600, 700, 850, 950, 780, 920, 650],
-                borderColor: "#a855f7",
-                backgroundColor: "rgba(168, 85, 247, .15)",
-                tension: 0.4,
-                fill: true
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: {
-                y: { beginAtZero: true }
-            }
-        }
+    let revenueChart = null;
+
+    document.getElementById("periodSelect").addEventListener("change", function () {
+        loadSalesReport(this.value);
     });
+
+    loadSalesReport("week");
+
+    async function loadSalesReport(period) {
+        const resp = await fetch(`/Sales_Finance/SalesReportData?period=${period}`);
+        const data = await resp.json();
+
+        // Update Cards
+        document.getElementById("totalSales").innerText = `₱${data.totalSales.toLocaleString()}`;
+        document.getElementById("totalOrders").innerText = data.totalOrders;
+        document.getElementById("activeCustomers").innerText = data.activeCustomers;
+
+        // Update Top Products
+        const topProdBody = document.getElementById("topProductTable");
+        topProdBody.innerHTML = "";
+        data.topProducts.forEach(p => {
+            topProdBody.innerHTML += `
+                <tr class="border-b">
+                    <td class="py-3">${p.productName}</td>
+                    <td>₱${p.totalAmount.toLocaleString()}</td>
+                </tr>
+            `;
+        });
+
+        // Update Product Sales Report Table
+        const salesReportBody = document.getElementById("salesReportTable");
+        salesReportBody.innerHTML = "";
+        data.salesRows.forEach(r => {
+            salesReportBody.innerHTML += `
+                <tr class="border-b">
+                    <td class="py-3 px-4">${r.productId}</td>
+                    <td class="px-4">${r.productName}</td>
+                    <td class="px-4">₱${r.unitPrice}</td>
+                    <td class="px-4">${r.quantity}</td>
+                    <td class="px-4 font-medium">₱${r.totalAmount}</td>
+                </tr>
+            `;
+        });
+
+        updateRevenueChart(data.chartLabels, data.chartValues);
+    }
+
+    function updateRevenueChart(labels, values) {
+
+        if (revenueChart !== null) {
+            revenueChart.destroy();   // ✅ Prevent overlapping charts
+        }
+
+        revenueChart = new Chart(document.getElementById("salesRevenueChart"), {
+            type: "line",
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: "Sales Revenue",
+                    data: values,
+                    borderColor: "#a855f7",
+                    backgroundColor: "rgba(168, 85, 247, .15)",
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: {
+                scales: { y: { beginAtZero: true } },
+                plugins: { legend: { display: false } }
+            }
+        });
+    }
 </script>
