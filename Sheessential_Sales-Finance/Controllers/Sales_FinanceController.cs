@@ -21,12 +21,15 @@ namespace Sheessential_Sales_Finance.Controllers
         private readonly MongoHelper _mongo;
         private readonly ILogger<AuthController> _logger;
         private readonly IConverter _converter;
+        private readonly IWebHostEnvironment _env;
 
-        public Sales_FinanceController(MongoHelper mongo, ILogger<AuthController> logger, IConverter converter)
+
+        public Sales_FinanceController(MongoHelper mongo, ILogger<AuthController> logger, IConverter converter, IWebHostEnvironment env)
         {
             _mongo = mongo;
             _logger = logger;
             _converter = converter;
+            _env = env;
         }
         public IActionResult Index()
         {
@@ -1189,6 +1192,8 @@ namespace Sheessential_Sales_Finance.Controllers
 
         public IActionResult FinanceReport()
         {
+            ViewBag.GeneratedBy = HttpContext.Session.GetString("UserName"); 
+                                                                             
             return View();
         }
         public IActionResult SalesReport()
@@ -1519,6 +1524,39 @@ namespace Sheessential_Sales_Finance.Controllers
         }
 
 
+        [HttpPost]
+        public IActionResult ExportPdfPreview([FromBody] FinancePdfPayload payload)
+        {
+            _logger.LogInformation("Generating PDF Preview...");
+            var logoPath = Path.Combine(_env.WebRootPath, "images/Logo.png");
+            var logoBytes = System.IO.File.ReadAllBytes(logoPath);
+            var base64Logo = Convert.ToBase64String(logoBytes);
+
+            payload.LogoBase64 = $"data:image/png;base64,{base64Logo}";
+
+
+            var html = RenderViewToString("FinancePdfTemplate", payload);
+
+            var doc = new HtmlToPdfDocument()
+            {
+                GlobalSettings = new GlobalSettings
+                {
+                    Orientation = Orientation.Portrait,
+                    PaperSize = PaperKind.A4,
+                    Margins = new MarginSettings { Top = 10, Bottom = 10 }
+                },
+                Objects = {
+            new ObjectSettings {
+                HtmlContent = html,
+                WebSettings = { DefaultEncoding = "utf-8", LoadImages = true }
+            }
+        }
+            };
+
+            var pdf = _converter.Convert(doc);
+
+            return File(pdf, "application/pdf");
+        }
 
     }
 }
