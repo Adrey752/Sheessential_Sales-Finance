@@ -9,6 +9,7 @@
 
         public List<string> ChartLabels { get; set; } = new();
         public List<decimal> ChartValues { get; set; } = new();
+        public string PeriodText { get; set; } 
 
         public List<TopProductDto> TopProducts { get; set; } = new();
         public List<ProductSalesRow> SalesRows { get; set; } = new();
@@ -24,6 +25,8 @@
     {
         public string ProductId { get; set; }
         public string ProductName { get; set; }
+        public string Category { get; set; } 
+
         public decimal UnitPrice { get; set; }
         public int Quantity { get; set; }
         public decimal TotalAmount { get; set; }

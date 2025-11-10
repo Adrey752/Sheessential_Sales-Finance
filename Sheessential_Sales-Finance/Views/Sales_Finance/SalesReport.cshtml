@@ -20,7 +20,7 @@
             </select>
 
 
-            <button class="bg-green-500 hover:bg-green-600 text-white text-sm px-4 py-2 rounded-lg">
+            <button id="generateReport" class="bg-green-500 hover:bg-green-600 text-white text-sm px-4 py-2 rounded-lg">
                 Generate Report
             </button>
         </div>
@@ -62,30 +62,102 @@
     </div>
 
     <!-- Charts + Top Products -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
         <!-- Sales Revenue Chart -->
-        <div class="col-span-2 bg-white shadow-lg rounded-2xl p-6 flex flex-col" style="height: 350px;">
-            <div class="flex justify-between items-center mb-2">
+        <div class="bg-white shadow-lg rounded-2xl p-6 flex flex-col h-[460px]">
+
+            <div class="flex justify-between items-center mb-3">
                 <p class="font-semibold text-sm">Total Revenue</p>
             </div>
 
-            <canvas id="salesRevenueChart" style="max-height: 260px;"></canvas>
+            <div class="flex-1 relative">
+                <canvas id="salesRevenueChart"></canvas>
+            </div>
         </div>
 
-        <!-- Top Products Table -->
-        <div class="bg-white shadow-lg rounded-2xl p-6">
-            <h2 class="font-semibold mb-4">Top 5 Products</h2>
+        <!-- Top Products Card -->
+        <div id="topProductsCard" class="bg-white shadow-lg rounded-2xl p-6 flex flex-col h-[460px]">
+            <h2 class="font-semibold text-sm mb-4">Top Products</h2>
 
-            <table class="w-full text-sm">
-                <tbody id="topProductTable" class="text-gray-700">
-                    <!-- Injected dynamically -->
-                </tbody>
-            </table>
+            <div class="flex flex-1 items-center justify-center gap-6">
+                <!-- Donut Chart (Left) -->
+                <div class="w-[280px] h-[280px] relative">
+                    <canvas id="topProductsChart"></canvas>
+                </div>
+
+                <!-- Product List (Right) -->
+                <div id="topProductsList" class="flex flex-col text-sm text-gray-700 gap-2">
+                    <!-- dynamically generated -->
+                </div>
+            </div>
         </div>
 
-    </div>
+
+
+
+
 </div>
+    <!-- Product Sales Report -->
+    <div class="bg-white shadow-lg rounded-2xl p-6 mt-10">
+
+        <div class="flex justify-end items-center mb-4">
+            <!-- Filter Button -->
+            <div class="relative inline-block text-left">
+                <button id="filterButton"
+                        type="button"
+                        class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                    </svg>
+                    Filter
+                </button>
+
+                <!-- Popup panel -->
+                <div id="filterPanel" class="hidden absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-xl border p-4 z-50">
+
+                    <!-- Show Entries -->
+                    <label class="text-sm font-medium text-gray-700">Show Entries</label>
+                    <select id="showEntries" class="w-full border rounded-lg px-2 py-1 mt-1 text-sm">
+                        <option value="5">5</option>
+                        <option value="10" selected>10</option>
+                        <option value="100">100</option>
+                        <option value="all">All</option>
+                    </select>
+
+                    <label class="text-sm font-medium text-gray-700 mt-4 block">Sort By</label>
+                    <select id="sortOption" class="w-full border rounded-lg px-2 py-1 mt-1 text-sm">
+                        <option value="quantity">Quantity Sold</option>
+                        <option value="amount">Total Amount</option>
+                        <option value="name">Product Name (A–Z)</option>
+                    </select>
+
+                    <label class="text-sm font-medium text-gray-700 mt-3 block">Order</label>
+                    <select id="sortDirection" class="w-full border rounded-lg px-2 py-1 mt-1 text-sm">
+                        <option value="desc">Descending</option>
+                        <option value="asc">Ascending</option>
+                    </select>
+
+                    <label class="text-sm font-medium text-gray-700 mt-3 block">Category</label>
+                    <select id="categoryFilter" class="w-full border rounded-lg px-2 py-1 mt-1 text-sm">
+                        <option value="">All Categories</option>
+
+                        @foreach (var c in ViewBag.Categories)
+                        {
+                            <option value="@c">@c</option>
+                        }
+                    </select>
+
+                    <button id="applyFilter"
+                            class="mt-4 bg-blue-600 hover:bg-blue-700 text-white text-sm w-full py-2 rounded-lg">
+                        Apply
+                    </button>
+                </div>
+
+            </div>
+        </div>
+
 
 <!-- Product Sales Report Table -->
 <div class="bg-white shadow-lg rounded-2xl p-6 mt-10">
@@ -97,6 +169,8 @@
                 <tr class="bg-[#2D6CDF] text-white text-left">
                     <th class="py-3 px-4 rounded-l-lg">Product ID</th>
                     <th class="py-3 px-4">Product Name</th>
+                        <th class="py-3 px-4">Category</th> 
+
                     <th class="py-3 px-4">Unit Price</th>
                     <th class="py-3 px-4">Quantity</th>
                     <th class="py-3 px-4 rounded-r-lg">Total Amount</th>
@@ -112,9 +186,12 @@
 
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+
 
 <script>
     let revenueChart = null;
+    let topProductsChart = null;
 
     document.getElementById("periodSelect").addEventListener("change", function () {
         loadSalesReport(this.value);
@@ -125,23 +202,13 @@
     async function loadSalesReport(period) {
         const resp = await fetch(`/Sales_Finance/SalesReportData?period=${period}`);
         const data = await resp.json();
+        window.currentPeriodText = data.periodText;
+
 
         // Update Cards
         document.getElementById("totalSales").innerText = `₱${data.totalSales.toLocaleString()}`;
         document.getElementById("totalOrders").innerText = data.totalOrders;
         document.getElementById("activeCustomers").innerText = data.activeCustomers;
-
-        // Update Top Products
-        const topProdBody = document.getElementById("topProductTable");
-        topProdBody.innerHTML = "";
-        data.topProducts.forEach(p => {
-            topProdBody.innerHTML += `
-                <tr class="border-b">
-                    <td class="py-3">${p.productName}</td>
-                    <td>₱${p.totalAmount.toLocaleString()}</td>
-                </tr>
-            `;
-        });
 
         // Update Product Sales Report Table
         const salesReportBody = document.getElementById("salesReportTable");
@@ -151,6 +218,7 @@
                 <tr class="border-b">
                     <td class="py-3 px-4">${r.productId}</td>
                     <td class="px-4">${r.productName}</td>
+                    <td class="px-4">${r.category}</td> 
                     <td class="px-4">₱${r.unitPrice}</td>
                     <td class="px-4">${r.quantity}</td>
                     <td class="px-4 font-medium">₱${r.totalAmount}</td>
@@ -159,13 +227,70 @@
         });
 
         updateRevenueChart(data.chartLabels, data.chartValues);
+        updateTopProductsChart(data.topProducts);
     }
 
-    function updateRevenueChart(labels, values) {
+        function updateTopProductsChart(topProducts) {
+            const labels = topProducts.map(p => p.productName);
+            const values = topProducts.map(p => p.totalAmount);
+            const total = values.reduce((a, b) => a + b, 0);
 
-        if (revenueChart !== null) {
-            revenueChart.destroy();   // ✅ Prevent overlapping charts
+            const colors = ["#FF4FC3", "#3FA9F5", "#00C49A", "#FFC75F", "#FF6F91"];
+
+            if (topProductsChart !== null) topProductsChart.destroy();
+
+            // 🎨 Draw donut chart
+            const ctx = document.getElementById("topProductsChart");
+            topProductsChart = new Chart(ctx, {
+                type: "doughnut",
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: values,
+                        backgroundColor: colors,
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: "60%",
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: ctx => {
+                                    const percentage = ((ctx.raw / total) * 100).toFixed(1);
+                                    return `${ctx.label}: ${percentage}%`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // 🧾 Generate product list
+            const listContainer = document.getElementById("topProductsList");
+            listContainer.innerHTML = `
+                <h3 class="font-semibold mb-2 text-gray-800">Top ${topProducts.length}</h3>
+                ${topProducts.map((p, i) => {
+                    const percent = ((p.totalAmount / total) * 100).toFixed(1);
+                    return `
+                        <div class="flex items-center gap-2">
+                            <div class="w-3 h-3 rounded-full" style="background:${colors[i % colors.length]}"></div>
+                            <span class="truncate">${p.productName}</span>
+                            <span class="ml-auto font-medium text-gray-600">${percent}%</span>
+                        </div>
+                    `;
+                }).join("")}
+            `;
         }
+
+
+
+
+    function updateRevenueChart(labels, values) {
+        if (revenueChart !== null) revenueChart.destroy();
 
         revenueChart = new Chart(document.getElementById("salesRevenueChart"), {
             type: "line",
@@ -174,16 +299,169 @@
                 datasets: [{
                     label: "Sales Revenue",
                     data: values,
-                    borderColor: "#a855f7",
-                    backgroundColor: "rgba(168, 85, 247, .15)",
+                        borderColor: "#ec4899",
+                        backgroundColor: "rgba(236,72,153,0.2)",
                     tension: 0.4,
                     fill: true
                 }]
             },
             options: {
-                scales: { y: { beginAtZero: true } },
-                plugins: { legend: { display: false } }
+                scales: { y: { beginAtZero: true }},
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false }},
+        cutout: "70%"
             }
         });
     }
 </script>
+    <script>
+        async function generatePdfReport() {
+            // ✅ Capture chart containers instead of just canvases
+            const revenueChartCanvas = document.getElementById("salesRevenueChart");
+            const revenueCard = revenueChartCanvas.closest(".bg-white.shadow-lg.rounded-2xl");
+
+        const topProductsCard = document.getElementById("topProductsCard");
+
+            // ✅ Convert to images
+            const revenueImg = await htmlToImage(revenueCard);
+            const topProductsImg = await htmlToImage(topProductsCard);
+
+            // ✅ Capture summary info
+            const totalSales = document.getElementById("totalSales").textContent;
+            const totalOrders = document.getElementById("totalOrders").textContent;
+            const activeCustomers = document.getElementById("activeCustomers").textContent;
+            const period = document.getElementById("periodSelect").value;
+            const generatedBy = '@Html.Raw(ViewBag.GeneratedBy)';
+            const dateGenerated = new Date().toLocaleString();
+
+            // ✅ Top-performing product
+            const rows = Array.from(document.querySelectorAll("#salesReportTable tr"));
+            let topProduct = "";
+            if (rows.length > 0) {
+                const productData = rows.map(r => {
+                    const tds = r.querySelectorAll("td");
+                    return {
+                        name: tds[1].textContent.trim(),
+                        totalAmount: parseFloat(tds[4].textContent.replace(/[₱,]/g, "")) || 0
+                    };
+                });
+                const sorted = productData.sort((a, b) => b.totalAmount - a.totalAmount);
+                topProduct = sorted[0].name;
+            }
+
+            // ✅ Capture sales table as image
+            const tableEl = document.querySelector(".bg-white.shadow-lg.rounded-2xl.p-6.mt-10");
+            const tableImg = await htmlToImage(tableEl);
+
+            // ✅ Prepare payload
+            const payload = {
+                revenueChart: revenueImg,
+                topProductsChart: topProductsImg,
+                tableImage: tableImg,
+                
+                summary: {
+                    totalSales,
+                    totalOrders,
+                    activeCustomers,
+                    topProduct
+                },
+                periodText: window.currentPeriodText,
+                generatedBy,
+                dateGenerated
+            };
+
+            // ✅ Send to backend
+            const res = await fetch('/Sales_Finance/ExportProductSalesPdfPreview', {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            window.open(url, "_blank");
+        }
+
+        // ✅ Utility for capturing DOM as image
+        async function htmlToImage(element) {
+            const canvas = await html2canvas(element, { scale: 2, backgroundColor: "#fff" });
+            return canvas.toDataURL("image/png");
+        }
+
+        // ✅ Hook up button
+        document.getElementById("generateReport").addEventListener("click", generatePdfReport);
+
+
+                const filterPanel = document.getElementById("filterPanel");
+                const salesTable = document.getElementById("salesReportTable");
+
+                // Show / Hide popup filter panel
+                document.getElementById("filterButton").addEventListener("click", () => {
+                    filterPanel.classList.toggle("hidden");
+                });
+
+                document.getElementById("applyFilter").addEventListener("click", () => {
+                    const sortBy = document.getElementById("sortOption").value;
+                    const sortDirection = document.getElementById("sortDirection").value;
+                    const category = document.getElementById("categoryFilter").value;
+                    const showEntries = document.getElementById("showEntries").value;
+
+                    const rows = Array.from(salesTable.querySelectorAll("tr"));
+
+                    // Reset display (show all first)
+                    rows.forEach(r => (r.style.display = ""));
+
+                    // SORTING
+                    rows.sort((a, b) => {
+                        const tdsA = a.querySelectorAll("td");
+                        const tdsB = b.querySelectorAll("td");
+
+                        let valA, valB;
+
+                        if (sortBy === "quantity") {
+                            valA = parseInt(tdsA[4].textContent);
+                            valB = parseInt(tdsB[4].textContent);
+                        }
+                        else if (sortBy === "amount") {
+                            valA = parseFloat(tdsA[5].textContent.replace(/[₱,]/g, ""));
+                            valB = parseFloat(tdsB[5].textContent.replace(/[₱,]/g, ""));
+                        }
+                        else {
+                            valA = tdsA[1].textContent.toLowerCase();
+                            valB = tdsB[1].textContent.toLowerCase();
+                        }
+
+                        return (sortDirection === "asc")
+                            ? valA > valB ? 1 : -1
+                            : valA < valB ? 1 : -1;
+                    });
+
+                    // CATEGORY FILTER
+                    let visibleRows = [];
+                    rows.forEach(r => {
+                        const cat = r.querySelectorAll("td")[2].textContent.trim();
+                        if (category === "" || cat === category) {
+                            visibleRows.push(r);
+                        } else {
+                            r.style.display = "none";
+                        }
+                    });
+
+                    // SHOW ENTRIES (5, 10, 100, ALL)
+                    visibleRows.forEach((r, index) => {
+                        if (showEntries !== "all" && index >= showEntries)
+                            r.style.display = "none";
+                    });
+
+                    // Reappend in sorted order
+                    visibleRows.forEach(r => salesTable.appendChild(r));
+
+                    filterPanel.classList.add("hidden");
+                });
+
+
+    </script>
+
+    <!-- Dependency -->
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>

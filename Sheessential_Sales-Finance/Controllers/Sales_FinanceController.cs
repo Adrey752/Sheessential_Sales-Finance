@@ -1196,10 +1196,17 @@ namespace Sheessential_Sales_Finance.Controllers
                                                                              
             return View();
         }
-        public IActionResult SalesReport()
+        public async Task<IActionResult> SalesReport()
         {
+            var categories = await _mongo.Inventories
+                .Distinct<string>("category", filter: Builders<Product>.Filter.Empty)
+                .ToListAsync();
+
+            ViewBag.Categories = categories;
+
             return View();
         }
+
 
         [HttpGet]
         public async Task<IActionResult> FinanceReportData(string period = "week")
@@ -1422,17 +1429,17 @@ namespace Sheessential_Sales_Finance.Controllers
             // ✅ Determine start date based on dropdown
             DateTime start = period switch
             {
-                "week" => now.AddDays(-(int)now.DayOfWeek + (int)DayOfWeek.Monday),    // start of week (Monday)
-                "month" => new DateTime(now.Year, now.Month, 1),                       // start of month
-                "year" => new DateTime(now.Year, 1, 1),                                // Jan 1
-                "all" => DateTime.MinValue,                                            // all data
+                "week" => now.AddDays(-(int)now.DayOfWeek + (int)DayOfWeek.Monday), // start of week (Monday)
+                "month" => new DateTime(now.Year, now.Month, 1),                     // start of month
+                "year" => new DateTime(now.Year, 1, 1),                              // Jan 1
+                "all" => DateTime.MinValue,                                          // all data
                 _ => now.AddDays(-7)
             };
 
-            // Fetch invoices with items in desired date range
+            // ✅ Fetch paid invoices within period
             var invoices = await _mongo.Invoices.Find(i =>
-                    i.Status == "Paid" &&
-                    i.Items.Any(it => it.TransactionDate >= start && it.TransactionDate <= now))
+                i.Status == "Paid" &&
+                i.Items.Any(it => it.TransactionDate >= start && it.TransactionDate <= now))
                 .ToListAsync();
 
             var viewModel = new SalesReportViewModel
@@ -1442,26 +1449,27 @@ namespace Sheessential_Sales_Finance.Controllers
                 ActiveCustomers = invoices.Select(inv => inv.BilledTo).Distinct().Count(),
             };
 
-            // Flatten items and filter by selected period
+            // ✅ Flatten items and filter by date range
             var items = invoices
                 .SelectMany(i => i.Items)
                 .Where(i => i.TransactionDate >= start && i.TransactionDate <= now)
                 .ToList();
 
-            // ✅ Get distinct ProductIds
+            // ✅ Collect distinct ProductIds
             var productIds = items.Select(i => i.ProductId).Distinct().ToList();
 
-            // ✅ Fetch product names from Products collection
+            // ✅ Fetch product names and categories
             var products = await _mongo.Inventories
                 .Find(p => productIds.Contains(p.Id))
                 .ToListAsync();
 
+            // ✅ Lookup dictionaries
             var productLookup = products.ToDictionary(p => p.Id, p => p.Item);
+            var categoryLookup = products.ToDictionary(p => p.Id, p => p.Category);
 
-            // ✅ Chart Label logic adjusts depending on period
+            // ✅ Chart data
             if (period == "all" || period == "year")
             {
-                // Group per month for YEAR and ALL TIME
                 viewModel.ChartLabels = items
                     .GroupBy(i => new { i.TransactionDate.Year, i.TransactionDate.Month })
                     .OrderBy(g => g.Key.Year).ThenBy(g => g.Key.Month)
@@ -1475,7 +1483,6 @@ namespace Sheessential_Sales_Finance.Controllers
             }
             else
             {
-                // Week / Month grouping (per day)
                 viewModel.ChartLabels = items
                     .GroupBy(i => i.TransactionDate.Date)
                     .OrderBy(g => g.Key)
@@ -1496,32 +1503,37 @@ namespace Sheessential_Sales_Finance.Controllers
                     ProductName = productLookup.ContainsKey(g.Key)
                         ? productLookup[g.Key]
                         : "(Unknown Product)",
-
                     TotalAmount = g.Sum(x => (decimal)x.SalePrice * x.Quantity)
                 })
                 .OrderByDescending(p => p.TotalAmount)
                 .Take(5)
                 .ToList();
 
-            // ✅ Full Sales Table
+            // ✅ Product Sales Table (added Category)
             viewModel.SalesRows = items
-                .Select(x => new ProductSalesRow
+                .GroupBy(x => x.ProductId)
+                .Select(g => new ProductSalesRow
                 {
-                    ProductId = x.ProductId.ToString(),
-                    ProductName = productLookup.ContainsKey(x.ProductId)
-                        ? productLookup[x.ProductId]
+                    ProductId = g.Key ?? "(Unknown)",
+                    ProductName = productLookup.ContainsKey(g.Key)
+                        ? productLookup[g.Key]
                         : "(Unknown Product)",
-
-                    UnitPrice = (decimal)x.SalePrice,
-                    Quantity = x.Quantity,
-                    TotalAmount = x.Quantity * (decimal)x.SalePrice,
-                    TransactionDate = x.TransactionDate
+                    Category = categoryLookup.ContainsKey(g.Key)
+                        ? categoryLookup[g.Key]
+                        : "(Unknown)",
+                    UnitPrice = g.Average(x => (decimal)x.SalePrice),
+                    Quantity = g.Sum(x => x.Quantity),
+                    TotalAmount = g.Sum(x => (decimal)x.SalePrice * x.Quantity)
                 })
-                .OrderByDescending(x => x.TransactionDate)
+                .OrderByDescending(x => x.TotalAmount)
                 .ToList();
+
+            // ✅ Period text
+            viewModel.PeriodText = $"{start.ToLocalTime():MMMM d, yyyy} – {now.ToLocalTime():MMMM d, yyyy}";
 
             return Json(viewModel);
         }
+
 
 
         [HttpPost]
@@ -1555,6 +1567,39 @@ namespace Sheessential_Sales_Finance.Controllers
 
             var pdf = _converter.Convert(doc);
 
+            return File(pdf, "application/pdf");
+        }
+
+        [HttpPost]
+        public IActionResult ExportProductSalesPdfPreview([FromBody] SalesPdfPayload payload)
+        {
+            _logger.LogInformation("Generating Sales PDF...");
+
+            var logoPath = Path.Combine(_env.WebRootPath, "images/Logo.png");
+            var logoBytes = System.IO.File.ReadAllBytes(logoPath);
+            var base64Logo = Convert.ToBase64String(logoBytes);
+
+            payload.LogoBase64 = $"data:image/png;base64,{base64Logo}";
+
+            var html = RenderViewToString("SalesPdfTemplate", payload);
+
+            var doc = new HtmlToPdfDocument()
+            {
+                GlobalSettings = new GlobalSettings
+                {
+                    Orientation = Orientation.Portrait,
+                    PaperSize = PaperKind.A4,
+                    Margins = new MarginSettings { Top = 10, Bottom = 10 }
+                },
+                Objects = {
+            new ObjectSettings {
+                HtmlContent = html,
+                WebSettings = { DefaultEncoding = "utf-8", LoadImages = true }
+            }
+        }
+            };
+
+            var pdf = _converter.Convert(doc);
             return File(pdf, "application/pdf");
         }
 
