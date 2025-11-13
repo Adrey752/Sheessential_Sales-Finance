@@ -1,0 +1,125 @@
+﻿@model IEnumerable<PayrollViewModel>
+@{
+    ViewData["Title"] = "Payroll Management";
+}
+
+<div class="p-6">
+    <div class="flex justify-between items-center mb-5">
+        <h2 class="text-2xl font-semibold text-gray-800">Payroll Management</h2>
+
+        <div class="flex items-center gap-2">
+            <input type="text" placeholder="Search here"
+                   class="border border-gray-300 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" />
+            <button class="bg-green-500 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-green-600 transition">
+                <i class="fa-solid fa-download mr-1"></i> Load Payroll Data
+            </button>
+        </div>
+    </div>
+
+    <div class="overflow-x-auto bg-white rounded-xl shadow-sm border border-gray-100">
+        <table class="w-full text-left text-gray-700">
+            <thead class="bg-gray-50 text-sm font-semibold text-gray-600 uppercase">
+                <tr>
+                    <th class="py-3 px-5">Employee ID</th>
+                    <th class="py-3 px-5">Full Name</th>
+                    <th class="py-3 px-5">Department</th>
+                    <th class="py-3 px-5">Position</th>
+                    <th class="py-3 px-5 text-right">Gross Pay</th>
+                    <th class="py-3 px-5 text-center">Status</th>
+                    <th class="py-3 px-5 text-center">Action</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                @foreach (var emp in Model)
+                {
+                    <tr class="hover:bg-gray-50">
+                        <td class="py-3 px-5">@emp.EmployeeId</td>
+                        <td class="py-3 px-5">@emp.FullName</td>
+                        <td class="py-3 px-5">@emp.Department</td>
+                        <td class="py-3 px-5">@emp.Position</td>
+                        <td class="py-3 px-5 text-right">@emp.GrossPay.ToString("N2")</td>
+                        <td class="py-3 px-5 text-center">
+                            <span class="px-3 py-1 rounded-full text-xs font-medium
+                                          @(emp.IsComputed ? "bg-green-100 text-green-600" : "bg-yellow-100 text-yellow-600")">
+                                @(emp.IsComputed ? "Computed" : "Pending")
+                            </span>
+                        </td>
+                        <td class="py-3 px-5 text-center">
+                            @if (emp.IsComputed)
+                            {
+                                <button class="text-blue-500 hover:text-blue-600 text-sm font-medium"
+                                        onclick="openModal('viewModal')">
+                                    View
+                                </button>
+                            }
+                            else
+                            {
+                                <button class="text-pink-500 hover:text-pink-600 text-sm font-medium"
+                                        onclick="openModal('computeModal')">
+                                    Compute
+                                </button>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Compute Modal -->
+<div id="computeModal" class="hidden fixed inset-0 flex items-center justify-center bg-black bg-opacity-30 z-50">
+    <div class="bg-white w-[600px] rounded-xl shadow-lg p-6">
+        <div class="flex justify-between items-center border-b pb-2 mb-4">
+            <h3 class="text-lg font-semibold">Employee Information</h3>
+            <button onclick="closeModal('computeModal')" class="text-gray-500 hover:text-gray-700">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="grid grid-cols-2 gap-4 text-sm">
+            <input type="text" placeholder="Employee ID" class="border rounded-lg px-3 py-2" />
+            <input type="text" placeholder="Department" class="border rounded-lg px-3 py-2" />
+            <input type="text" placeholder="Position" class="border rounded-lg px-3 py-2 col-span-2" />
+            <input type="text" placeholder="SSS Contribution" class="border rounded-lg px-3 py-2" />
+            <input type="text" placeholder="PhilHealth Contribution" class="border rounded-lg px-3 py-2" />
+            <input type="text" placeholder="Pag-IBIG Contribution" class="border rounded-lg px-3 py-2" />
+            <input type="text" placeholder="Withholding Tax" class="border rounded-lg px-3 py-2" />
+            <input type="text" placeholder="Allowance" class="border rounded-lg px-3 py-2" />
+            <input type="text" placeholder="Others" class="border rounded-lg px-3 py-2" />
+            <input type="text" placeholder="Total Deductions" class="border rounded-lg px-3 py-2" />
+            <input type="text" placeholder="Net Pay" class="border rounded-lg px-3 py-2" />
+        </div>
+        <div class="flex justify-end gap-2 mt-4">
+            <button onclick="closeModal('computeModal')" class="px-4 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200">Cancel</button>
+            <button class="px-4 py-2 bg-pink-500 text-white rounded-lg hover:bg-pink-600">Calculate</button>
+        </div>
+    </div>
+</div>
+
+<!-- View Payslip Modal -->
+<div id="viewModal" class="hidden fixed inset-0 flex items-center justify-center bg-black bg-opacity-30 z-50">
+    <div class="bg-white w-[400px] rounded-xl shadow-lg p-6 text-center">
+        <h3 class="text-gray-600 mb-4">Payslip pending generation</h3>
+        <p class="text-sm text-gray-400">Note: Payslip to be retrieved from HR.</p>
+        <button onclick="closeModal('viewModal')" class="mt-5 px-4 py-2 bg-pink-500 text-white rounded-lg hover:bg-pink-600">
+            Close
+        </button>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        function openModal(id) {
+            const modal = document.getElementById(id);
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeModal(id) {
+            const modal = document.getElementById(id);
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+    </script>
+}
+

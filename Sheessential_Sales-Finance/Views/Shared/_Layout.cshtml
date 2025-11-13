@@ -139,7 +139,18 @@
                 </a>
             </li>
 
+            <li>
+                <a asp-controller="Sales_Finance" asp-action="Payroll"
+                   class="flex items-center px-5 py-3 rounded-xl font-medium transition
+           @(currentPath.Contains("/sales_finance/products")
+               ? "bg-pink-50 text-pink-500"
+               : "text-gray-600 hover:bg-pink-50 hover:text-pink-500")">
+                    <i class="fa-solid fa-box w-6 mr-2"></i>Payroll
+                </a>
+            </li>
+
         </ul>
+        @* ul end *@
 
         <div class="mt-auto w-full px-5">
             <form asp-controller="Auth" asp-action="Logout" method="post">

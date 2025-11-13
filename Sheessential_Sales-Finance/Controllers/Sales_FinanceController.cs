@@ -1602,6 +1602,23 @@ namespace Sheessential_Sales_Finance.Controllers
             var pdf = _converter.Convert(doc);
             return File(pdf, "application/pdf");
         }
+        public IActionResult Payroll()
+        {
+            var payroll = new List<PayrollViewModel>
+    {
+        new() { EmployeeId = "EMP001", FullName = "Juan C. Dela Cruz", Department = "Marketing", Position = "Marketing Assistant", GrossPay = 32000, IsComputed = false },
+        new() { EmployeeId = "EMP002", FullName = "John Rivera", Department = "Finance", Position = "Accounting Staff", GrossPay = 28500, IsComputed = true },
+        new() { EmployeeId = "EMP003", FullName = "Looney Tunes", Department = "Sales", Position = "Sales Executive", GrossPay = 30000, IsComputed = false },
+        new() { EmployeeId = "EMP004", FullName = "Mickey Mouse", Department = "Human Resource", Position = "HR Officer", GrossPay = 35000, IsComputed = true },
+        new() { EmployeeId = "EMP005", FullName = "Marian Grey", Department = "Inventory", Position = "Warehouse Clerk", GrossPay = 26800, IsComputed = false },
+        new() { EmployeeId = "EMP006", FullName = "Michael Jordan", Department = "IT", Position = "System Analyst", GrossPay = 40000, IsComputed = true }
+    };
+
+            // ✅ Make sure to pass the payroll list to the View
+            return View(payroll);
+        }
+
+
 
     }
 }
