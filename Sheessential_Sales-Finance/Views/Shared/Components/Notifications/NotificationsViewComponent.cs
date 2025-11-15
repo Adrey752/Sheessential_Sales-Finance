@@ -14,7 +14,6 @@ namespace Sheessential_Sales_Finance.Views.Shared.Components.Notifications
 
         public IViewComponentResult Invoke()
         {
-            // Assuming you store user id in session
             var userId = HttpContext.Session.GetString("UserId");
 
             var notifications = _mongo.ActionLog

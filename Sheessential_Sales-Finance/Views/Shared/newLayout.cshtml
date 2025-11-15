@@ -1,0 +1,223 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Employee Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+
+    <!-- Custom CSS -->
+    <link href="~/css/Layout.css" rel="stylesheet" />
+
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+
+    @RenderSection("Head", required: false)
+</head>
+
+<body class="dashboard-body">
+
+    <div class="dashboard-wrapper">
+
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">
+                    <img src="~/images/sheesential-logo.jpg" alt="Yeloe Logo" class="logo-icon" />
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <!-- MAIN Section -->
+                <div class="nav-section">
+                    <div class="nav-section-label">Menu</div>
+                    <ul class="nav-list">
+                        <li class="nav-item">
+                            <a asp-controller="Sales_Finance" asp-action="DashBoard" class="nav-link">
+                                <i class="fas fa-chart-line"></i>
+                                <span class="nav-text">Dashboard</span>
+                            </a>
+                        </li>
+
+                        <li class="nav-item">
+                            <a asp-controller="Sales_Finance" asp-action="Invoices" class="nav-link">
+                                <i class="fas fa-credit-card"></i>
+                                <span class="nav-text">Payments</span>
+                            </a>
+                        </li>
+
+                        <li class="nav-item">
+                            <a asp-controller="Sales_Finance" asp-action="Products" class="nav-link">
+                                <i class="fas fa-shopping-cart"></i>
+                                <span class="nav-text">Sales</span>
+                            </a>
+                        </li>
+
+                        <li class="nav-item">
+                            <a asp-controller="Sales_Finance" asp-action="Expenses" class="nav-link">
+                                <i class="fas fa-file-invoice-dollar"></i>
+                                <span class="nav-text">Expenses</span>
+                            </a>
+                        </li>
+
+                        </li>
+                    </ul>
+                </div>
+
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <div class="main-content">
+
+            <!-- Top Header -->
+            <header class="top-header">
+                <div class="header-left"> 
+
+                     @* <button class="mobile-menu-toggle" id="mobileMenuToggle">  *@
+                     @*     <i class="fas fa-bars"></i>  *@
+                     @* </button>  *@
+
+                     @* <!-- Search Bar -->  *@
+                     @* <div class="search-container">  *@
+                     @*     <div class="search-bar">  *@
+                     @*         <i class="fas fa-search search-icon"></i>  *@
+                     @*         <input type="text" class="search-input" id="globalSearch"  *@
+                     @*                placeholder="Search for website customizations..." />  *@
+                     @*         <button class="search-clear" id="searchClear" style="display: none;">  *@
+                     @*             <i class="fas fa-times"></i>  *@
+                     @*         </button>  *@
+                     @*     </div>  *@
+                     @*     <div class="search-results" id="searchResults"></div>  *@
+                     @* </div>  *@
+
+                </div>
+
+                <div class="header-right">
+                    <div class="header-actions">
+
+
+                        @{
+                            var fullName = Context.Session.GetString("UserName") ?? "User";
+                            var email = Context.Session.GetString("Email") ?? "user@example.com";
+
+                            // Generate initials (first letter of each name)
+                            var initials = string.Join("", fullName
+                            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                            .Select(n => n[0]))
+                            .ToUpper();
+                        }
+
+                        <div class="flex items-center gap-4">
+
+                            <!-- Bell icon -->
+                            <i onclick="toggleNotifications()"
+                               class="fa-regular fa-bell text-gray-500 hover:text-[#A36A66] cursor-pointer transition text-xl"></i>
+
+                            <!-- Profile section -->
+                            <div class="flex items-center gap-3">
+
+                                <!-- Small Circle Initials -->
+                                <div class="w-8 h-8 flex items-center justify-center rounded-full
+                    bg-[#A36A66] text-white text-xs font-semibold">
+                                    @initials
+                                </div>
+
+                                <!-- Name + Role (NOT email) -->
+                                <div class="flex flex-col leading-tight">
+                                    <span class="font-medium text-gray-800">@fullName</span>
+                                    <span class="text-gray-400 text-sm">Finance Staff</span> <!-- Replace email -->
+                                </div>
+
+                                <!-- Dropdown arrow -->
+                                <i class="fa-solid fa-chevron-down text-gray-400 text-sm cursor-pointer"></i>
+                            </div>
+
+                        </div>
+
+                        <div class="relative">
+                            @await Component.InvokeAsync("Notifications")
+                        </div>
+
+
+                    </div>
+                </div>
+            </header>
+
+            <!-- Logout Modal -->
+            <div class="modal fade logout-modal" id="logoutModal" tabindex="-1"
+                 aria-labelledby="logoutModalLabel" aria-hidden="true">
+
+                <div class="modal-dialog modal-dialog-centered modal-sm">
+                    <div class="modal-content">
+
+                        <div class="modal-header">
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+
+                        <div class="modal-body">
+                            <div class="logout-modal-icon">
+                                <i class="fas fa-sign-out-alt"></i>
+                            </div>
+
+                            <h5 class="logout-modal-title">Sign Out</h5>
+                            <p class="logout-modal-text">Are you sure you want to sign out?</p>
+
+                            <div class="logout-modal-actions">
+                                <button type="button" class="btn logout-btn-cancel" data-bs-dismiss="modal">
+                                    Cancel
+                                </button>
+
+                                <button type="button" class="btn logout-btn-confirm" id="confirmLogoutBtn">
+                                    <span class="btn-text">Sign Out</span>
+                                    <span class="btn-loading" style="display:none;">
+                                        <i class="fas fa-spinner fa-spin"></i>
+                                    </span>
+                                </button>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MVC Content -->
+            <main>
+                @RenderBody()
+            </main>
+
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Custom Sidebar JS -->
+    <script src="~/custom-js/mainsidebar.js"></script>
+    <script>
+        function toggleNotifications() {
+            const dropdown = document.getElementById("notifDropdown");
+            dropdown.classList.toggle("hidden");
+        }
+
+        // ✅ Close dropdown when clicking outside
+        document.addEventListener("click", function (event) {
+            const dropdown = document.getElementById("notifDropdown");
+            const bellIcon = document.querySelector(".fa-regular.fa-bell"); // Your bell icon selector
+
+            if (!dropdown.contains(event.target) && !bellIcon.contains(event.target)) {
+                dropdown.classList.add("hidden"); // force close
+            }
+        });
+    </script>
+
+    @RenderSection("Scripts", required: false)
+
+
+</body>
+</html>
