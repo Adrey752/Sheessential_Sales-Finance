@@ -3,54 +3,90 @@
     ViewData["Title"] = "Products Overview";
 }
 
-<!-- ===== PAGE CONTAINER ===== -->
 <div class="p-6 bg-gray-50 min-h-screen space-y-8">
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-3xl font-bold" style="color:#A36A66;">
+            Sales Management
+        </h1>
 
-    <!-- ===== TOP SECTION ===== -->
-    <div class="flex flex-wrap gap-6 justify-between">
+        <div class="flex items-center gap-3">
+            <select class="border border-gray-300 rounded-lg text-sm px-3 py-1.5 focus:ring-2 focus:ring-pink-400">
+                <option>This Month</option>
+                <option>This Week</option>
+                <option>This Year</option>
+            </select>
+            <button class="bg-green-500 hover:bg-green-600 text-white text-sm font-medium px-4 py-1.5 rounded-lg shadow-md transition">
+                Generate Report
+            </button>
+        </div>
+    </div>
+    <div class="grid grid-cols-1 lg:grid-cols-5 gap-6 lg:items-stretch">
 
-        <!-- ==== TOP PRODUCT CARD ==== -->
-        <div class="bg-white rounded-2xl shadow-sm p-5 w-[320px]">
-            <h6 class="text-center font-semibold text-gray-700 mb-3 uppercase">Top Product</h6>
-            <img src="~/images/Hand_Sanitizer.jpg" alt="Top Product" class="rounded-xl mb-4 mx-auto w-full h-48 object-cover">
-            @if (ViewBag.TopProduct != null)
-            {
-                <p class="text-center font-medium text-gray-800">@ViewBag.TopProduct.Item</p>
-                <p class="text-center text-gray-400 text-sm mt-1">Total Sold</p>
-                <p class="text-center font-bold text-lg text-gray-800 mt-1">@ViewBag.TopProduct.TotalQuantity</p>
-            }
-            else
-            {
-                <p class="text-center text-gray-400">No data available</p>
-            }
+        <div class="lg:col-span-3 space-y-6">
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div class="bg-white rounded-2xl shadow-lg p-5 flex items-center space-x-4 border border-gray-100 h-32">
+                    <div class="p-3 rounded-full bg-rose-100 mt-0.5" style="color: #A36A66;">
+                        <i class="fa-solid fa-money-bill-trend-up fa-lg"></i> 
+                    </div>
+                    <div>
+                        <h2 class="text-lg font-semibold" style="color: #A36A66;">Total Sales</h2>
+                        <p class="text-2xl font-bold text-gray-900 mt-0.5">₱123,000.00</p>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl shadow-lg p-5 flex items-center space-x-4 border border-gray-100 h-32">
+                    <div class="p-3 rounded-full bg-rose-100 mt-0.5" style="color: #A36A66;">
+                        <i class="fa-solid fa-bag-shopping fa-lg"></i> 
+                    </div>
+                    <div>
+                        <h2 class="text-lg font-semibold" style="color: #A36A66;">Total Orders</h2>
+                        <p class="text-2xl font-bold text-gray-900 mt-0.5">100</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-lg p-6 h-64">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-semibold text-gray-800">Product Sales Trend</h2> <span id="chartProductName" class="text-[#A36A66] ml-2"></span>
+                    <select id="salesPeriod" class="border border-gray-300 rounded-lg text-sm px-3 py-1 focus:ring-2 focus:ring-pink-400">
+                        <option value="week">This Week</option>
+                        <option value="month">This Month</option>
+                        <option value="year">This Year</option>
+                    </select>
+                </div>
+                <canvas id="productSalesChart" height="100"></canvas>
+            </div>
         </div>
 
-        <!-- ==== PRODUCT SALES CHART ==== -->
-        <div class="flex-1 bg-white rounded-2xl shadow-sm p-6">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-lg font-semibold text-gray-700">Product Sales Trend</h2> <span id="chartProductName"></span>
-                <select id="salesPeriod" class="border border-gray-300 rounded-lg text-sm px-3 py-1 focus:ring-2 focus:ring-pink-400">
-                    <option value="week">This Week</option>
-                    <option value="month">This Month</option>
-                    <option value="year">This Year</option>
-                </select>
+        <div class="lg:col-span-2 bg-white rounded-2xl shadow-lg p-5 border border-gray-100 flex flex-col justify-between">
+            <div>
+                <h6 class="text-center font-semibold text-gray-700 mb-3 uppercase">TOP PRODUCT</h6>
+                <img src="~/images/topproduct.jpg" alt="Top Product" class="rounded-xl mb-4 mx-auto w-full object-cover">
             </div>
-            <canvas id="productSalesChart" height="120"></canvas>
+            <div class="mt-auto">
+                <p class="text-center font-bold text-lg text-gray-800">Hydrating Face Cream</p>
+                <p class="text-center text-gray-500 text-sm mt-1">Total Order</p>
+                <p class="text-center font-bold text-2xl text-[#A36A66] mt-1">47</p>
+            </div>
         </div>
     </div>
 
-    <!-- ===== PRODUCT TABLE ===== -->
-    <div class="bg-white rounded-2xl shadow-sm p-6">
-        <h2 class="text-xl font-semibold text-gray-800 mb-4">Products Overview</h2>
-        <div class="overflow-x-auto">
-            <!--  SEARCH BAR -->
-            <div class="flex justify-end mb-3">
-                <input id="productSearch" type="text" placeholder="Search product..."
-                       class="border border-gray-300 px-4 py-2 rounded-lg w-60 focus:ring-2 focus:ring-pink-400" />
-            </div>
 
-            <table class="min-w-full text-sm text-gray-700">
-                <thead class="bg-gray-100 text-gray-600 uppercase text-xs tracking-wider">
+    <div class="bg-white rounded-2xl shadow-sm p-6">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-semibold text-gray-800">Products Overview</h2>
+            <div class="relative">
+                <input id="productSearch" type="text" placeholder="Search product..."
+                       class="border border-gray-300 px-4 py-2 pl-10 rounded-xl w-60 focus:ring-2 focus:ring-[#A36A66] text-sm" />
+                <i class="fa-solid fa-search absolute left-3 top-2.5 text-gray-400 text-sm"></i>
+            </div>
+        </div>
+
+        <div class="overflow-x-auto">
+
+            <table class="min-w-full text-sm text-gray-700 border-t border-gray-100">
+                <thead class="bg-gray-50 text-gray-600 uppercase text-xs tracking-wider">
                     <tr>
                         <th class="px-4 py-3 text-left">Product ID</th>
                         <th class="px-4 py-3 text-left">Product Name</th>
@@ -59,18 +95,27 @@
                         <th class="px-4 py-3 text-left">Purchase Price</th>
                         <th class="px-4 py-3 text-left">Stock</th>
                         <th class="px-4 py-3 text-left">Status</th>
-                        <th class="px-4 py-3 text-left">Options</th>
+                        <th class="px-4 py-3 text-center">Options</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
                     @foreach (var p in Model)
                     {
-                        <tr class="hover:bg-pink-50 transition cursor-pointer"
+                        var statusColor = p.StockQuantity >= 10 ? "text-sky-500" : (p.StockQuantity < 10 && p.StockQuantity > 0 ? "text-orange-400" : "text-red-500");
+                        var categoryColor = p.Category switch
+                        {
+"Skincare" => "bg-pink-100 text-pink-700", // Retained
+    "Haircare" => "bg-teal-100 text-teal-700", // Changed from sky-blue to teal
+    "Makeup" => "bg-purple-100 text-purple-700",
+                            _ => "bg-gray-100 text-gray-700"
+                        };
+
+                        <tr class="hover:bg-[#F0E4E3] transition cursor-pointer"
                             onclick="selectProduct('@p.Item', '@p.Id' )">
-                            <td class="px-4 py-3 font-medium text-gray-800">@p.Id</td>
-                            <td class="px-4 py-3">@p.Item</td>
+                            <td class="px-4 py-3 font-medium text-gray-600">@p.Id</td>
+                            <td class="px-4 py-3 text-gray-800">@p.Item</td>
                             <td class="px-4 py-3">
-                                <span class="bg-yellow-400/90 text-white text-xs font-semibold px-3 py-1 rounded-lg">@p.Category</span>
+                                <span class="@categoryColor text-xs font-semibold px-3 py-1 rounded-lg">@p.Category</span>
                             </td>
                             <td class="px-4 py-3">₱@p.UnitPrice</td>
                             <td class="px-4 py-3">₱@p.UnitPrice</td>
@@ -78,18 +123,18 @@
                             <td class="px-4 py-3">
                                 @if (p.StockQuantity >= 10)
                                 {
-                                    <span class="text-sky-500 font-semibold uppercase text-xs">Available</span>
+                                    <span class="@statusColor font-semibold uppercase text-xs">Available</span>
                                 }
                                 else if (p.StockQuantity < 10 && p.StockQuantity > 0)
                                 {
-                                    <span class="text-gray-400 font-semibold uppercase text-xs">Low</span>
+                                    <span class="@statusColor font-semibold uppercase text-xs">Low</span>
                                 }
                                 else
                                 {
-                                    <span class="text-red-400 font-semibold uppercase text-xs">Sold</span>
+                                    <span class="@statusColor font-semibold uppercase text-xs">Sold</span>
                                 }
                             </td>
-                            <td class="px-4 py-3">
+                            <td class="px-4 py-3 text-center">
                                 <button onclick="openModal('@p.Item', '@p.Category', '@p.UnitPrice', '@p.UnitPrice')"
                                         class="text-blue-500 hover:underline text-sm font-medium">
                                     Details
@@ -100,12 +145,11 @@
                 </tbody>
             </table>
 
-            <!-- Pagination -->
             <div class="flex justify-center mt-6 space-x-2">
                 @if (ViewBag.CurrentPage > 1)
                 {
                     <a href="@Url.Action("Products", new { page = ViewBag.CurrentPage - 1 })"
-                       class="px-4 py-2 bg-gray-200 rounded-lg text-gray-700 hover:bg-gray-300">
+                       class="px-4 py-2 bg-gray-200 rounded-lg text-gray-700 hover:bg-gray-300 text-sm">
                         Previous
                     </a>
                 }
@@ -114,12 +158,12 @@
                 {
                     if (i == ViewBag.CurrentPage)
                     {
-                        <span class="px-4 py-2 bg-sky-500 text-white rounded-lg">@i</span>
+                        <span class="px-4 py-2 bg-[#A36A66] text-white rounded-lg text-sm">@i</span>
                     }
                     else
                     {
                         <a href="@Url.Action("Products", new { page = i })"
-                           class="px-4 py-2 bg-gray-200 rounded-lg text-gray-700 hover:bg-gray-300">
+                           class="px-4 py-2 bg-gray-200 rounded-lg text-gray-700 hover:bg-gray-300 text-sm">
                             @i
                         </a>
                     }
@@ -128,7 +172,7 @@
                 @if (ViewBag.CurrentPage < ViewBag.TotalPages)
                 {
                     <a href="@Url.Action("Products", new { page = ViewBag.CurrentPage + 1 })"
-                       class="px-4 py-2 bg-gray-200 rounded-lg text-gray-700 hover:bg-gray-300">
+                       class="px-4 py-2 bg-gray-200 rounded-lg text-gray-700 hover:bg-gray-300 text-sm">
                         Next
                     </a>
                 }
@@ -137,34 +181,30 @@
     </div>
 </div>
 
-<!-- ===== PRODUCT MODAL ===== -->
 <div id="productModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
     <div class="bg-white rounded-3xl shadow-xl w-[700px] p-8 relative flex gap-6">
         <button onclick="closeModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
         <div class="flex-1">
             <h2 id="modalName" class="text-2xl font-bold text-gray-800 mb-2">Product Name</h2>
-            <span id="modalCategory" class="bg-yellow-400 text-white text-sm font-semibold px-3 py-1 rounded-lg inline-block mb-3">Category</span>
+            <span id="modalCategory" class="bg-[#A36A66] text-white text-sm font-semibold px-3 py-1 rounded-lg inline-block mb-3">Category</span>
             <p class="text-gray-600 text-sm leading-relaxed mb-4">
                 Lorem ipsum dolor sit amet, consectetur adipiscing elit. Etiam sollicitudin ipsum arcu.
             </p>
             <div class="mt-4">
-                <p class="text-gray-700 font-medium">Profit Margin <span class="text-xs text-gray-400 block">(auto-computed)</span></p>
-                <p class="mt-3 font-semibold text-gray-800">
+                <p class="text-gray-700 font-medium">Selling Price</p>
+                <p class="mt-1 font-semibold text-2xl text-[#A36A66]">
                     ₱<span id="modalSelling">0</span>
-                    <span class="block text-sm text-gray-500 font-medium">₱<span id="modalPurchase">0</span> Purchase Price</span>
                 </p>
+                <p class="text-sm text-gray-500 font-medium mt-1">Purchase Price: ₱<span id="modalPurchase">0</span></p>
             </div>
         </div>
         <div class="w-60">
-            <img src="~/images/topproduct.jpg" alt="Product Image" class="rounded-xl shadow-sm w-full object-cover">
+            <img src="~/images/Hand_Sanitizer.jpg" alt="Product Image" class="rounded-xl shadow-sm w-full object-cover">
         </div>
     </div>
-    <!-- ✅ Toast Notification Container (Top Right) -->
-
 </div>
-    <div id="toastContainer" class="fixed top-5 right-5 space-y-2 z-50"></div>
+<div id="toastContainer" class="fixed top-5 right-5 space-y-2 z-[9999]"></div>
 
-<!-- ===== CHART.JS CDN + STATIC CHART SCRIPT ===== -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
     const ctx = document.getElementById('productSalesChart');
@@ -178,8 +218,8 @@
             datasets: [{
                 label: 'Sales (Units)',
                 data: [],
-                borderColor: '#ec4899',
-                backgroundColor: 'rgba(236,72,153,0.2)',
+                borderColor: '#A36A66', // Pink Color
+                backgroundColor: 'rgba(163, 106, 102, 0.2)', // Light Pink Color
                 borderWidth: 2,
                 fill: true,
                 tension: 0.3,
@@ -199,7 +239,7 @@
         loadProductSales(selectedPeriod);
         var displayName = document.getElementById("chartProductName");
         displayName.textContent = itemName;
-        
+
     }
 
     // Handle dropdown period change
@@ -284,5 +324,3 @@
         });
 
 </script>
- 
-

@@ -5,45 +5,57 @@
 }
 
 <div class="p-6 space-y-6">
+    <h1 class="text-3xl font-bold mb-6" style="color:#A36A66;">
+        Payment Management
+    </h1>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 
-    <!-- ===== Summary Cards ===== -->
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div class="bg-white rounded-2xl shadow-sm p-5 flex flex-col items-center text-center border border-gray-100">
-            <i class="fa-solid fa-money-bill-wave text-gray-400 text-3xl mb-2"></i>
-            <h2 class="text-xl font-semibold text-gray-800">₱@Model.OverdueAmount.ToString("N2")</h2>
-            <p class="text-sm text-gray-500">Overdue Amount</p>
+        <div class="bg-white rounded-2xl shadow-sm p-5 flex items-center gap-4 border border-gray-100">
+            <i class="fa-solid fa-hourglass-half text-[#A36A66] text-3xl"></i>
+            <div>
+                <p class="text-sm text-gray-500">Overdue Amount</p>
+                <h2 class="text-xl font-semibold text-gray-800">₱@Model.OverdueAmount.ToString("N2")</h2>
+            </div>
         </div>
 
-        <div class="bg-white rounded-2xl shadow-sm p-5 flex flex-col items-center text-center border border-gray-100">
-            <i class="fa-solid fa-wallet text-gray-400 text-3xl mb-2"></i>
-            <h2 class="text-xl font-semibold text-gray-800">₱@Model.OpenAmount.ToString("N2")</h2>
-            <p class="text-sm text-gray-500">Open Amount</p>
+        <div class="bg-white rounded-2xl shadow-sm p-5 flex items-center gap-4 border border-gray-100">
+            <i class="fa-solid fa-cart-shopping text-[#A36A66] text-3xl"></i>
+            <div>
+                <p class="text-sm text-gray-500">Open Amount</p>
+                <h2 class="text-xl font-semibold text-gray-800">₱@Model.OpenAmount.ToString("N2")</h2>
+            </div>
         </div>
 
-        <div class="bg-white rounded-2xl shadow-sm p-5 flex flex-col items-center text-center border border-gray-100">
-            <i class="fa-solid fa-receipt text-gray-400 text-3xl mb-2"></i>
-            <h2 class="text-xl font-semibold text-gray-800">₱@Model.DraftedAmount.ToString("N2")</h2>
-            <p class="text-sm text-gray-500">Drafted Amount</p>
+        <div class="bg-white rounded-2xl shadow-sm p-5 flex items-center gap-4 border border-gray-100">
+            <i class="fa-solid fa-pen-to-square text-[#A36A66] text-3xl"></i>
+            <div>
+                <p class="text-sm text-gray-500">Drafted Amount</p>
+                <h2 class="text-xl font-semibold text-gray-800">₱@Model.DraftedAmount.ToString("N2")</h2>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-2xl shadow-sm p-5 flex items-center gap-4 border border-gray-100">
+            <i class="fa-solid fa-user-group text-[#A36A66] text-3xl"></i>
+            <div>
+                <p class="text-sm text-gray-500">Active Customer</p>
+                <h2 class="text-xl font-semibold text-gray-800">32</h2> @* STATIC VALUE *@
+            </div>
         </div>
     </div>
 
-    <!-- ===== Invoice Section ===== -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-        <!-- ===== Left Column (Invoice List) ===== -->
         <div class="col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
             <div class="flex justify-between items-center mb-4">
                 <h2 class="text-lg font-semibold text-gray-700">All Invoices</h2>
 
                 <div class="flex items-center gap-3">
-                    <!-- New Invoice Button -->
-                    <a class="bg-pink-500 hover:bg-pink-600 text-white text-sm font-medium px-4 py-2 rounded-xl shadow-md transition cursor-pointer"
+                    <a class="bg-[#A36A66] hover:bg-[#935F5B] text-white text-sm font-medium px-4 py-2 rounded-xl shadow-md transition cursor-pointer"
                        data-modal-target="newInvoiceModal">
                         <i class="fa-solid fa-plus mr-1"></i> New Invoice
                     </a>
 
 
-                    <!-- Search Input -->
                     <div class="relative">
                         <input type="text"
                                id="searchBox"
@@ -52,21 +64,18 @@
                                class="pl-10 pr-4 py-2.5 w-56 rounded-xl bg-gray-50 focus:bg-white focus:ring-2 focus:ring-pink-300 outline-none text-gray-600 text-sm transition" />
                         <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-gray-400"></i>
 
-                        <!-- Suggestions -->
-                        <div id="searchSuggestions" 
-                             class="absolute left-0 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg hidden z-50 overflow-hidden"></div> 
+                        <div id="searchSuggestions"
+                             class="absolute left-0 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg hidden z-50 overflow-hidden"></div>
                     </div>
-                    <!-- Archive Button (small, subtle) -->
                     <a href="/Sales_Finance/InvoiceArchieves"
                        class="text-gray-500 hover:text-gray-700 border border-gray-300 hover:border-gray-400
-              px-3 py-2 rounded-xl text-sm flex items-center gap-1 transition"
+             px-3 py-2 rounded-xl text-sm flex items-center gap-1 transition"
                        title="View archived invoices">
                         <i class="fa-solid fa-box-archive"></i>
                     </a>
                 </div>
             </div>
 
-            <!-- ===== Invoice Table ===== -->
             <div class="overflow-x-auto">
                 <table id="invoiceTable" class="min-w-full text-sm text-left border-t border-gray-100">
                     <thead class="bg-gray-50 text-gray-600 font-medium">
@@ -84,8 +93,8 @@
                         {
                             var statusColor = invoice.Status switch
                             {
-                                "Paid" => "bg-green-100 text-green-600",
-                                "Unpaid" => "bg-pink-100 text-pink-600",
+                                "Paid" => "bg-[#763F62] text-white",
+                                "Unpaid" => "bg-[#A36A66] text-white",
                                 "Overdue" => "bg-yellow-100 text-yellow-600",
                                 "Partial" => "bg-blue-100 text-blue-600",
                                 "Draft" => "bg-gray-100 text-gray-600",
@@ -125,21 +134,19 @@
         </div>
 
 
-        <!-- ===== Right Column (Invoice Detail Preview) ===== -->
         <div id="invoiceDetailContainer" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 text-sm text-gray-700">
             <p class="text-gray-500 text-center py-10">Select an invoice to view details</p>
         </div>
-    </div> 
- </div>
+    </div>
+</div>
 
 
 <div id="newInvoiceModal" class="fixed inset-0 bg-black bg-opacity-30 hidden items-center justify-center z-50">
-    <div class="bg-[#fffafc] rounded-3xl shadow-lg w-[800px] max-h-[90vh] overflow-y-auto relative border border-pink-100">
+    <div class="bg-[#fffafc] rounded-3xl shadow-lg w-[800px] max-h-[90vh] overflow-y-auto relative border border-[#D6AO9C]">
 
-        <!-- ===== Sticky Header ===== -->
-        <div class="sticky top-0 bg-gradient-to-r from-pink-100 to-pink-50 border-b border-pink-200 rounded-t-3xl z-20 px-6 py-4 flex justify-between items-center shadow-sm">
+        <div class="sticky top-0 bg-gradient-to-r from-pink-100 to-pink-50 border-b border-[#F8C4Co] rounded-t-3xl z-20 px-6 py-4 flex justify-between items-center shadow-sm">
             <h1 class="text-2xl font-semibold text-gray-800 flex items-center gap-2">
-                <i class="fa-solid fa-file-invoice text-pink-500"></i>
+                <i class="fa-solid fa-file-invoice text-[#A36A66]"></i>
                 New Invoice
             </h1>
             <div class="flex items-center gap-3">
@@ -155,20 +162,15 @@
             </div>
         </div>
 
-        <!-- ===== Body ===== -->
         <form asp-controller="Sales_Finance" asp-action="CreateInvoice" method="post" id="createInvoiceForm" class="p-6">
 
-            <!-- Hidden auto-generated InvoiceNumber -->
             <input type="hidden" id="InvoiceNumber" name="InvoiceNumber" value="INVosf" />
 
-            <!-- BILLING INFORMATION -->
             <h2 class="text-lg font-bold mt-2 mb-2 text-gray-800">BILLING INFORMATION</h2>
 
-            <!-- Customer Section -->
             <div class="mb-4">
                 <h3 class="text-base font-bold mb-2 text-gray-700">Customer</h3>
 
-                <!-- Customer Search -->
                 <div class="relative mb-3">
                     <input id="customerSearchInput"
                            type="text"
@@ -177,30 +179,26 @@
                            autocomplete="off" />
                     <i class="fa-solid fa-search absolute left-3 top-2.5 text-gray-400 text-sm"></i>
 
-                    <!-- Customer Suggestions -->
-                <div id="customerSuggestions"
+                    <div id="customerSuggestions"
                          class="absolute mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-md hidden max-h-48 overflow-y-auto z-10"></div>
                 </div>
 
-                <!-- Customer Details -->
                 <span id="customerError" class="text-red-500 text-xs hidden">Please select a customer.</span>
                 <textarea id="customerDetails"
                           class="w-full border border-gray-300 rounded-xl p-2 text-sm h-20 resize-none bg-gray-50"
                           placeholder="Customer details will appear here..." readonly required></textarea>
 
-                <!-- Hidden Selected Customer -->
                 <input type="hidden" name="BilledTo" id="selectedCustomerId" required />
             </div>
 
-            <!-- Dates -->
             <div class="grid grid-cols-2 gap-4 mt-4">
                 <div>
                     <label class="text-sm font-medium text-gray-700">Invoice Date</label>
                     <input id="invoiceDate"
                            name="IssuedAt"
                            type="date"
-                           class="w-full border border-gray-300 rounded-xl p-2 text-sm focus:ring-2 focus:ring-pink-400 focus:border-pink-400" 
-                           readonly/>
+                           class="w-full border border-gray-300 rounded-xl p-2 text-sm focus:ring-2 focus:ring-pink-400 focus:border-pink-400"
+                           readonly />
                 </div>
                 <div>
                     <label class="text-sm font-medium text-gray-700">Due Date</label>
@@ -211,7 +209,6 @@
                 </div>
             </div>
 
-            <!-- PRODUCT DETAILS -->
             <h2 class="text-lg font-bold mt-6 mb-2 text-gray-800">PRODUCT DETAILS</h2>
             <div class="relative mb-3">
                 <input id="productSearchInput"
@@ -221,12 +218,10 @@
                        autocomplete="off" />
                 <i class="fa-solid fa-search absolute left-3 top-2.5 text-gray-400 text-sm"></i>
 
-                <!-- Suggestions -->
                 <div id="productSuggestions"
                      class="absolute mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-md hidden max-h-48 overflow-y-auto z-10"></div>
             </div>
 
-            <!-- Product Table -->
             <div class="border border-gray-200 rounded-xl bg-white max-h-60 overflow-y-auto shadow-inner">
                 <table class="w-full border-collapse text-sm">
                     <thead class="bg-pink-50 text-gray-600 sticky top-0 z-10">
@@ -271,24 +266,20 @@
                 </table>
             </div>
 
-            <!-- Totals -->
             <div class="text-sm space-y-1 text-right mt-4 border-t border-gray-200 pt-3">
                 <p><span class="text-gray-500">Subtotal</span> <span id="invoiceSubtotal" class="font-medium">₱0.00</span></p>
                 <p><span class="text-gray-500">Discount</span> <span class="font-medium">₱0.00</span></p>
                 <p class="font-bold text-gray-800 text-lg">TOTAL <span id="invoiceTotal">₱0.00</span></p>
             </div>
 
-            <!-- Notes -->
             <h2 class="text-lg font-bold mt-6 mb-2 text-gray-800">NOTES</h2>
             <textarea name="Notes"
                       id="Notes"
                       class="w-full border border-gray-300 rounded-xl p-2 text-sm h-20 resize-none focus:ring-2 focus:ring-pink-400 focus:border-pink-400"
                       placeholder="Enter notes..."></textarea>
 
-            <!-- Status (hidden default) -->
             <input type="hidden" name="Status" value="Unpaid" />
 
-            <!-- Buttons -->
             <div class="flex justify-between mt-6 border-t border-gray-200 pt-4">
                 <button type="button"
                         data-modal-close
@@ -296,7 +287,7 @@
                     Cancel
                 </button>
                 <button type="submit"
-                        class="bg-pink-500 hover:bg-pink-600 text-white font-medium px-6 py-2 rounded-xl shadow-md transition">
+                        class="bg-[#A36A66] hover:bg-[#935F5B] text-white font-medium px-6 py-2 rounded-xl shadow-md transition">
                     Save
                 </button>
             </div>
@@ -304,16 +295,6 @@
     </div>
 </div>
 
-
-
-
-
-
-
-
-
-<!--Update Modal-->
-<!-- ===== Update Modal ===== -->
 <div id="updateModal" class="fixed inset-0 bg-black bg-opacity-40 hidden items-center justify-center z-50">
     <div class="bg-white rounded-2xl shadow-lg w-[400px] p-6 relative">
         <button type="button" class="absolute top-3 right-4 text-gray-500 hover:text-gray-800 text-xl font-bold" onclick="closeModal('updateModal')">&times;</button>
@@ -332,14 +313,12 @@
 
             <div class="flex justify-end gap-3 mt-6">
                 <button type="button" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-xl" onclick="closeModal('updateModal')">Cancel</button>
-                <button type="submit" class="px-4 py-2 bg-pink-500 hover:bg-pink-600 text-white rounded-xl">Update</button>
+                <button type="submit" class="px-4 py-2 bg-[#A36A66] hover:bg-pink-600 text-white rounded-xl">Update</button>
             </div>
         </form>
     </div>
 </div>
 
-<!--Delete Modal-->
-<!-- ===== Delete Modal ===== -->
 <div id="deleteModal" class="fixed inset-0 bg-black bg-opacity-40 hidden items-center justify-center z-50">
     <div class="bg-white rounded-2xl shadow-lg w-[400px] p-6 relative">
         <button type="button" class="absolute top-3 right-4 text-gray-500 hover:text-gray-800 text-xl font-bold" onclick="closeModal('deleteModal')">&times;</button>
@@ -374,6 +353,3 @@
 </script>
 
 <script src="~/js/Invoice.js"></script>
-
-
-
