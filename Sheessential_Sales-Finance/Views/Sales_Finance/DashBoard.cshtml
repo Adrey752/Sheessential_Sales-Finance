@@ -61,13 +61,23 @@
 
             <div>
                 <p class="text-md font-semibold" style="color:#A36A66;">Net Profit</p>
-                <p class="text-sm mt-1" style="color:#A36A66;">₱0.00</p>
+                <p class="text-sm mt-1" style="color:#A36A66;">₱@ViewBag.NetProfit.ToString("N2")</p>
             </div>
         </div>
 
     </div>
-
+    @* CHARTS *@
+    <div class="flex justify-end mb-4">
+        <select id="timePeriodSelect" class="block w-48 rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50" style="color:#A36A66;">
+            <option value="year">This Year</option>
+            <option value="month">This Month</option>
+            <option value="week">This Week</option>
+            <option value="alltime">All Time</option>
+        </select>
+        </select>
+    </div>
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
+
 
         <div class="lg:col-span-2 chart-container">
             <h2 class="text-lg font-semibold mb-4" style="color:#A36A66;">Profit Trend %</h2>
@@ -133,104 +143,65 @@
         const secondaryColor = '#FFA593';
         const mutedColor = '#f0f0f0';
 
-        // ----------------------------------------------------------------------------------
-        // 1. PROFIT TREND LINE CHART
-        // ----------------------------------------------------------------------------------
+        // Base colors for charts
+        const baseColors = [primaryColor, secondaryColor, '#d3b5b3', '#bfa8a7', '#8a5a57', '#fcd5ce'];
 
-        const profitTrendCtx = document.getElementById('profitTrendChart');
+        // Helper function for doughnut chart colors
+        const generateDoughnutColors = (count) => {
+            let colors = [];
+            for (let i = 0; i < count; i++) {
+                colors.push(baseColors[i % baseColors.length]);
+            }
+            return colors;
+        };
 
-        new Chart(profitTrendCtx, {
+        // --- Store Chart Instances ---
+        let revenueTrendChart; // Renamed
+        let expenseBreakdownChart;
+
+        // ----------------------------------------------------------------------------------
+        // 1. REVENUE TREND LINE CHART (Initialization)
+        // ----------------------------------------------------------------------------------
+        const revenueTrendCtx = document.getElementById('profitTrendChart').getContext('2d');
+        revenueTrendChart = new Chart(revenueTrendCtx, {
             type: 'line',
             data: {
-                labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
-                datasets: [
-                    {
-                        label: '2024',
-                        data: [25, 30, 40, 35, 45, 55, 60, 58, 65, 70, 75, 80],
-                        borderColor: primaryColor, // #A36A66
-                        backgroundColor: 'rgba(163, 106, 102, 0.1)',
-                        borderWidth: 2,
-                        tension: 0.4,
-                        fill: false,
-                        pointRadius: 4,
-                        pointBackgroundColor: primaryColor
-                    },
-                    {
-                        label: '2025 (Forecast)',
-                        data: [15, 20, 30, 25, 35, 40, 45, 50, 55, 60, 65, 70],
-                        borderColor: secondaryColor, // #FFA593
-                        backgroundColor: 'rgba(255, 165, 147, 0.1)',
-                        borderWidth: 2,
-                        tension: 0.4,
-                        fill: false,
-                        pointRadius: 4,
-                        pointBackgroundColor: secondaryColor
-                    }
-                ]
+                labels: [],
+                datasets: [] // Initialize as empty, will be filled by updateCharts()
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: {
-                        position: 'bottom',
-                        labels: {
-                            font: {
-                                family: 'Poppins',
-                            },
-                            color: '#2c3e50',
-                            usePointStyle: true,
-                            padding: 20
-                        }
-                    },
-                    tooltip: {
-                        mode: 'index',
-                        intersect: false,
-                    }
+                    legend: { position: 'bottom', /* ... other options */ },
+                    tooltip: { mode: 'index', intersect: false }
                 },
                 scales: {
                     y: {
                         beginAtZero: true,
-                        max: 100,
-                        title: {
-                            display: true,
-                            text: 'Profit %',
-                            color: '#6c757d'
-                        },
-                        grid: {
-                            color: mutedColor,
-                            borderColor: mutedColor
-                        }
+                        title: { display: true, text: 'Amount ($)', color: '#6c757d' },
+                        grid: { color: mutedColor, borderColor: mutedColor }
                     },
                     x: {
-                        grid: {
-                            display: false
-                        }
+                        grid: { display: false }
                     }
                 }
             }
         });
 
-
         // ----------------------------------------------------------------------------------
-        // 2. EXPENSE BREAKDOWN DOUGHNUT CHART
+        // 2. EXPENSE BREAKDOWN DOUGHNUT CHART (Initialization)
         // ----------------------------------------------------------------------------------
-
-        const expenseBreakdownCtx = document.getElementById('expenseBreakdownChart');
-
-        new Chart(expenseBreakdownCtx, {
+        // (This section is unchanged from your previous code, but I'm including it for completeness)
+        const expenseBreakdownCtx = document.getElementById('expenseBreakdownChart').getContext('2d');
+        expenseBreakdownChart = new Chart(expenseBreakdownCtx, {
             type: 'doughnut',
             data: {
-                labels: ['Salaries & Wages', 'Utilities', 'Supplies', 'Marketing'],
+                labels: [], // Will be filled
                 datasets: [{
                     label: 'Expense Share',
-                    data: [50, 25, 15, 10], // Percentages
-                    backgroundColor: [
-                        primaryColor, // #A36A66 (50%)
-                        secondaryColor, // #FFA593 (25%)
-                        '#d3b5b3', // A lighter shade of primary (15%)
-                        '#e8d3d0' // An even lighter shade (10%)
-                    ],
+                    data: [], // Will be filled
+                    backgroundColor: [], // Will be set dynamically
                     hoverOffset: 8,
                     borderWidth: 1,
                     borderColor: '#ffffff'
@@ -239,19 +210,9 @@
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                cutout: '70%', // Makes it a doughnut chart
+                cutout: '70%',
                 plugins: {
-                    legend: {
-                        position: 'right',
-                        labels: {
-                            font: {
-                                family: 'Poppins',
-                            },
-                            color: '#2c3e50',
-                            usePointStyle: true,
-                            padding: 15
-                        }
-                    },
+                    legend: { position: 'right', /* ... other options */ },
                     tooltip: {
                         callbacks: {
                             label: function(context) {
@@ -259,15 +220,72 @@
                                 if (label) {
                                     label += ': ';
                                 }
-                                if (context.parsed !== null) {
-                                    label += context.parsed + '%';
-                                }
-                                return label;
+                                const total = context.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+                                const value = context.parsed;
+                                const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                                return ` ${label}$${value.toFixed(2)} (${percentage}%)`;
                             }
                         }
                     }
                 }
             }
         });
+
+        // ----------------------------------------------------------------------------------
+        // 3. DATA FETCHING AND CHART UPDATE LOGIC (MODIFIED)
+        // ----------------------------------------------------------------------------------
+        async function updateCharts(period) {
+            try {
+                // Use the controller/action path you provided
+                const response = await fetch(`/Sales_Finance/GetChartData?period=${period}`);
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                const data = await response.json();
+
+                // --- Update Revenue Trend Chart (NEW LOGIC) ---
+                revenueTrendChart.data.labels = data.revenueTrend.labels;
+
+                // Dynamically build datasets with correct styling
+                revenueTrendChart.data.datasets = data.revenueTrend.datasets.map((dataset, index) => {
+                    const color = baseColors[index % baseColors.length];
+                    return {
+                        ...dataset, // This includes Label and Data from the server
+                        borderColor: color,
+                        backgroundColor: 'rgba(163, 106, 102, 0.1)', // You can make this dynamic too
+                        borderWidth: 2,
+                        tension: 0.4,
+                        fill: false,
+                        pointRadius: 4,
+                        pointBackgroundColor: color
+                    };
+                });
+                revenueTrendChart.update();
+
+                // --- Update Expense Breakdown Chart (Unchanged) ---
+                const expenseLabels = data.expenseBreakdown.labels;
+                const expenseData = data.expenseBreakdown.datasets[0].data;
+
+                expenseBreakdownChart.data.labels = expenseLabels;
+                expenseBreakdownChart.data.datasets[0].data = expenseData;
+                expenseBreakdownChart.data.datasets[0].backgroundColor = generateDoughnutColors(expenseLabels.length);
+                expenseBreakdownChart.update();
+
+            } catch (error) {
+                console.error('Failed to fetch chart data:', error);
+            }
+        }
+
+        // ----------------------------------------------------------------------------------
+        // 4. EVENT LISTENER (Unchanged)
+        // ----------------------------------------------------------------------------------
+        const periodSelect = document.getElementById('timePeriodSelect');
+        periodSelect.addEventListener('change', (e) => {
+            updateCharts(e.target.value);
+        });
+
+        // Initial load
+        updateCharts(periodSelect.value);
+
     });
 </script>

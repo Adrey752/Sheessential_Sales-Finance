@@ -2,7 +2,12 @@
 @{
     ViewData["Title"] = "Products Overview";
 }
-
+<div id="loadingOverlay" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-[9999]">
+    <div class="text-white text-lg font-semibold">
+        <span class="animate-pulse">...</span>
+        Generating Report...
+    </div>
+</div>
 <div class="p-6 bg-gray-50 min-h-screen space-y-8">
     <div class="flex justify-between items-center mb-6">
         <h1 class="text-3xl font-bold" style="color:#A36A66;">
@@ -10,12 +15,12 @@
         </h1>
 
         <div class="flex items-center gap-3">
-            <select class="border border-gray-300 rounded-lg text-sm px-3 py-1.5 focus:ring-2 focus:ring-pink-400">
-                <option>This Month</option>
-                <option>This Week</option>
-                <option>This Year</option>
+            <select id="dateRangeSelect" class="border border-gray-300 rounded-lg text-sm px-3 py-1.5 focus:ring-2 focus:ring-pink-400">
+                <option value="month">This Month</option>
+                <option value="week">This Week</option>
+                <option value="year">This Year</option>
             </select>
-            <button class="bg-green-500 hover:bg-green-600 text-white text-sm font-medium px-4 py-1.5 rounded-lg shadow-md transition">
+            <button id="generateReportBtn" class="bg-green-500 hover:bg-green-600 text-white text-sm font-medium px-4 py-1.5 rounded-lg shadow-md transition">
                 Generate Report
             </button>
         </div>
@@ -204,50 +209,51 @@
     </div>
 </div>
 <div id="toastContainer" class="fixed top-5 right-5 space-y-2 z-[9999]"></div>
+<canvas id="hiddenLineChart" width="600" height="300" style="display:none;"></canvas>
+<canvas id="hiddenDoughnutChart" width="400" height="400" style="display:none;"></canvas>
+
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
+    /* ============================================================
+        1. INTERACTIVE PRODUCT SALES CHART (Onscreen Chart)
+        ============================================================ */
+
     const ctx = document.getElementById('productSalesChart');
     let selectedProductId = null;
-    let selectedPeriod = 'week';
+    let selectedPeriod = "week";
 
     const productChart = new Chart(ctx, {
-        type: 'line',
+        type: "line",
         data: {
             labels: [],
             datasets: [{
-                label: 'Sales (Units)',
+                label: "Sales (Units)",
                 data: [],
-                borderColor: '#A36A66', // Pink Color
-                backgroundColor: 'rgba(163, 106, 102, 0.2)', // Light Pink Color
+                borderColor: "#A36A66",
+                backgroundColor: "rgba(163,106,102,0.25)",
                 borderWidth: 2,
-                fill: true,
                 tension: 0.3,
+                fill: true
             }]
         },
         options: {
             responsive: true,
-            scales: {
-                y: { beginAtZero: true }
-            }
+            scales: { y: { beginAtZero: true } }
         }
     });
 
-    // Handle product selection from table
     function selectProduct(itemName, productId) {
         selectedProductId = productId;
+        document.getElementById("chartProductName").textContent = itemName;
         loadProductSales(selectedPeriod);
-        var displayName = document.getElementById("chartProductName");
-        displayName.textContent = itemName;
-
     }
 
-    // Handle dropdown period change
     document.getElementById("salesPeriod").addEventListener("change", (e) => {
         selectedPeriod = e.target.value;
-        if (selectedProductId) {
-            loadProductSales(selectedPeriod);
-        }
+        if (selectedProductId) loadProductSales(selectedPeriod);
     });
 
     async function loadProductSales(period) {
@@ -255,72 +261,230 @@
             const response = await fetch(`/Sales_Finance/GetProductSales?productId=${selectedProductId}&period=${period}`);
             const data = await response.json();
 
-            // Check if response is valid and is an array
             if (!Array.isArray(data)) {
-                console.warn("No valid data received:", data);
                 showToast(data.message || "No sales data found.", "warning");
-
-                // Clear chart if no data
                 productChart.data.labels = [];
                 productChart.data.datasets[0].data = [];
                 productChart.update();
                 return;
             }
 
-            // Clear old chart data before adding new
-            productChart.data.labels = [];
-            productChart.data.datasets[0].data = [];
-
-            // Add new data
-            productChart.data.labels = data.map(d => d.label || d.Label);
-            productChart.data.datasets[0].data = data.map(d => d.total || d.Total);
-
-            // Refresh the chart
+            productChart.data.labels = data.map(x => x.label ?? x.Label);
+            productChart.data.datasets[0].data = data.map(x => x.total ?? x.Total);
             productChart.update();
-            showToast("Sales data loaded successfully ✅", "success");
 
-        } catch (error) {
-            console.error("Error loading sales:", error);
+            showToast("Sales data loaded successfully! ✅", "success");
 
-            showToast("Something went wrong 😭", "error");
-
-            productChart.data.labels = [];
-            productChart.data.datasets[0].data = [];
-            productChart.update();
+        } catch (err) {
+            console.error(err);
+            showToast("Error loading sales 😭", "error");
         }
     }
 
+    /* ============================================================
+        2. SEARCH + TOAST UTILITIES
+        ============================================================ */
+
     function showToast(message, type = "info") {
         const toast = document.createElement("div");
-
-        const bgColor = {
+        const colors = {
             success: "bg-green-500",
             error: "bg-red-500",
             warning: "bg-yellow-500",
             info: "bg-blue-500"
-        }[type];
+        };
 
-        toast.className = `${bgColor} text-white px-4 py-3 rounded-lg shadow-lg animate-slideIn`;
-        toast.innerText = message;
+        toast.className = `${colors[type]} text-white px-4 py-3 rounded-lg shadow-lg animate-slideIn`;
+        toast.textContent = message;
 
         document.getElementById("toastContainer").appendChild(toast);
 
-        // Remove after animation
         setTimeout(() => {
             toast.classList.add("animate-fadeOut");
             setTimeout(() => toast.remove(), 500);
         }, 3000);
     }
 
-        // ✅ PRODUCT TABLE SEARCH
-        document.getElementById("productSearch").addEventListener("keyup", function () {
-            const searchValue = this.value.toLowerCase();
-            const rows = document.querySelectorAll("tbody tr");
-
-            rows.forEach(row => {
-                const text = row.innerText.toLowerCase();
-                row.style.display = text.includes(searchValue) ? "" : "none";
-            });
+    document.getElementById("productSearch").addEventListener("keyup", function () {
+        const value = this.value.toLowerCase();
+        document.querySelectorAll("tbody tr").forEach(row => {
+            row.style.display = row.innerText.toLowerCase().includes(value) ? "" : "none";
         });
+    });
+
+    /* ============================================================
+        3. PDF GENERATION PIPELINE
+        ============================================================ */
+
+    const reportBtn = document.getElementById("generateReportBtn");
+    const dateRangeSelect = document.getElementById("dateRangeSelect");
+    const loadingOverlay = document.getElementById("loadingOverlay");
+
+    reportBtn.addEventListener("click", generatePdfReport);
+
+    async function generatePdfReport() {
+        showLoader();
+
+        try {
+            const period = dateRangeSelect.value;
+            const periodText = dateRangeSelect.options[dateRangeSelect.selectedIndex].text;
+
+            // 1. Fetch full dataset
+            const response = await fetch(`/Sales_Finance/GetSalesReportDatatry?period=${period}`);
+            if (!response.ok) throw new Error("Server error loading report data.");
+
+            const data = await response.json();
+
+            // 2. Generate Base64 charts for PDF
+            // Use Promise.all to generate both charts concurrently
+            const [salesTrendBase64, topProductsBase64] = await Promise.all([
+                createHiddenChart(pdfTrendChartConfig(data.salesTrend), 600, 300),
+                createHiddenChart(pdfTopProductsConfig(data.topProductsChart), 400, 400)
+            ]);
+
+
+            // 3. Match your EXACT C# payload structure
+            const payload = {
+                ReportPeriod: periodText,
+                Summary: data.summary,
+                SalesTrendChartBase64: salesTrendBase64,
+                TopProductsChartBase64: topProductsBase64,
+                TopProductsTable: data.topProductsTable
+            };
+
+
+            // 4. Send to PDF generator
+            const pdfResponse = await fetch("/Sales_Finance/ExportProductSalesPdf", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+
+            if (!pdfResponse.ok) throw new Error("PDF creation failed.");
+
+            // 5. Download PDF
+            const blob = await pdfResponse.blob();
+            const link = URL.createObjectURL(blob);
+            window.open(link, "_blank");
+            URL.revokeObjectURL(link);
+
+            showToast("PDF Report generated! ✅", "success");
+
+        } catch (err) {
+            console.error("PDF Generation Error:", err);
+            showToast("Failed to generate PDF 😭", "error");
+        } finally {
+            // Hides loader even if an error occurs!
+            hideLoader();
+        }
+    }
+
+    /* ============================================================
+        4. OFFSCREEN CHART CREATION FOR PDF (CORRECTED)
+        ============================================================ */
+
+    function createHiddenChart(config, width, height) {
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext("2d");
+
+        // White background = prevents transparent PDF
+        ctx.fillStyle = "#FFFFFF";
+        ctx.fillRect(0, 0, width, height);
+
+        // Remove animation property to force immediate drawing
+        if (config.options && config.options.animation) {
+            delete config.options.animation;
+        }
+
+        // Return a new Promise that resolves immediately after the chart is initialized
+        return new Promise(resolve => {
+            const chart = new Chart(ctx, config);
+
+            // Use a short timeout to ensure the Chart.js drawing cycle is complete
+            // before generating the image. This is more reliable than 'onComplete'.
+            setTimeout(() => {
+                const base64Image = chart.toBase64Image("image/jpeg", 1); // Use JPEG with quality 1 for smaller file size
+                chart.destroy();
+                resolve(base64Image);
+            }, 50); // Small delay, typically sufficient for Chart.js to draw.
+        });
+    }
+
+    /* ============================================================
+        5. PDF CHART CONFIGS (MATCHES YOUR PINK THEME)
+        ============================================================ */
+
+    function pdfTrendChartConfig(data) {
+        return {
+            type: "line",
+            data: {
+                labels: data.map(x => x.label),
+                datasets: [{
+                    label: "Total Revenue",
+                    data: data.map(x => x.total),
+                    borderColor: "#A36A66",
+                    backgroundColor: "rgba(163,106,102,0.15)",
+                    fill: true,
+                    tension: 0.3
+                }]
+            },
+            options: {
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true } }
+            }
+        };
+    }
+
+    function pdfTopProductsConfig(data) {
+        return {
+            type: "doughnut",
+            data: {
+                labels: data.map(x => x.name),
+                datasets: [{
+                    data: data.map(x => x.percentage),
+                    backgroundColor: [
+                        "#A36A66",
+                        "#D9AFA8",
+                        "#E8C4C4",
+                        "#B77E79",
+                        "#C9988F"
+                    ]
+                }]
+            },
+            options: {
+                plugins: { legend: { display: true } }
+            }
+        };
+    }
+
+    /* ============================================================
+        6. LOADER
+        ============================================================ */
+
+    function showLoader() {
+        loadingOverlay.classList.remove("hidden");
+    }
+
+    function hideLoader() {
+        loadingOverlay.classList.add("hidden");
+    }
+
+    /* ============================================================
+        7. MODAL UTILITIES (Missing in your code, added for completeness)
+        ============================================================ */
+    function openModal(name, category, sellingPrice, purchasePrice) {
+        document.getElementById("modalName").textContent = name;
+        document.getElementById("modalCategory").textContent = category;
+        document.getElementById("modalSelling").textContent = sellingPrice;
+        document.getElementById("modalPurchase").textContent = purchasePrice;
+        document.getElementById("productModal").classList.remove("hidden");
+    }
+
+    function closeModal() {
+        document.getElementById("productModal").classList.add("hidden");
+    }
 
 </script>

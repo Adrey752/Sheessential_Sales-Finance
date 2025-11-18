@@ -13,6 +13,8 @@ using DinkToPdf.Contracts;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using System.Security.Cryptography.X509Certificates;
 using System.Globalization;
+using MongoDB.Driver.Linq;
+using Microsoft.AspNetCore.Mvc.ViewEngines;
 
 namespace Sheessential_Sales_Finance.Controllers
 {
@@ -21,15 +23,17 @@ namespace Sheessential_Sales_Finance.Controllers
         private readonly MongoHelper _mongo;
         private readonly ILogger<AuthController> _logger;
         private readonly IConverter _converter;
+        private readonly ICompositeViewEngine _viewEngine; // For rendering the template
         private readonly IWebHostEnvironment _env;
 
 
-        public Sales_FinanceController(MongoHelper mongo, ILogger<AuthController> logger, IConverter converter, IWebHostEnvironment env)
+        public Sales_FinanceController(ICompositeViewEngine viewEngine, MongoHelper mongo, ILogger<AuthController> logger, IConverter converter, IWebHostEnvironment env)
         {
             _mongo = mongo;
             _logger = logger;
             _converter = converter;
             _env = env;
+            _viewEngine = viewEngine;
         }
         public IActionResult Index()
         {
@@ -93,8 +97,15 @@ namespace Sheessential_Sales_Finance.Controllers
 
             // --- Example Metrics ---
             var invoices = await _mongo.Invoices.Find(i => !i.IsArchived).ToListAsync();
-            ViewBag.Revenue = invoices.Where(i => i.Status == "Paid").Sum(i => i.Total);
-            ViewBag.Expense = 0m; // replace with real data if needed
+            double revenue = (double)invoices.Where(i => i.Status == "Paid").Sum(i => i.Total);
+            ViewBag.Revenue = revenue;
+
+            // Fix for CS1061: Replace SumAsync with manual summation after fetching the data
+            var expenses = await _mongo.Expenses
+                .Find(e => e.Status == "Approved")
+                .ToListAsync(); // Fetch the data as a list first
+            double expense = (double)expenses.Sum(e => e.Amount); // Perform the summation on the list
+            ViewBag.Expense = expense;
             ViewBag.Sales = invoices.Count;
 
             // --- Fetch Recent Logs ---
@@ -126,6 +137,7 @@ namespace Sheessential_Sales_Finance.Controllers
 
             ViewBag.UserName = userName;
             ViewBag.ActionLogs = enrichedLogs;
+            ViewBag.NetProfit = revenue - expense;
 
             return View();
         }
@@ -370,6 +382,7 @@ namespace Sheessential_Sales_Finance.Controllers
             };
 
             ViewBag.NextInvoiceNumber = await GenerateInvoiceNumber();
+            ViewBag.ActiveUsers = _mongo.Users.Find(u => u.Status.ToLower() == "active").ToList().Count;
             return View(viewModel);
         }
 
@@ -1192,8 +1205,8 @@ namespace Sheessential_Sales_Finance.Controllers
 
         public IActionResult FinanceReport()
         {
-            ViewBag.GeneratedBy = HttpContext.Session.GetString("UserName"); 
-                                                                             
+            ViewBag.GeneratedBy = HttpContext.Session.GetString("UserName");
+
             return View();
         }
         public async Task<IActionResult> SalesReport()
@@ -1619,6 +1632,262 @@ namespace Sheessential_Sales_Finance.Controllers
         }
 
 
+        [HttpGet]
+        public async Task<IActionResult> GetChartData(string period = "year")
+        {
+            DateTime utcNow = DateTime.UtcNow;
+            string periodLower = period.ToLower();
 
+            // --- FOR ALL TIME VIEW (Multi-year comparison) ---
+            if (periodLower == "alltime")
+            {
+                // 1. Fetch ALL data
+                var allInvoicesTask = _mongo.Invoices.AsQueryable()
+                    .Where(i => !i.IsArchived)
+                    .ToListAsync();
+
+                var allExpensesTask = _mongo.Expenses.AsQueryable()
+                    .ToListAsync();
+
+                await Task.WhenAll(allInvoicesTask, allExpensesTask);
+
+                var allInvoices = allInvoicesTask.Result;
+                var allExpenses = allExpensesTask.Result;
+
+                // 2. Process Expense Breakdown (Doughnut)
+                var expenseBreakdown = allExpenses
+                    .GroupBy(e => e.ExpenseType)
+                    .Select(g => new { Label = g.Key, Data = g.Sum(e => e.Amount) })
+                    .ToList();
+
+                // 3. Process Revenue Trend (Line Chart)
+                // Group by Year, then create a dataset for each year
+                var revenueDatasets = allInvoices
+                    .GroupBy(i => i.IssuedAt.Year)
+                    .OrderBy(g => g.Key)
+                    .Select(yearGroup => new
+                    {
+                        Label = yearGroup.Key.ToString(), // e.g., "2023", "2024"
+                        Data = Enumerable.Range(1, 12)
+                            .Select(month => yearGroup
+                                .Where(i => i.IssuedAt.Month == month)
+                                .Sum(i => i.Total))
+                            .ToList()
+                    })
+                    .ToList();
+
+                // Labels are always months for "All Time" view
+                var revenueLabels = CultureInfo.CurrentCulture.DateTimeFormat.AbbreviatedMonthNames
+                    .Take(12).ToList(); // "Jan", "Feb", ...
+
+                // 4. Return JSON for "All Time"
+                return Json(new
+                {
+                    revenueTrend = new // Renamed from profitTrend
+                    {
+                        Labels = revenueLabels,
+                        Datasets = revenueDatasets // This is an array of objects
+                    },
+                    expenseBreakdown = new
+                    {
+                        Labels = expenseBreakdown.Select(e => e.Label).ToList(),
+                        Datasets = new[] { new { Data = expenseBreakdown.Select(e => e.Data).ToList() } }
+                    }
+                });
+            }
+
+            // --- FOR "WEEK", "MONTH", "YEAR" VIEWS (Single revenue line) ---
+
+            // 1. Determine Date Range (existing logic)
+            DateTime startDate;
+            DateTime endDate;
+            switch (periodLower)
+            {
+                case "week":
+                    startDate = utcNow.Date.AddDays(-(int)utcNow.DayOfWeek);
+                    endDate = startDate.AddDays(7);
+                    break;
+                case "month":
+                    startDate = new DateTime(utcNow.Year, utcNow.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+                    endDate = startDate.AddMonths(1);
+                    break;
+                default: // "year"
+                    startDate = new DateTime(utcNow.Year, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+                    endDate = startDate.AddYears(1);
+                    break;
+            }
+
+            // 2. Fetch Filtered Data
+            var invoicesTask = _mongo.Invoices.AsQueryable()
+                .Where(i => i.IssuedAt >= startDate && i.IssuedAt < endDate && !i.IsArchived)
+                .ToListAsync();
+
+            var expensesTask = _mongo.Expenses.AsQueryable()
+                .Where(e => e.RequestedAt >= startDate && e.RequestedAt < endDate)
+                .ToListAsync();
+
+            await Task.WhenAll(invoicesTask, expensesTask);
+
+            var relevantInvoices = invoicesTask.Result;
+            var relevantExpenses = expensesTask.Result;
+
+            // 3. Process Expense Breakdown (Doughnut)
+            var filteredExpenseBreakdown = relevantExpenses
+                .GroupBy(e => e.ExpenseType)
+                .Select(g => new { Label = g.Key, Data = g.Sum(e => e.Amount) })
+                .ToList();
+
+            // 4. Process Revenue Trend (Line Chart)
+            List<string> lineChartLabels;
+            List<decimal> revenueData; // Changed from salesData
+
+            if (periodLower == "year")
+            {
+                lineChartLabels = CultureInfo.CurrentCulture.DateTimeFormat.AbbreviatedMonthNames.Take(12).ToList();
+                revenueData = Enumerable.Range(1, 12)
+                    .Select(month => relevantInvoices.Where(i => i.IssuedAt.Month == month).Sum(i => i.Total))
+                    .ToList();
+            }
+            else if (periodLower == "month")
+            {
+                int daysInMonth = DateTime.DaysInMonth(startDate.Year, startDate.Month);
+                lineChartLabels = Enumerable.Range(1, daysInMonth).Select(d => d.ToString()).ToList();
+                revenueData = Enumerable.Range(1, daysInMonth)
+                    .Select(day => relevantInvoices.Where(i => i.IssuedAt.Day == day).Sum(i => i.Total))
+                    .ToList();
+            }
+            else // "week"
+            {
+                lineChartLabels = CultureInfo.CurrentCulture.DateTimeFormat.AbbreviatedDayNames.ToList();
+                revenueData = Enumerable.Range(0, 7)
+                    .Select(day => relevantInvoices.Where(i => (int)i.IssuedAt.DayOfWeek == day).Sum(i => i.Total))
+                    .ToList();
+            }
+
+            // 5. Return JSON for "week", "month", "year"
+            return Json(new
+            {
+                revenueTrend = new // Renamed from profitTrend
+                {
+                    Labels = lineChartLabels,
+                    // Note: Datasets is an array with ONE object
+                    Datasets = new[]
+                    {
+                new { Label = "Revenue", Data = revenueData }
+            }
+                },
+                expenseBreakdown = new
+                {
+                    Labels = filteredExpenseBreakdown.Select(e => e.Label).ToList(),
+                    Datasets = new[] { new { Data = filteredExpenseBreakdown.Select(e => e.Data).ToList() } }
+                }
+            });
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> ExportProductSalesPdf([FromBody] SalesPdfload payload)
+        {
+
+            _logger.LogInformation("\n\n\n\n\n\nGenerating Sales PDF...\n\n\n\n\n\n");
+            // Get Logo
+            var logoPath = Path.Combine(_env.WebRootPath, "images/Logo.png"); // Make sure you have this logo
+            var logoBytes = System.IO.File.ReadAllBytes(logoPath);
+            payload.LogoBase64 = $"data:image/png;base64,{Convert.ToBase64String(logoBytes)}";
+
+            // Set generation date
+            payload.DateGenerated = DateTime.Now.ToString("MM/dd/yyyy, h:mm:ss tt");
+
+            // Render Razor View to HTML
+            var html = await RenderViewToStringAsync("NewSalesPdfTemplate", payload);
+
+            var doc = new HtmlToPdfDocument()
+            {
+                GlobalSettings = new GlobalSettings
+                {
+                    Orientation = Orientation.Portrait,
+                    PaperSize = PaperKind.A4,
+                    Margins = new MarginSettings { Top = 10, Bottom = 10, Left = 10, Right = 10 }
+                },
+                Objects = {
+                    new ObjectSettings {
+                        HtmlContent = html,
+                        WebSettings = { DefaultEncoding = "utf-8", LoadImages = true, EnableJavascript = true }
+                    }
+                }
+            };
+
+            var pdf = _converter.Convert(doc);
+            return File(pdf, "application/pdf", $"Sales-Report-{DateTime.Now.Ticks}.pdf");
+        }
+        private async Task<string> RenderViewToStringAsync(string viewName, object model)
+        {
+            ViewData.Model = model;
+            using (var sw = new StringWriter())
+            {
+                var viewResult = _viewEngine.FindView(ControllerContext, viewName, false);
+                if (viewResult.View == null)
+                {
+                    throw new ArgumentNullException($"{viewName} does not match any available view");
+                }
+
+                var viewContext = new ViewContext(
+                    ControllerContext,
+                    viewResult.View,
+                    ViewData,
+                    TempData,
+                    sw,
+                    new HtmlHelperOptions()
+                );
+
+                await viewResult.View.RenderAsync(viewContext);
+                return sw.ToString();
+            }
+        }
+
+        [HttpGet]
+        public IActionResult GetSalesReportDatatry(string period)
+        {
+            // In a real app, you would query your database based on the 'period'
+            // For this example, I'm returning mock data based on your PDF
+
+            _logger.LogInformation("\n\n\n\nI'm in Sales Report Data Try \n\n\n\n");
+            var reportData = new SalesReportDataDto
+            {
+                // Summary Stats
+                Summary = new ReportSummary
+                {
+                    TotalSales = 1374.5m,
+                    TotalOrders = 12,
+                    ActiveCustomers = 2,
+                    TopPerformingProduct = "Aloe Vera Gel 150ml"
+                },
+                // Data for the Sales Trend Line Chart
+                SalesTrend = new List<ChartDataPoint>
+                {
+                    new ChartDataPoint { Label = "Oct 2025", Total = 350 },
+                    new ChartDataPoint { Label = "Nov 2025", Total = 1024.5 }
+                },
+                // Data for the Top Products Doughnut Chart
+                TopProductsChart = new List<ProductChartPoint>
+                {
+                    new ProductChartPoint { Name = "Aloe Vera Gel 150ml", Percentage = 34.9 },
+                    new ProductChartPoint { Name = "Facial Toner 200ml", Percentage = 22.4 },
+                    new ProductChartPoint { Name = "Moisturizing Face Cream", Percentage = 20.0 },
+                    new ProductChartPoint { Name = "Argan Oil Hair Serum 100ml", Percentage = 13.3 },
+                    new ProductChartPoint { Name = "Body Lotion - Lavender 250ml", Percentage = 9.5 }
+                },
+                // Data for the Top 5 Products Table
+                TopProductsTable = new List<TransactionItem>
+                {
+                    new TransactionItem { ProductId = "68df7ff4e9a574db041d6950", ProductName = "Aloe Vera Gel 150ml", Category = "Skincare", UnitPrice = 12.5m, Quantity = 37, TotalAmount = 462.5m },
+                    new TransactionItem { ProductId = "68df7ff4e9a574db041d6957", ProductName = "Facial Toner 200ml", Category = "Skincare", UnitPrice = 16.5m, Quantity = 18, TotalAmount = 297.0m },
+                    new TransactionItem { ProductId = "68df7fe4e9a574db041d6941", ProductName = "Moisturizing Face Cream", Category = "Skincare", UnitPrice = 26.5m, Quantity = 10, TotalAmount = 265.0m },
+                    new TransactionItem { ProductId = "68df7ff4e9a574db041d6952", ProductName = "Argan Oil Hair Serum 100ml", Category = "Haircare", UnitPrice = 22.0m, Quantity = 8, TotalAmount = 176.0m },
+                    new TransactionItem { ProductId = "68df7ff4e9a574db041d6956", ProductName = "Body Lotion - Lavender 250ml", Category = "Bodycare", UnitPrice = 18.0m, Quantity = 7, TotalAmount = 126.0m }
+                }
+            };
+
+            return Json(reportData);
+        }
     }
 }
