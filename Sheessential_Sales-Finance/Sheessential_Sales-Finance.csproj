@@ -9,7 +9,6 @@
 
   <ItemGroup>
     <None Include="wwwroot\images\login_background.jpg" />
-    <None Include="wwwroot\images\Logo.png" />
   </ItemGroup>
 
   <ItemGroup>

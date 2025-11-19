@@ -165,11 +165,12 @@
         <div class="chart-container">
             <div class="chart-cell">
                 <h3>Sales Trend</h3>
-                <img src="@Model.SalesTrendChartBase64" alt="Sales Trend Chart" />
+                <img src="@Html.Raw(Model.SalesTrendChartBase64)" style="width: 100%; height: auto;" />
             </div>
             <div class="chart-cell">
                 <h3>Top Products</h3>
-                <img src="@Model.TopProductsChartBase64" alt="Top Products Chart" />
+
+                <img src="@Html.Raw(Model.TopProductsChartBase64)" style="width: 350px; height: 350px;" />
             </div>
         </div>
 

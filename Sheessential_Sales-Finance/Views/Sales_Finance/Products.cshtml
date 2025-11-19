@@ -54,11 +54,7 @@
             <div class="bg-white rounded-2xl shadow-lg p-6 h-64">
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="text-xl font-semibold text-gray-800">Product Sales Trend</h2> <span id="chartProductName" class="text-[#A36A66] ml-2"></span>
-                    <select id="salesPeriod" class="border border-gray-300 rounded-lg text-sm px-3 py-1 focus:ring-2 focus:ring-pink-400">
-                        <option value="week">This Week</option>
-                        <option value="month">This Month</option>
-                        <option value="year">This Year</option>
-                    </select>
+
                 </div>
                 <canvas id="productSalesChart" height="100"></canvas>
             </div>
@@ -78,6 +74,7 @@
     </div>
 
 
+
     <div class="bg-white rounded-2xl shadow-sm p-6">
         <div class="flex justify-between items-center mb-4">
             <h2 class="text-xl font-semibold text-gray-800">Products Overview</h2>
@@ -87,6 +84,8 @@
                 <i class="fa-solid fa-search absolute left-3 top-2.5 text-gray-400 text-sm"></i>
             </div>
         </div>
+
+ 
 
         <div class="overflow-x-auto">
 
@@ -184,6 +183,36 @@
             </div>
         </div>
     </div>
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+    <!-- Sales Revenue Chart -->
+    <div class="bg-white shadow-lg rounded-2xl p-6 flex flex-col h-[460px]" id="revenueCard">
+
+        <div class="flex justify-between items-center mb-3">
+            <p class="font-semibold text-sm">Total Revenue</p>
+        </div>
+
+        <div class="flex-1 relative">
+            <canvas id="salesRevenueChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Top Products Card -->
+    <div id="topProductsCard" class="bg-white shadow-lg rounded-2xl p-6 flex flex-col h-[460px]">
+        <h2 class="font-semibold text-sm mb-4">Top Products</h2>
+
+        <div class="flex flex-1 items-center justify-center gap-6">
+            <!-- Donut Chart (Left) -->
+            <div class="w-1/2 max-w-[280px] relative aspect-square">
+                <canvas id="topProductsChart"></canvas>
+            </div>
+
+            <div id="topProductsList" class="w-1/2 flex flex-col ...">
+                <!-- dynamically generated -->
+            </div>
+        </div>
+    </div>
+</div>
 </div>
 
 <div id="productModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -209,13 +238,14 @@
     </div>
 </div>
 <div id="toastContainer" class="fixed top-5 right-5 space-y-2 z-[9999]"></div>
-<canvas id="hiddenLineChart" width="600" height="300" style="display:none;"></canvas>
-<canvas id="hiddenDoughnutChart" width="400" height="400" style="display:none;"></canvas>
 
 
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
     /* ============================================================
         1. INTERACTIVE PRODUCT SALES CHART (Onscreen Chart)
@@ -251,7 +281,7 @@
         loadProductSales(selectedPeriod);
     }
 
-    document.getElementById("salesPeriod").addEventListener("change", (e) => {
+    document.getElementById("dateRangeSelect").addEventListener("change", (e) => {
         selectedPeriod = e.target.value;
         if (selectedProductId) loadProductSales(selectedPeriod);
     });
@@ -337,18 +367,22 @@
 
             // 2. Generate Base64 charts for PDF
             // Use Promise.all to generate both charts concurrently
-            const [salesTrendBase64, topProductsBase64] = await Promise.all([
-                createHiddenChart(pdfTrendChartConfig(data.salesTrend), 600, 300),
-                createHiddenChart(pdfTopProductsConfig(data.topProductsChart), 400, 400)
-            ]);
+            // const [salesTrendBase64, topProductsBase64] = await Promise.all([
+            //     createHiddenChart(pdfTrendChartConfig(data.salesTrend), 600, 300),
+            //     createHiddenChart(pdfTopProductsConfig(data.topProductsChart), 400, 400)
+            // ]);
 
 
             // 3. Match your EXACT C# payload structure
+          const revenueCard = document.getElementById("revenueCard");
+
+            const revenueImg = await htmlToImage(revenueCard);
+            const topProductsImg = await htmlToImage(topProductsCard);
             const payload = {
                 ReportPeriod: periodText,
                 Summary: data.summary,
-                SalesTrendChartBase64: salesTrendBase64,
-                TopProductsChartBase64: topProductsBase64,
+                SalesTrendChartBase64: revenueImg,
+                TopProductsChartBase64: topProductsImg,
                 TopProductsTable: data.topProductsTable
             };
 
@@ -378,41 +412,17 @@
             hideLoader();
         }
     }
+                async function htmlToImage(element) {
+            const canvas = await html2canvas(element, { scale: 2, backgroundColor: "#fff" });
+            return canvas.toDataURL("image/png");
+        }
 
     /* ============================================================
         4. OFFSCREEN CHART CREATION FOR PDF (CORRECTED)
         ============================================================ */
 
-    function createHiddenChart(config, width, height) {
-        const canvas = document.createElement("canvas");
-        canvas.width = width;
-        canvas.height = height;
-
-        const ctx = canvas.getContext("2d");
-
-        // White background = prevents transparent PDF
-        ctx.fillStyle = "#FFFFFF";
-        ctx.fillRect(0, 0, width, height);
-
-        // Remove animation property to force immediate drawing
-        if (config.options && config.options.animation) {
-            delete config.options.animation;
-        }
-
-        // Return a new Promise that resolves immediately after the chart is initialized
-        return new Promise(resolve => {
-            const chart = new Chart(ctx, config);
-
-            // Use a short timeout to ensure the Chart.js drawing cycle is complete
-            // before generating the image. This is more reliable than 'onComplete'.
-            setTimeout(() => {
-                const base64Image = chart.toBase64Image("image/jpeg", 1); // Use JPEG with quality 1 for smaller file size
-                chart.destroy();
-                resolve(base64Image);
-            }, 50); // Small delay, typically sufficient for Chart.js to draw.
-        });
-    }
-
+ 
+    /* ... (rest of your script) ... */
     /* ============================================================
         5. PDF CHART CONFIGS (MATCHES YOUR PINK THEME)
         ============================================================ */
@@ -485,6 +495,118 @@
 
     function closeModal() {
         document.getElementById("productModal").classList.add("hidden");
+    }
+
+    let revenueChart = null;
+    let topProductsChart = null;
+
+    document.getElementById("dateRangeSelect").addEventListener("change", function () {
+        loadSalesReport(this.value);
+    });
+
+    loadSalesReport("week");
+
+    async function loadSalesReport(period) {
+        const resp = await fetch(`/Sales_Finance/SalesReportData?period=${period}`);
+        const data = await resp.json();
+        window.currentPeriodText = data.periodText;
+
+
+        updateRevenueChart(data.chartLabels, data.chartValues);
+        updateTopProductsChart(data.topProducts);
+    }
+
+        function updateTopProductsChart(topProducts) {
+            const labels = topProducts.map(p => p.productName);
+            const values = topProducts.map(p => p.totalAmount);
+            const total = values.reduce((a, b) => a + b, 0);
+
+            const colors = ["#FF4FC3", "#3FA9F5", "#00C49A", "#FFC75F", "#FF6F91"];
+
+            if (topProductsChart !== null) topProductsChart.destroy();
+
+            // 🎨 Draw donut chart
+            const ctx = document.getElementById("topProductsChart");
+            topProductsChart = new Chart(ctx, {
+                type: "doughnut",
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: values,
+                        backgroundColor: colors,
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: "60%",
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: ctx => {
+                                    const percentage = ((ctx.raw / total) * 100).toFixed(1);
+                                    return `${ctx.label}: ${percentage}%`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // 🧾 Generate product list
+    // 🧾 Generate product list
+    const listContainer = document.getElementById("topProductsList");
+    listContainer.innerHTML = `
+        <h3 class="font-semibold mb-4 text-gray-800">Top ${topProducts.length}</h3>
+        <div class="space-y-3"> ${topProducts.map((p, i) => {
+            const percent = ((p.totalAmount / total) * 100).toFixed(1);
+            return `
+                <div class="flex items-center w-full">
+                    <div class="w-3 h-3 rounded-full shrink-0 mr-3" style="background:${colors[i % colors.length]}"></div>
+
+                    <span class="text-sm text-gray-700 truncate min-w-0 flex-1" title="${p.productName}">
+                        ${p.productName}
+                    </span>
+
+                    <span class="ml-3 font-medium text-gray-500 text-sm whitespace-nowrap">
+                        ${percent}%
+                    </span>
+                </div>
+            `;
+        }).join("")}
+        </div>
+    `;
+        }
+
+
+
+
+    function updateRevenueChart(labels, values) {
+        if (revenueChart !== null) revenueChart.destroy();
+
+        revenueChart = new Chart(document.getElementById("salesRevenueChart"), {
+            type: "line",
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: "Sales Revenue",
+                    data: values,
+                        borderColor: "#ec4899",
+                        backgroundColor: "rgba(236,72,153,0.2)",
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: {
+                scales: { y: { beginAtZero: true }},
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false }},
+        cutout: "70%"
+            }
+        });
     }
 
 </script>

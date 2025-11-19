@@ -88,7 +88,7 @@
 
             <div class="h-[70px] flex items-center bg-white border-b border-gray-300 px-[1.09rem]">
                 <div class="flex items-center justify-center">
-                    <img src="~/images/sheesential-logo.jpg" alt="Yeloe Logo" class="max-w-[140px]" />
+                    <img src="~/images/Logo.jpg" alt="Yeloe Logo" class="max-w-[140px]" />
                 </div>
             </div>
 
@@ -170,7 +170,17 @@
                                     <span class="text-gray-400 text-sm">Finance Staff</span>
                                 </div>
 
-                                <i class="fa-solid fa-chevron-down text-gray-400 text-sm cursor-pointer"></i>
+                                <i onclick="toggleProfileMenu()"
+                                   id="profileChevron"
+                                   class="fa-solid fa-chevron-down text-gray-400 text-sm cursor-pointer hover:text-primary transition-colors p-1"></i>
+
+                                <div id="profileDropdown" class="hidden absolute right-0 top-12 w-48 bg-white rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.08)] border border-gray-100 py-2 z-50 animate-fade-in-down">
+
+                                    <button onclick="openLogoutModal()" class="w-full text-left px-4 py-2.5 text-sm text-gray-600 hover:bg-rose-50 hover:text-primary transition-colors flex items-center gap-3">
+                                        <i class="fas fa-sign-out-alt"></i>
+                                        Sign Out
+                                    </button>
+                                </div>
                             </div>
 
                         </div>
@@ -210,12 +220,14 @@
                                     Cancel
                                 </button>
 
-                                <button type="button" class="btn py-3 px-8 bg-gradient-to-br from-primary to-secondary text-white border-none rounded-full font-medium transition-all duration-300 hover:opacity-90 hover:translate-y-[-2px] hover:shadow-lg hover:shadow-primary/30" id="confirmLogoutBtn">
-                                    <span class="btn-text">Sign Out</span>
-                                    <span class="btn-loading" style="display:none;">
-                                        <i class="fas fa-spinner fa-spin"></i>
-                                    </span>
-                                </button>
+                                <form asp-controller="Auth" asp-action="Logout" method="post" onsubmit="showLoadingSpinner()">
+                                    <button type="submit" class="btn py-3 px-8 bg-gradient-to-br from-primary to-secondary text-white border-none rounded-full font-medium transition-all duration-300 hover:opacity-90 hover:translate-y-[-2px] hover:shadow-lg hover:shadow-primary/30" id="confirmLogoutBtn">
+                                        <span class="btn-text">Sign Out</span>
+                                        <span class="btn-loading" style="display:none;">
+                                            <i class="fas fa-spinner fa-spin"></i>
+                                        </span>
+                                    </button>
+                                </form>
                             </div>
 
                         </div>
@@ -230,24 +242,102 @@
         </div>
     </div>
 
+
     <script src="~/custom-js/mainsidebar.js"></script>
     <script>
-        function toggleNotifications() {
-            const dropdown = document.getElementById("notifDropdown");
-            dropdown.classList.toggle("hidden");
+        // --- UTILITY FUNCTION: Show spinner and disable button ---
+        function showLoadingSpinner() {
+            // This function is called just before the form submits
+            const confirmBtn = document.getElementById("confirmLogoutBtn");
+            if (confirmBtn) {
+                const btnText = confirmBtn.querySelector(".btn-text");
+                const btnLoading = confirmBtn.querySelector(".btn-loading");
+
+                if (btnText) btnText.style.display = "none";
+                if (btnLoading) btnLoading.style.display = "inline-block";
+
+                // Disable button to prevent multiple submissions
+                confirmBtn.disabled = true;
+            }
         }
 
-        // ✅ Close dropdown when clicking outside
-        document.addEventListener("click", function (event) {
+        // --- 1. Notification Logic (Stays the same) ---
+        function toggleNotifications() {
             const dropdown = document.getElementById("notifDropdown");
-            const bellIcon = document.querySelector(".fa-regular.fa-bell"); // Your bell icon selector
+            if(dropdown) dropdown.classList.toggle("hidden");
+            document.getElementById("profileDropdown").classList.add("hidden");
+        }
 
-            if (dropdown && bellIcon && !dropdown.contains(event.target) && !bellIcon.contains(event.target)) {
-                dropdown.classList.add("hidden"); // force close
+        // --- 2. Profile Dropdown Logic (Stays the same) ---
+        function toggleProfileMenu() {
+            const menu = document.getElementById("profileDropdown");
+            const chevron = document.getElementById("profileChevron");
+
+            menu.classList.toggle("hidden");
+
+            if (!menu.classList.contains("hidden")) {
+                chevron.classList.add("rotate-180");
+            } else {
+                chevron.classList.remove("rotate-180");
+            }
+
+            const notif = document.getElementById("notifDropdown");
+            if(notif) notif.classList.add("hidden");
+        }
+
+        // --- 3. Logout Modal Logic (Stays the same) ---
+        function openLogoutModal() {
+            document.getElementById("profileDropdown").classList.add("hidden");
+            document.getElementById("profileChevron").classList.remove("rotate-180");
+
+            const modal = document.getElementById("logoutModal");
+            modal.classList.remove("hidden");
+            modal.classList.add("flex");
+        }
+
+        function closeLogoutModal() {
+            const modal = document.getElementById("logoutModal");
+            modal.classList.add("hidden");
+            modal.classList.remove("flex");
+        }
+
+        // Attach Event Listeners for Modal Buttons
+        document.addEventListener("DOMContentLoaded", () => {
+            const closeBtn = document.getElementById("closeLogoutModal");
+            const cancelBtn = document.getElementById("cancelLogoutModal");
+            // const confirmBtn = document.getElementById("confirmLogoutBtn"); <-- NO LONGER NEEDED HERE
+
+            if(closeBtn) closeBtn.addEventListener("click", closeLogoutModal);
+            if(cancelBtn) cancelBtn.addEventListener("click", closeLogoutModal);
+
+            // REMOVE THE CONFIRM BUTTON CLICK LISTENER HERE:
+            // We now use onsubmit="showLoadingSpinner()" directly on the form.
+        });
+
+        // --- 4. Global Click Outside (Closes Dropdowns) ---
+        document.addEventListener("click", function (event) {
+            const profileMenu = document.getElementById("profileDropdown");
+            const profileChevron = document.getElementById("profileChevron");
+            const notifMenu = document.getElementById("notifDropdown");
+            const notifBell = document.querySelector(".fa-bell");
+
+            // Close Profile Menu if clicked outside
+            if (profileMenu && !profileMenu.classList.contains("hidden")) {
+                const profileArea = profileChevron.closest('.flex.items-center.gap-3');
+                if (profileArea && !profileArea.contains(event.target)) {
+                     profileMenu.classList.add("hidden");
+                     profileChevron.classList.remove("rotate-180");
+                }
+            }
+
+            // Close Notification Menu if clicked outside (existing logic)
+            if (notifMenu && !notifMenu.classList.contains("hidden")) {
+                if (!notifMenu.contains(event.target) && (!notifBell || !notifBell.contains(event.target))) {
+                    notifMenu.classList.add("hidden");
+                }
             }
         });
     </script>
-
     @RenderSection("Scripts", required: false)
 
 </body>
