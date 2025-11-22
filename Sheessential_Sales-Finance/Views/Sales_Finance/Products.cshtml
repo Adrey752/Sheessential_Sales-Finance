@@ -1,4 +1,4 @@
-﻿@model IEnumerable<Product>
+﻿@model IEnumerable<Products>
 @{
     ViewData["Title"] = "Products Overview";
 }
@@ -32,7 +32,7 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div class="bg-white rounded-2xl shadow-lg p-5 flex items-center space-x-4 border border-gray-100 h-32">
                     <div class="p-3 rounded-full bg-rose-100 mt-0.5" style="color: #A36A66;">
-                        <i class="fa-solid fa-money-bill-trend-up fa-lg"></i> 
+                        <i class="fa-solid fa-money-bill-trend-up fa-lg"></i>
                     </div>
                     <div>
                         <h2 class="text-lg font-semibold" style="color: #A36A66;">Total Sales</h2>
@@ -42,7 +42,7 @@
 
                 <div class="bg-white rounded-2xl shadow-lg p-5 flex items-center space-x-4 border border-gray-100 h-32">
                     <div class="p-3 rounded-full bg-rose-100 mt-0.5" style="color: #A36A66;">
-                        <i class="fa-solid fa-bag-shopping fa-lg"></i> 
+                        <i class="fa-solid fa-bag-shopping fa-lg"></i>
                     </div>
                     <div>
                         <h2 class="text-lg font-semibold" style="color: #A36A66;">Total Orders</h2>
@@ -51,7 +51,7 @@
                 </div>
             </div>
 
-            <div class="bg-white rounded-2xl shadow-lg p-6 h-64">
+            <div class="bg-white rounded-2xl shadow-lg p-6 h-[20rem]">
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="text-xl font-semibold text-gray-800">Product Sales Trend</h2> <span id="chartProductName" class="text-[#A36A66] ml-2"></span>
 
@@ -61,9 +61,9 @@
         </div>
 
         <div class="lg:col-span-2 bg-white rounded-2xl shadow-lg p-5 border border-gray-100 flex flex-col justify-between">
-            <div>
+            <div class="flex-grow flex flex-col">
                 <h6 class="text-center font-semibold text-gray-700 mb-3 uppercase">TOP PRODUCT</h6>
-                <img src="~/images/topproduct.jpg" alt="Top Product" class="rounded-xl mb-4 mx-auto w-full object-cover">
+                <img src="~/images/Hand_Sanitizer.jpg" alt="Top Product" class="rounded-xl mb-4 mx-auto w-full object-contain h-auto max-h-52">
             </div>
             <div class="mt-auto">
                 <p class="text-center font-bold text-lg text-gray-800">Hydrating Face Cream</p>
@@ -593,8 +593,8 @@
                 datasets: [{
                     label: "Sales Revenue",
                     data: values,
-                        borderColor: "#ec4899",
-                        backgroundColor: "rgba(236,72,153,0.2)",
+                borderColor: "#A36A66",
+                backgroundColor: "rgba(163,106,102,0.25)",
                     tension: 0.4,
                     fill: true
                 }]

@@ -1,5 +1,6 @@
 ﻿using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
+using System;
 
 namespace Sheessential_Sales_Finance.Models
 {
@@ -9,29 +10,26 @@ namespace Sheessential_Sales_Finance.Models
         [BsonRepresentation(BsonType.ObjectId)]
         public string? Id { get; set; }
 
-        [BsonElement("productId")]
+        [BsonElement("variantId")]
         [BsonRepresentation(BsonType.ObjectId)]
-        public string? ProductId { get; set; }
-
-        [BsonElement("item")]
-        public string? Item { get; set; }  
+        public string VariantId { get; set; } = string.Empty;
 
         [BsonElement("quantity")]
-        public required int Quantity { get; set; }
-
+        public int Quantity { get; set; }
+         
         [BsonElement("salePrice")]
-        public required decimal SalePrice { get; set; }
+        public string SalePrice { get; set; } = string.Empty;
 
         [BsonElement("saleTax")]
-        public required decimal SaleTax { get; set; }
+        public string SaleTax { get; set; } = string.Empty;
 
         [BsonElement("saleDiscounts")]
-        public required decimal SaleDiscounts { get; set; }
+        public string SaleDiscounts { get; set; } = string.Empty;
 
         [BsonElement("transactionDate")]
-        public required DateTime TransactionDate { get; set; }
+        public DateTime TransactionDate { get; set; }
 
         [BsonElement("srp")]
-        public required decimal SRP { get; set; }
+        public string SRP { get; set; } = string.Empty;
     }
 }

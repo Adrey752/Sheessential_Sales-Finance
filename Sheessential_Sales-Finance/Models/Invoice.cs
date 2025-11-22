@@ -26,7 +26,7 @@ namespace Sheessential_Sales_Finance.Models
         public DateTime? DueDate { get; set; }
 
         [BsonElement("items")]
-        public List<ProductSale> Items { get; set; } = new();
+        public List<ProductSales> Items { get; set; } = new();
 
         [BsonElement("subtotal")]
         public decimal Subtotal => Items.Sum(i => i.SalePrice * i.Quantity);

@@ -351,7 +351,7 @@ document.querySelector("form").addEventListener("submit", function (e) {
                             <h3 class="text-xl font-semibold text-gray-800">Invoice</h3>
                             <p class="text-gray-500 text-sm">Invoice Number <span class="font-medium text-gray-700">${invoice.InvoiceNumber}</span></p>
                         </div>
-                        <img src="/images/logo.png" alt="Logo" class="w-20 opacity-80">
+<img src="/images/Logo.jpg" alt="Adrial Matulog kana" class="w-20 opacity-80">
                     </div>
 
                     <div class="flex justify-between text-xs text-gray-600 mb-3">
@@ -377,6 +377,7 @@ document.querySelector("form").addEventListener("submit", function (e) {
                                 <th class="py-2">Qty</th>
                                 <th class="py-2">Price</th>
                                 <th class="py-2 text-right">Total</th>
+                                <th class="py-2 text-right">Bruhhh</th>
                             </tr>
                         </thead>
                         <tbody>

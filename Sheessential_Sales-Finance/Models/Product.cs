@@ -1,5 +1,6 @@
-﻿using MongoDB.Bson.Serialization.Attributes;
-using MongoDB.Bson;
+﻿using MongoDB.Bson;
+using MongoDB.Bson.Serialization.Attributes;
+using System;
 
 namespace Sheessential_Sales_Finance.Models
 {
@@ -9,34 +10,37 @@ namespace Sheessential_Sales_Finance.Models
         [BsonRepresentation(BsonType.ObjectId)]
         public string? Id { get; set; }
 
-        [BsonElement("item")]
-        public required string Item { get; set; }
+        [BsonElement("productName")]
+        public string ProductName { get; set; } = string.Empty;
 
-        [BsonElement("sku")]
-        public required string SKU { get; set; } 
+        [BsonElement("productDesc")]
+        public string ProductDesc { get; set; } = string.Empty;
 
-        [BsonElement("category")]
-        public required string Category { get; set; }
+        [BsonElement("productCategory")]
+        public string ProductCategory { get; set; } = string.Empty;
 
-        [BsonElement("stockQuantity")]
-        public required int StockQuantity { get; set; }
+        [BsonElement("baseIngredients")]
+        public string BaseIngredients { get; set; } = string.Empty;
 
-        [BsonElement("unitPrice")]
-        public required decimal UnitPrice { get; set; }
+        [BsonElement("productImg")]
+        public string ProductImg { get; set; } = string.Empty;
 
-        [BsonElement("srp")]
-        public required decimal SRP { get; set; }
+        [BsonElement("productVal")]
+        public decimal ProductVal { get; set; }
 
-        [BsonElement("supplier")]
-        public required string Supplier { get; set; }
+        [BsonElement("createdAt")]
+        public DateTime CreatedAt { get; set; }
 
-        [BsonElement("images")]
-        public List<string>? Images { get; set; }
+        [BsonElement("updatedAt")]
+        public DateTime UpdatedAt { get; set; }
 
-        [BsonElement("tags")]
-        public List<string>? Tags { get; set; }
+        [BsonElement("status")]
+        public string Status { get; set; } = string.Empty;
 
-        [BsonElement("lastUpdated")]
-        public required DateTime LastUpdated { get; set; }
+        [BsonElement("isApprove")]
+        public bool IsApprove { get; set; }
+
+        [BsonElement("ProductImage")]
+        public string ProductImage { get; set; } = string.Empty;
     }
 }

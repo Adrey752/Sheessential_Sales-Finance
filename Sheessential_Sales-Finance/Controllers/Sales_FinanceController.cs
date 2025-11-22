@@ -529,7 +529,7 @@ namespace Sheessential_Sales_Finance.Controllers
             invoice.Status = "Unpaid";
 
             if (invoice.Items == null)
-                invoice.Items = new List<ProductSale>();
+                invoice.Items = new List<ProductSales>();
 
             // ✅ Insert the invoice
             await _mongo.Invoices.InsertOneAsync(invoice);
@@ -1212,7 +1212,7 @@ namespace Sheessential_Sales_Finance.Controllers
         public async Task<IActionResult> SalesReport()
         {
             var categories = await _mongo.Inventories
-                .Distinct<string>("category", filter: Builders<Product>.Filter.Empty)
+                .Distinct<string>("category", filter: Builders<Products>.Filter.Empty)
                 .ToListAsync();
 
             ViewBag.Categories = categories;
@@ -1790,7 +1790,7 @@ namespace Sheessential_Sales_Finance.Controllers
 
             _logger.LogInformation("\n\n\n\n\n\nGenerating Sales PDF...\n\n\n\n\n\n");
             // Get Logo
-            var logoPath = Path.Combine(_env.WebRootPath, "images/Logo.png"); // Make sure you have this logo
+            var logoPath = Path.Combine(_env.WebRootPath, "images/Logo.jpg"); // Make sure you have this logo
             var logoBytes = System.IO.File.ReadAllBytes(logoPath);
             payload.LogoBase64 = $"data:image/png;base64,{Convert.ToBase64String(logoBytes)}";
 

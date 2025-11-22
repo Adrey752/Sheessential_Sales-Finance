@@ -53,8 +53,8 @@ namespace Sheessential_Sales_Finance.helpers
         // === Collections ===
         public IMongoCollection<User> Users => GetCollection<User>("users");
         public IMongoCollection<Invoice> Invoices => GetCollection<Invoice>("invoice");
-        public IMongoCollection<Product> Inventories => GetCollection<Product>("inventory");
-        public IMongoCollection<ProductSale> ProductSales => GetCollection<ProductSale>("ProductSales");
+        public IMongoCollection<Products> Inventories => GetCollection<Products>("inventory");
+        public IMongoCollection<ProductSales> ProductSales => GetCollection<ProductSales>("ProductSales");
         public IMongoCollection<ActionLog> ActionLog => GetCollection<ActionLog>("action_log");
         public IMongoCollection<Vendor> Vendors => GetCollection<Vendor>("Vendors");
         public IMongoCollection<Expenses> Expenses => GetCollection<Expenses>("Expenses");
