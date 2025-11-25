@@ -27,6 +27,8 @@ namespace Sheessential_Sales_Finance.Models
         public string SKU { get; set; } = string.Empty;
 
         [BsonElement("price")]
+        [BsonIgnoreIfNull] // CRITICAL: Tells the driver to skip the field if BSON Null is found.
+        // It will then be assigned the C# default: 0m
         public decimal Price { get; set; }
 
         [BsonElement("stockQuantity")]
@@ -36,6 +38,8 @@ namespace Sheessential_Sales_Finance.Models
         public int MinimumStock { get; set; }
 
         [BsonElement("weight")]
+        [BsonIgnoreIfNull] // CRITICAL: Tells the driver to skip the field if BSON Null is found.
+        // It will then be assigned the C# default: 0m
         public decimal Weight { get; set; }
 
         [BsonElement("dimensions")]
@@ -54,9 +58,13 @@ namespace Sheessential_Sales_Finance.Models
         public string VariantImg { get; set; } = string.Empty;
 
         [BsonElement("shelfLifeYears")]
+        [BsonIgnoreIfNull] // Added to ensure this integer defaults to 0 if null/missing
         public int ShelfLifeYears { get; set; }
 
         [BsonElement("location")]
         public string Location { get; set; } = string.Empty;
+
+        [BsonElement("isArchived")]
+        public bool IsArchive { get; set; } = false;
     }
 }

@@ -316,138 +316,196 @@ namespace Sheessential_Sales_Finance.Controllers
 
 
 
+        //public async Task<IActionResult> Invoices()
+        //{
+        //    // Fetch all invoices first
+        //    var invoices = await _mongo.Invoices
+        //        .Find(invoice => !invoice.IsArchived)
+        //        .SortByDescending(i => i.CreatedAt)
+        //        .ToListAsync();
+
+        //    // Update overdue invoices
+        //    var now = DateTime.UtcNow;
+        //    var overdueInvoices = invoices
+        //        .Where(i => i.Status == "Unpaid" && i.DueDate.HasValue && i.DueDate.Value < now)
+        //        .ToList();
+
+        //    if (overdueInvoices.Any())
+        //    {
+        //        foreach (var invoice in overdueInvoices)
+        //        {
+        //            invoice.Status = "Overdue";
+        //            invoice.UpdatedAt = now;
+
+        //            // Update in MongoDB
+        //            var filter = Builders<Invoice>.Filter.Eq(i => i.Id, invoice.Id);
+        //            var update = Builders<Invoice>.Update
+        //                .Set(i => i.Status, "Overdue")
+        //                .Set(i => i.UpdatedAt, now);
+
+        //            await _mongo.Invoices.UpdateOneAsync(filter, update);
+        //        }
+        //    }
+
+        //    // Calculate totals
+        //    var overdueAmount = invoices.Where(i => i.Status == "Overdue").Sum(i => i.Total);
+        //    var openAmount = invoices.Where(i => i.Status == "Unpaid").Sum(i => i.Total);
+        //    var draftedAmount = invoices.Where(i => i.Status == "Draft").Sum(i => i.Total);
+
+        //    //  Replace billedTo with readable name
+        //    foreach (var invoice in invoices)
+        //    {
+        //        var billedTo = await _mongo.Users.Find(u => u.Id == invoice.BilledTo).FirstOrDefaultAsync();
+        //        invoice.BilledTo = billedTo?.FullName ?? "Unknown Customer";
+        //    }
+
+        //    // Fetch available products
+        //    var availableProducts = await _mongo.Inventories
+        //        .Find(_ => true)
+        //        .SortBy(p => p.Item)
+        //        .ToListAsync();
+
+        //    //  Fetch customer list
+        //    var customers = await _mongo.Users
+        //        .Find(u => u.Role.ToLower() == "customer")
+        //        .SortBy(u => u.FirstName)
+        //        .ToListAsync();
+
+        //    var viewModel = new InvoiceListViewModel
+        //    {
+        //        Invoices = invoices,
+        //        OverdueAmount = overdueAmount,
+        //        OpenAmount = openAmount,
+        //        DraftedAmount = draftedAmount,
+        //        AvailableProducts = availableProducts,
+        //        Customers = customers,
+        //    };
+
+        //    ViewBag.NextInvoiceNumber = await GenerateInvoiceNumber();
+        //    ViewBag.ActiveUsers = _mongo.Users.Find(u => u.Status.ToLower() == "active").ToList().Count;
+        //    return View(viewModel);
+        //}
+
         public async Task<IActionResult> Invoices()
         {
-            // Fetch all invoices first
-            var invoices = await _mongo.Invoices
-                .Find(invoice => !invoice.IsArchived)
-                .SortByDescending(i => i.CreatedAt)
+            // 1. Fetch all Orders (replacing Invoices)
+            // We filter by not archived if you have an IsArchived field, otherwise fetch all
+            var orders = await _mongo.TbOrder
+                .Find(_ => true)
+                .SortByDescending(o => o.CreatedAt)
                 .ToListAsync();
 
-            // Update overdue invoices
+            /* NOTE: The "Update Overdue" logic below is commented out because 
+               TbOrder does not have a 'DueDate' field to compare against DateTime.UtcNow.
+               If you want this, you need to add a DueDate to TbOrder or calculate it 
+               (e.g., CreatedAt + 30 days).
+            */
+            /*
             var now = DateTime.UtcNow;
-            var overdueInvoices = invoices
-                .Where(i => i.Status == "Unpaid" && i.DueDate.HasValue && i.DueDate.Value < now)
+            var overdueOrders = orders
+                .Where(o => o.PaymentStatus == "Unpaid" && [Add DueDate Logic Here] < now)
                 .ToList();
 
-            if (overdueInvoices.Any())
+            if (overdueOrders.Any())
             {
-                foreach (var invoice in overdueInvoices)
+                foreach (var order in overdueOrders)
                 {
-                    invoice.Status = "Overdue";
-                    invoice.UpdatedAt = now;
-
-                    // Update in MongoDB
-                    var filter = Builders<Invoice>.Filter.Eq(i => i.Id, invoice.Id);
-                    var update = Builders<Invoice>.Update
-                        .Set(i => i.Status, "Overdue")
-                        .Set(i => i.UpdatedAt, now);
-
-                    await _mongo.Invoices.UpdateOneAsync(filter, update);
+                    // Update logic here...
                 }
             }
+            */
 
-            // Calculate totals
-            var overdueAmount = invoices.Where(i => i.Status == "Overdue").Sum(i => i.Total);
-            var openAmount = invoices.Where(i => i.Status == "Unpaid").Sum(i => i.Total);
-            var draftedAmount = invoices.Where(i => i.Status == "Draft").Sum(i => i.Total);
+            // 2. Calculate totals using TbOrder fields
+            // Assuming 'Unpaid' means Open, 'Paid' is closed. 
+            // If you have a specific 'Overdue' status in PaymentStatus, it will sum here.
+            var overdueAmount = orders.Where(o => o.PaymentStatus == "Overdue").Sum(o => o.TotalAmount);
+            var openAmount = orders.Where(o => o.PaymentStatus == "Unpaid").Sum(o => o.TotalAmount);
 
-            //  Replace billedTo with readable name
-            foreach (var invoice in invoices)
-            {
-                var billedTo = await _mongo.Users.Find(u => u.Id == invoice.BilledTo).FirstOrDefaultAsync();
-                invoice.BilledTo = billedTo?.FullName ?? "Unknown Customer";
-            }
+            // Assuming 'Pending' order status or 'Processing' payment status counts as Drafted/In-Progress
+            var draftedAmount = orders.Where(o => o.PaymentStatus == "Pending" || o.OrderStatus == "Processing").Sum(o => o.TotalAmount);
 
-            // Fetch available products
-            var availableProducts = await _mongo.Inventories
-                .Find(_ => true)
-                .SortBy(p => p.Item)
+
+
+            // 4. Combine Products and Variants into the combined ViewModel
+            var availableProducts = await _mongo.ProductVariantInventory
+                .Find(v => v.StockQuantity > 0)
                 .ToListAsync();
 
-            //  Fetch customer list
-            var customers = await _mongo.Users
+
+            // 4. Fetch customer list (TbUser)
+            var customers = await _mongo.TbUserCollection
                 .Find(u => u.Role.ToLower() == "customer")
                 .SortBy(u => u.FirstName)
                 .ToListAsync();
 
+            // 5. Prepare ViewModel
             var viewModel = new InvoiceListViewModel
             {
-                Invoices = invoices,
+                Orders = orders, // Now passing TbOrder list
                 OverdueAmount = overdueAmount,
                 OpenAmount = openAmount,
                 DraftedAmount = draftedAmount,
                 AvailableProducts = availableProducts,
-                Customers = customers,
+                Customers = customers
             };
 
+            // 6. ViewBags
+            // Ensure GenerateInvoiceNumber() is updated to handle Order Numbers if needed
             ViewBag.NextInvoiceNumber = await GenerateInvoiceNumber();
-            ViewBag.ActiveUsers = _mongo.Users.Find(u => u.Status.ToLower() == "active").ToList().Count;
+
+            // Count active users based on IsEmailVerified or other logic in TbUser
+            ViewBag.ActiveUsers = await _mongo.TbUserCollection.CountDocumentsAsync(u => u.IsEmailVerified == true);
+
             return View(viewModel);
         }
 
         public async Task<IActionResult> InvoiceArchieves()
         {
-            // Fetch all invoices first
-            var invoices = await _mongo.Invoices
-                .Find(invoice => invoice.IsArchived)
+            // 1. Fetch "Archived" Orders
+            // Strategy: treating "Cancelled" or "Failed" orders as the "Archive" list
+            // If you add an 'IsArchived' boolean to TbOrder later, change this query.
+            var orders = await _mongo.TbOrder
+                .Find(o => o.OrderStatus == "Cancelled")
                 .SortByDescending(i => i.CreatedAt)
                 .ToListAsync();
 
-            // Update overdue invoices
+            /* NOTE: Overdue logic commented out. 
+               TbOrder does not have 'DueDate'. If you need this, add logic based on 
+               CreatedAt + X days, or add a DueDate field to the model.
+            */
+            /*
             var now = DateTime.UtcNow;
-            var overdueInvoices = invoices
-                .Where(i => i.Status == "Unpaid" && i.DueDate.HasValue && i.DueDate.Value < now)
+            var overdueOrders = orders
+                .Where(o => o.PaymentStatus == "Unpaid" && [DueDate Logic] < now)
                 .ToList();
 
-            if (overdueInvoices.Any())
-            {
-                foreach (var invoice in overdueInvoices)
-                {
-                    invoice.Status = "Overdue";
-                    invoice.UpdatedAt = now;
+            if (overdueOrders.Any()) { ... update logic ... }
+            */
 
-                    // Update in MongoDB
-                    var filter = Builders<Invoice>.Filter.Eq(i => i.Id, invoice.Id);
-                    var update = Builders<Invoice>.Update
-                        .Set(i => i.Status, "Overdue")
-                        .Set(i => i.UpdatedAt, now);
+            // 2. Calculate totals based on TbOrder properties
+            var overdueAmount = orders.Where(o => o.PaymentStatus == "Overdue").Sum(o => o.TotalAmount);
+            var openAmount = orders.Where(o => o.PaymentStatus == "Unpaid").Sum(o => o.TotalAmount);
 
-                    await _mongo.Invoices.UpdateOneAsync(filter, update);
-                }
-            }
+            // Treat Pending/Processing as Draft/In-Progress
+            var draftedAmount = orders.Where(o => o.OrderStatus == "Processing").Sum(o => o.TotalAmount);
 
 
-
-
-
-            // Calculate totals
-            var overdueAmount = invoices.Where(i => i.Status == "Overdue").Sum(i => i.Total);
-            var openAmount = invoices.Where(i => i.Status == "Unpaid").Sum(i => i.Total);
-            var draftedAmount = invoices.Where(i => i.Status == "Draft").Sum(i => i.Total);
-
-            //  Replace billedTo with readable name
-            foreach (var invoice in invoices)
-            {
-                var billedTo = await _mongo.Users.Find(u => u.Id == invoice.BilledTo).FirstOrDefaultAsync();
-                invoice.BilledTo = billedTo?.FullName ?? "Unknown Customer";
-            }
-
-            // Fetch available products
-            var availableProducts = await _mongo.Inventories
-                .Find(_ => true)
-                .SortBy(p => p.Item)
+            // Fetch all active variants
+            // 3. Fetch Products (for JS/ViewModel)
+            var availableProducts = await _mongo.ProductVariantInventory
+                .Find(v => v.IsActive == true && v.StockQuantity > 0)
                 .ToListAsync();
 
-            //  Fetch customer list
-            var customers = await _mongo.Users
+            // 4. Fetch Customers (TbUser)
+            var customers = await _mongo.TbUserCollection
                 .Find(u => u.Role.ToLower() == "customer")
                 .SortBy(u => u.FirstName)
                 .ToListAsync();
 
+            // 5. Construct ViewModel
             var viewModel = new InvoiceListViewModel
             {
-                Invoices = invoices,
+                Orders = orders, // Updated property
                 OverdueAmount = overdueAmount,
                 OpenAmount = openAmount,
                 DraftedAmount = draftedAmount,
@@ -457,18 +515,6 @@ namespace Sheessential_Sales_Finance.Controllers
 
             ViewBag.NextInvoiceNumber = await GenerateInvoiceNumber();
             return View(viewModel);
-        }
-
-        [HttpPost]
-        public async Task<IActionResult> Restore(string id)
-        {
-            var filter = Builders<Invoice>.Filter.Eq(i => i.Id, id);
-            var update = Builders<Invoice>.Update
-                .Set(invoice => invoice.IsArchived, false);
-            TempData["Restored"] = true;
-            _logger.LogInformation("\n\n\nRestore bruhh\n\n\n\n");
-            await _mongo.Invoices.UpdateOneAsync(filter, update);
-            return RedirectToAction("InvoiceArchieves");
         }
 
 
@@ -486,6 +532,11 @@ namespace Sheessential_Sales_Finance.Controllers
             var update = Builders<Invoice>.Update
                 .Set(i => i.IsArchived, true)
                 .Set(i => i.UpdatedAt, DateTime.UtcNow);
+
+
+
+
+
 
             await _mongo.Invoices.UpdateOneAsync(i => i.Id == id, update);
 
