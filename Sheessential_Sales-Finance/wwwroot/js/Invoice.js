@@ -472,31 +472,44 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    function updateInvoiceRowStatus(id, newStatus) {
-        const row = document.querySelector(`#invoiceTable tbody tr[data-id='${id}']`);
-        if (!row) return;
-
-        const statusSpan = row.querySelector("td:first-child span");
-        if (!statusSpan) return;
-
-        statusSpan.textContent = newStatus;
-        statusSpan.className = getStatusColorClass(newStatus) + " text-xs px-3 py-1 rounded-full font-medium";
-    }
-
     function getStatusColorClass(status) {
         switch (status) {
-            case "Paid": return "bg-green-100 text-green-600";
-            case "Completed": return "bg-green-100 text-green-600";
-            case "Unpaid": return "bg-pink-100 text-pink-600";
-            case "Overdue": return "bg-yellow-100 text-yellow-600";
-            case "Pending": return "bg-blue-100 text-blue-600";
-            case "Processing": return "bg-blue-100 text-blue-600";
-            case "Cancelled": return "bg-red-100 text-red-600";
-            case "Failed": return "bg-red-100 text-red-600";
-            default: return "bg-gray-100 text-gray-600";
+            // C# Equivalent: "Paid" => "bg-[#763F62] text-white"
+            case "Paid":
+                return "bg-[#763F62] text-white";
+
+            // Note: C# logic does not include "Completed" in this list, 
+            // but if you want it to match "Paid", you can keep it separate or merge. 
+            // For now, I'll map "Completed" to the Paid color for consistency.
+            case "Completed":
+                return "bg-[#763F62] text-white";
+
+            // C# Equivalent: "Unpaid" => "bg-[#A36A66] text-white"
+            case "Unpaid":
+                return "bg-[#A36A66] text-white";
+
+            // C# Equivalent: "Overdue" => "bg-yellow-100 text-yellow-600"
+            case "Overdue":
+                return "bg-yellow-100 text-yellow-600";
+
+            // C# Equivalent: "Pending" => "bg-blue-100 text-blue-600"
+            case "Pending":
+            // C# logic does not include "Processing" but it's typically Pending's sibling
+            case "Processing":
+                return "bg-blue-100 text-blue-600";
+
+            // C# Equivalent: "Failed" => "bg-red-100 text-red-600"
+            case "Failed":
+            // Note: C# logic does not include "Cancelled" in this list, 
+            // but it's typically grouped with "Failed"
+            case "Cancelled":
+                return "bg-red-100 text-red-600";
+
+            // C# Equivalent: _ => "bg-gray-100 text-gray-600"
+            default:
+                return "bg-gray-100 text-gray-600";
         }
     }
-
     // === HANDLE DELETE SUBMIT ===
     const deleteBtn = document.getElementById('confirmDeleteBtn');
     if (deleteBtn) {

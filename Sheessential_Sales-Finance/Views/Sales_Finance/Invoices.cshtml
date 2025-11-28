@@ -356,144 +356,177 @@
                      &times; 
                  </button> 
              </div> 
-         </div> 
+         </div>
 
-         <form asp-controller="Sales_Finance" asp-action="CreateInvoice" method="post" id="createInvoiceForm" class="p-6"> 
+        <form asp-controller="Sales_Finance" asp-action="CreateInvoice" method="post" id="createInvoiceForm" class="p-6">
 
-             <input type="hidden" id="InvoiceNumber" name="InvoiceNumber" value="INVosf" /> 
+            <input type="hidden" name="OrderNumber" value="AUTO" />
 
-             <h2 class="text-lg font-bold mt-2 mb-2 text-gray-800">BILLING INFORMATION</h2> 
+            <h2 class="text-lg font-bold mt-2 mb-2 text-gray-800">BILLING INFORMATION</h2>
 
-             <div class="mb-4"> 
-                 <h3 class="text-base font-bold mb-2 text-gray-700">Customer</h3> 
+            <div class="mb-4">
+                <h3 class="text-base font-bold mb-2 text-gray-700">Customer</h3>
 
-                 <div class="relative mb-3"> 
-                     <input id="customerSearchInput" 
-                            type="text" 
-                            class="w-full border border-gray-300 rounded-xl p-2 text-sm pl-9 focus:ring-2 focus:ring-pink-400 focus:border-pink-400 transition" 
-                            placeholder="Search customer..." 
-                            autocomplete="off" /> 
-                     <i class="fa-solid fa-search absolute left-3 top-2.5 text-gray-400 text-sm"></i> 
+                <div class="relative mb-3">
+                    <input id="customerSearchInput"
+                           type="text"
+                           class="w-full border border-gray-300 rounded-xl p-2 text-sm pl-9 focus:ring-2 focus:ring-pink-400 focus:border-pink-400 transition"
+                           placeholder="Search customer..."
+                           autocomplete="off" />
+                    <i class="fa-solid fa-search absolute left-3 top-2.5 text-gray-400 text-sm"></i>
 
-                     <div id="customerSuggestions" 
-                          class="absolute mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-md hidden max-h-48 overflow-y-auto z-10"></div> 
-                 </div> 
+                    <div id="customerSuggestions"
+                         class="absolute mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-md hidden max-h-48 overflow-y-auto z-10"></div>
+                </div>
 
-                 <span id="customerError" class="text-red-500 text-xs hidden">Please select a customer.</span> 
-                 <textarea id="customerDetails" 
-                           class="w-full border border-gray-300 rounded-xl p-2 text-sm h-20 resize-none bg-gray-50" 
-                           placeholder="Customer details will appear here..." readonly required></textarea> 
+                <span id="customerError" class="text-red-500 text-xs hidden">Please select a customer.</span>
+                <textarea id="customerDetails"
+                          class="w-full border border-gray-300 rounded-xl p-2 text-sm h-20 resize-none bg-gray-50"
+                          placeholder="Customer details will appear here..." readonly required></textarea>
 
-                 <input type="hidden" name="BilledTo" id="selectedCustomerId" required /> 
-             </div> 
+                <input type="hidden" name="BilledTo" id="selectedCustomerId" required />
+            </div>
 
-             <div class="grid grid-cols-2 gap-4 mt-4"> 
-                 <div> 
-                     <label class="text-sm font-medium text-gray-700">Invoice Date</label> 
-                     <input id="invoiceDate" 
-                            name="IssuedAt" 
-                            type="date" 
-                            class="w-full border border-gray-300 rounded-xl p-2 text-sm focus:ring-2 focus:ring-pink-400 focus:border-pink-400" 
-                            readonly /> 
-                 </div> 
-                 <div> 
-                     <label class="text-sm font-medium text-gray-700">Due Date</label> 
-                     <input id="dueDate" 
-                            name="DueDate" 
-                            type="date" 
-                            class="w-full border border-gray-300 rounded-xl p-2 text-sm focus:ring-2 focus:ring-pink-400 focus:border-pink-400" /> 
-                 </div> 
-             </div> 
+            <div class="grid grid-cols-2 gap-4 mt-4">
+                <div>
+                    <label class="text-sm font-medium text-gray-700">Order Date</label>
+                    <input id="invoiceDate"
+                           type="date"
+                           class="w-full border border-gray-300 rounded-xl p-2 text-sm focus:ring-2 focus:ring-pink-400 focus:border-pink-400"
+                           readonly />
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-gray-700">Due Date</label>
+                    <input id="dueDate"
+                           type="date"
+                           class="w-full border border-gray-300 rounded-xl p-2 text-sm focus:ring-2 focus:ring-pink-400 focus:border-pink-400" />
+                </div>
+            </div>
 
-             <h2 class="text-lg font-bold mt-6 mb-2 text-gray-800">PRODUCT DETAILS</h2> 
-             <div class="relative mb-3"> 
-                 <input id="productSearchInput" 
-                        type="text" 
-                        class="w-full border border-gray-300 rounded-xl p-2 text-sm pl-9 focus:ring-2 focus:ring-pink-400 focus:border-pink-400 transition" 
-                        placeholder="Search product..." 
-                        autocomplete="off" /> 
-                 <i class="fa-solid fa-search absolute left-3 top-2.5 text-gray-400 text-sm"></i> 
+            <h2 class="text-lg font-bold mt-6 mb-2 text-gray-800">PRODUCT DETAILS</h2>
+            <div class="relative mb-3">
+                <input id="productSearchInput"
+                       type="text"
+                       class="w-full border border-gray-300 rounded-xl p-2 text-sm pl-9 focus:ring-2 focus:ring-pink-400 focus:border-pink-400 transition"
+                       placeholder="Search product..."
+                       autocomplete="off" />
+                <i class="fa-solid fa-search absolute left-3 top-2.5 text-gray-400 text-sm"></i>
 
-                 <div id="productSuggestions" 
-                      class="absolute mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-md hidden max-h-48 overflow-y-auto z-10"></div> 
-             </div> 
+                <div id="productSuggestions"
+                     class="absolute mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-md hidden max-h-48 overflow-y-auto z-10"></div>
+            </div>
 
-             <div class="border border-gray-200 rounded-xl bg-white max-h-60 overflow-y-auto shadow-inner"> 
-                 <table class="w-full border-collapse text-sm"> 
-                     <thead class="bg-pink-50 text-gray-600 sticky top-0 z-10"> 
-                         <tr> 
-                             <th class="text-left p-2 font-medium">Product Id</th> 
-                             <th class="text-left p-2 font-medium">Variant Name</th> 
-                             <th class="text-left p-2 font-medium">Quantity</th> 
-                             <th class="text-left p-2 font-medium">Price</th> 
-                             <th class="text-left p-2 text-right font-medium">Amount</th> 
-                         </tr> 
-                     </thead> 
-                     <tbody id="productTableBody"> 
-                         @for (int i = 0; i < Model.AvailableProducts.Count; i++) 
-                         { 
-                             var product = Model.AvailableProducts[i]; 
-                             <tr id="product-@product.Id" class="hover:bg-pink-50 transition"> 
-                                 <td class="p-2">@product.Id</td> 
-                                 <td class="p-2">@product.VariantName</td> 
-                                 <td class="p-2"> 
-                                     <input type="number" 
-                                            name="Items[@i].Quantity" 
-                                            min="0" 
-                                            value="0" 
-                                            class="qtyInput w-16 border border-gray-300 rounded-lg p-1 text-center focus:ring-1 focus:ring-pink-400" 
-                                            data-price="@product.Price" 
-                                            data-stock="@product.StockQuantity" /> 
-                                     <input type="hidden" name="Items[@i].SalePrice" value="@product.Price" /> 
-                                     <input type="hidden" name="Items[@i].ProductId" value="@product.ProductId" /> 
-                                     <input type="hidden" name="Items[@i].SaleTax" value="0" /> 
-                                     <input type="hidden" name="Items[@i].SaleDiscounts" value="0" /> 
-                                     <input type="date" 
-                                            name="Items[@i].TransactionDate" 
-                                            value="@DateTime.UtcNow.ToString("yyyy-MM-dd")" 
-                                            hidden /> 
+            <div class="border border-gray-200 rounded-xl bg-white max-h-60 overflow-y-auto shadow-inner">
+                <table class="w-full border-collapse text-sm">
+                    <thead class="bg-pink-50 text-gray-600 sticky top-0 z-10">
+                        <tr>
+                            <th class="text-left p-2 font-medium">Variant Name</th>
+                            <th class="text-left p-2 font-medium">Quantity</th>
+                            <th class="text-left p-2 font-medium">Price</th>
+                            <th class="text-left p-2 text-right font-medium">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody id="productTableBody">
+                        @for (int i = 0; i < Model.AvailableProducts.Count; i++)
+                        {
+                            var product = Model.AvailableProducts[i];
+                            <tr id="product-@product.Id" class="hover:bg-pink-50 transition">
 
-                                 </td> 
-                                 <td class="p-2">₱@product.Price.ToString("N2")</td> 
-                                 <td class="p-2 text-right font-medium text-gray-800 amountCell">₱0.00</td> 
-                             </tr> 
-                         } 
-                     </tbody> 
-                 </table> 
-             </div> 
+                                <td class="p-2">@product.VariantName</td>
 
-             <div class="text-sm space-y-1 text-right mt-4 border-t border-gray-200 pt-3"> 
-                 <p><span class="text-gray-500">Subtotal</span> <span id="invoiceSubtotal" class="font-medium">₱0.00</span></p> 
-                 <p><span class="text-gray-500">Discount</span> <span class="font-medium">₱0.00</span></p> 
-                 <p class="font-bold text-gray-800 text-lg">TOTAL <span id="invoiceTotal">₱0.00</span></p> 
-             </div> 
+                                <td class="p-2">
+                                    <input type="number"
+                                           name="Items[@i].Quantity"
+                                           min="0"
+                                           value="0"
+                                           class="qtyInput w-16 border border-gray-300 rounded-lg p-1 text-center focus:ring-1 focus:ring-pink-400"
+                                           data-price="@product.Price"
+                                           data-stock="@product.StockQuantity" />
 
-             <h2 class="text-lg font-bold mt-6 mb-2 text-gray-800">NOTES</h2> 
-             <textarea name="Notes" 
-                       id="Notes" 
-                       class="w-full border border-gray-300 rounded-xl p-2 text-sm h-20 resize-none focus:ring-2 focus:ring-pink-400 focus:border-pink-400" 
-                       placeholder="Enter notes..."></textarea> 
+                                    <input type="hidden" name="Items[@i].ProductId" value="@product.Id" />
+                                    <input type="hidden" name="Items[@i].ProductName" value="@product.VariantName" /> <input type="hidden" name="Items[@i].Price" value="@product.Price" />
 
-             <input type="hidden" name="Status" value="Unpaid" /> 
+                                </td>
 
-             <div class="flex justify-between mt-6 border-t border-gray-200 pt-4"> 
-                 <button type="button" 
-                         data-modal-close 
-                         class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium px-6 py-2 rounded-xl transition"> 
-                     Cancel 
+                                <td class="p-2">₱@product.Price.ToString("N2")</td>
 
+                                <td class="p-2 text-right font-medium text-gray-800 amountCell">₱0.00</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
 
+            <div class="text-sm space-y-1 text-right mt-4 border-t border-gray-200 pt-3">
+                <p><span class="text-gray-500">Subtotal</span> <span id="invoiceSubtotal" class="font-medium">₱0.00</span></p>
+                <p><span class="text-gray-500">Tax</span> <span class="font-medium">₱0.00</span></p>
+                <p class="font-bold text-gray-800 text-lg">TOTAL <span id="invoiceTotal">₱0.00</span></p>
+            </div>
 
-                 </button> 
-                 <button type="submit" 
-                         class="bg-[#A36A66] hover:bg-[#935F5B] text-white font-medium px-6 py-2 rounded-xl shadow-md transition"> 
-                     Save 
-                 </button> 
-             </div> 
-         </form> 
-     </div> 
- </div> 
+            <h2 class="text-lg font-bold mt-6 mb-2 text-gray-800">NOTES</h2>
+            <textarea name="Notes"
+                      id="Notes"
+                      class="w-full border border-gray-300 rounded-xl p-2 text-sm h-20 resize-none focus:ring-2 focus:ring-pink-400 focus:border-pink-400"
+                      placeholder="Enter notes..."></textarea>
 
+            <input type="hidden" name="PaymentStatus" value="Unpaid" />
+            <input type="hidden" name="OrderStatus" value="Processing" />
+
+            <div class="flex justify-between mt-6 border-t border-gray-200 pt-4">
+                <button type="button"
+                        data-modal-close
+                        class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium px-6 py-2 rounded-xl transition">
+                    Cancel
+                </button>
+                <button type="submit"
+                        class="bg-[#A36A66] hover:bg-[#935F5B] text-white font-medium px-6 py-2 rounded-xl shadow-md transition">
+                    Save
+                </button>
+            </div>
+        </form>
+       </div>
+    </div>
+<div id="updateModal" class="fixed inset-0 bg-black bg-opacity-40 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-2xl shadow-lg w-[400px] p-6 relative">
+        <button type="button" class="absolute top-3 right-4 text-gray-500 hover:text-gray-800 text-xl font-bold" onclick="closeModal('updateModal')">&times;</button>
+
+        <h2 class="text-lg font-semibold mb-4">Update Invoice Status</h2>
+
+        <form id="updateForm" asp-controller="Sales_Finance" asp-action="UpdateStatus">
+            <input type="hidden" id="updateInvoiceId" />
+            <p class="text-sm text-gray-600 mb-3">Invoice: <span id="updateInvoiceNumber" class="font-medium"></span></p>
+
+            <label for="updateStatus" class="text-sm font-medium text-gray-700">Select new status:</label>
+            <select id="updateStatus" class="w-full border border-gray-300 rounded-xl p-2 mt-1 text-sm focus:ring-1 focus:ring-pink-400">
+                <option value="Paid">Paid</option>
+                <option value="Unpaid">Unpaid</option>
+            </select>
+
+            <div class="flex justify-end gap-3 mt-6">
+                <button type="button" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-xl" onclick="closeModal('updateModal')">Cancel</button>
+                <button type="submit" class="px-4 py-2 bg-[#A36A66] hover:bg-pink-600 text-white rounded-xl">Update</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="deleteModal" class="fixed inset-0 bg-black bg-opacity-40 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-2xl shadow-lg w-[400px] p-6 relative">
+        <button type="button" class="absolute top-3 right-4 text-gray-500 hover:text-gray-800 text-xl font-bold" onclick="closeModal('deleteModal')">&times;</button>
+
+        <h2 class="text-lg font-semibold mb-4 text-red-600">Delete Invoice</h2>
+        <p class="text-sm text-gray-600 mb-2">To confirm deletion, type:</p>
+        <p class="text-sm font-semibold mb-4 text-gray-800">delete_<span id="deleteInvoiceNumber"></span></p>
+
+        <input type="hidden" id="deleteInvoiceId" />
+        <input id="deleteConfirmInput" type="text" class="w-full border border-gray-300 rounded-xl p-2 text-sm mb-4 focus:ring-1 focus:ring-pink-400" placeholder="Type confirmation..." />
+
+        <div class="flex justify-end gap-3">
+            <button type="button" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-xl" onclick="closeModal('deleteModal')">Cancel</button>
+            <button id="confirmDeleteBtn" type="submit" disabled class="px-4 py-2 bg-red-400 text-white rounded-xl opacity-70 cursor-not-allowed">Delete</button>
+        </div>
+    </div>
+</div>
 @{
     var ordersJson = System.Text.Json.JsonSerializer.Serialize(Model.Orders);
     var customersJson = System.Text.Json.JsonSerializer.Serialize(Model.Customers);

@@ -109,6 +109,10 @@ namespace Sheessential_Sales_Finance.helpers
         public IMongoCollection<TbUser> TbUserCollection => GetSecondaryCollection<TbUser>("tbl_user");
         public IMongoCollection<Product> ProductInventory => GetInventoryCollection<Product>("Products");
         public IMongoCollection<ProductVariant> ProductVariantInventory => GetInventoryCollection<ProductVariant>("ProductVariants");
+        public IMongoCollection<IngredientStockRequests> IngredientsStockRequests => GetInventoryCollection<IngredientStockRequests>("IngredientStockRequests");
+        public IMongoCollection<Ingredient> Ingredients => GetInventoryCollection<Ingredient>("Ingredients");
+        public IMongoCollection<InventoryUser> InventoryUsers => GetInventoryCollection<InventoryUser>("Users");
+        public IMongoCollection<Supplier> Suppliers => GetInventoryCollection<Supplier>("Suppliers");
 
 
 

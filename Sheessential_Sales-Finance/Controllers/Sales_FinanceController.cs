@@ -517,82 +517,183 @@ namespace Sheessential_Sales_Finance.Controllers
             return View(viewModel);
         }
 
-
         [HttpPost]
         public async Task<IActionResult> DeleteInvoice(string id)
         {
-            _logger.LogInformation($"\n\n Archiving invoice with Id: {id} \n\n");
+            _logger.LogInformation($"\n\n Archiving order with Id: {id} \n\n");
 
-            // Find the invoice
-            var invoice = await _mongo.Invoices.Find(i => i.Id == id).FirstOrDefaultAsync();
-            if (invoice == null)
-                return NotFound(new { success = false, message = $"Invoice not found. Id: {id}" });
+            // 1. Find the Order (using TbOrder)
+            var order = await _mongo.TbOrder.Find(i => i.Id == id).FirstOrDefaultAsync();
 
-            // Mark as archived instead of deleting
-            var update = Builders<Invoice>.Update
-                .Set(i => i.IsArchived, true)
-                .Set(i => i.UpdatedAt, DateTime.UtcNow);
+            if (order == null)
+                return NotFound(new { success = false, message = $"Order not found. Id: {id}" });
 
+            // 2. Mark as archived
+            var update = Builders<TbOrder>.Update
+                // Set the new IsArchive property to true
+                .Set(o => o.IsArchive, true)
+                .Set(o => o.UpdatedAt, DateTime.UtcNow);
 
+            await _mongo.TbOrder.UpdateOneAsync(i => i.Id == id, update);
 
-
-
-
-            await _mongo.Invoices.UpdateOneAsync(i => i.Id == id, update);
-
-            // Log the action
+            // 3. Log the action
             var userId = HttpContext.Session.GetString("UserId") ?? "unknown";
             var actionLog = new ActionLog
             {
                 UserId = userId,
-                Entity = "Invoice",
+                Entity = "Order", // Updated entity name
                 EntityId = id,
                 Action = "ARCHIVE",
-                Description = $"Archived invoice #{invoice.InvoiceNumber}",
+                Description = $"Archived order #{order.OrderNumber}",
                 TimeStamp = DateTime.UtcNow
             };
 
             await _mongo.ActionLog.InsertOneAsync(actionLog);
 
-            return Json(new { success = true, message = "Invoice archived successfully." });
+            return Json(new { success = true, message = "Order archived successfully." });
         }
 
 
+        //[HttpPost]
+        //public async Task<IActionResult> CreateInvoice(Invoice invoice)
+        //{
+        //    if (!ModelState.IsValid)
+        //        return BadRequest(ModelState);
 
+        //    // Remove items with zero or negative quantity
+        //    invoice.Items = invoice.Items
+        //        .Where(i => i.Quantity > 0)
+        //        .ToList();
+
+        //    if (invoice.Items.Count == 0)
+        //        return BadRequest("Invoice must contain at least one item with quantity greater than 0.");
+
+        //    // Auto-generate invoice number
+        //    invoice.InvoiceNumber = await GenerateInvoiceNumber();
+        //    invoice.CreatedAt = DateTime.UtcNow;
+        //    invoice.UpdatedAt = null;
+        //    invoice.Status = "Unpaid";
+
+        //    if (invoice.Items == null)
+        //        invoice.Items = new List<ProductSales>();
+
+        //    // ✅ Insert the invoice
+        //    await _mongo.Invoices.InsertOneAsync(invoice);
+
+        //    // ✅ After insert, invoice.Id now holds the generated ObjectId
+        //    var userId = HttpContext.Session.GetString("UserId");
+        //    var actionLog = new ActionLog(
+        //        userId: userId, // or your actual logged-in user’s ID
+        //        entity: "Invoice",
+        //        entityId: invoice.Id!, // use the generated Id here
+        //        action: "CREATE",
+        //        description: $"Created invoice #{invoice.InvoiceNumber}"
+        //    );
+
+        //    await _mongo.ActionLog.InsertOneAsync(actionLog);
+
+        //    ViewBag.NextInvoiceNumber = await GenerateInvoiceNumber();
+        //    return RedirectToAction("Invoices");
+        //}
         [HttpPost]
-        public async Task<IActionResult> CreateInvoice(Invoice invoice)
+        public async Task<IActionResult> CreateInvoice(TbOrder order, string BilledTo)
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
-
-            // Remove items with zero or negative quantity
-            invoice.Items = invoice.Items
+            // 1. Remove items with zero/negative quantity
+            order.Items = order.Items
                 .Where(i => i.Quantity > 0)
                 .ToList();
 
-            if (invoice.Items.Count == 0)
-                return BadRequest("Invoice must contain at least one item with quantity greater than 0.");
+            if (order.Items.Count == 0)
+                return BadRequest("Order must contain at least one item with quantity greater than 0.");
 
-            // Auto-generate invoice number
-            invoice.InvoiceNumber = await GenerateInvoiceNumber();
-            invoice.CreatedAt = DateTime.UtcNow;
-            invoice.UpdatedAt = null;
-            invoice.Status = "Unpaid";
+            // 2. Fetch Customer Details
+            var customer = await _mongo.TbUserCollection
+                .Find(u => u.Id == BilledTo)
+                .FirstOrDefaultAsync();
 
-            if (invoice.Items == null)
-                invoice.Items = new List<ProductSales>();
+            if (customer == null)
+                return BadRequest("Invalid Customer Selected.");
 
-            // ✅ Insert the invoice
-            await _mongo.Invoices.InsertOneAsync(invoice);
+            // Map Customer Address
+            order.UserId = customer.Id;
+            order.ShippingAddress = new ShippingAddress
+            {
+                FirstName = customer.FirstName,
+                LastName = customer.LastName,
+                Email = customer.Email,
+                Phone = customer.Phone,
+                Street = customer.Address?.Street ?? "",
+                City = customer.Address?.City ?? "",
+                State = customer.Address?.State ?? "",
+                Country = customer.Address?.Country ?? "",
+                ZipCode = customer.ZipCode,
+                FullAddress = customer.Address?.FullAddress ?? ""
+            };
 
-            // ✅ After insert, invoice.Id now holds the generated ObjectId
+            // 3. Set Auto-Generated Fields for Order
+            order.OrderNumber = await GenerateInvoiceNumber();
+            order.CreatedAt = DateTime.UtcNow;
+            order.UpdatedAt = DateTime.UtcNow;
+            order.PaymentStatus = "Unpaid";
+            order.OrderStatus = "Processing";
+
+            // 4. Calculate Totals & Prepare Inventory Updates
+            decimal subtotal = 0;
+            var productSalesList = new List<ProductSales>();
+
+            foreach (var item in order.Items)
+            {
+                // A. Calculate Subtotal
+                item.Subtotal = item.Price * item.Quantity;
+                subtotal += item.Subtotal;
+
+                // B. Prepare ProductSales Record
+                // Note: We use the VariantId (item.ProductId) here. 
+                var saleRecord = new ProductSales
+                {
+                    ProductId = item.ProductId, // This corresponds to the Variant Id
+                    Item = item.ProductName,
+                    Quantity = item.Quantity,
+                    SalePrice = item.Price,
+                    SRP = item.Price, // Assuming SRP is the same as selling price for this transaction
+                    TransactionDate = DateTime.UtcNow,
+                    SaleTax = 0, // Default to 0 unless you calculate tax per item
+                    SaleDiscounts = 0 // Default to 0 unless you calculate discount per item
+                };
+                productSalesList.Add(saleRecord);
+
+                // C. Decrement Stock Immediately (or you can use BulkWrite for optimization)
+                var filter = Builders<ProductVariant>.Filter.Eq(v => v.Id, item.ProductId);
+                var update = Builders<ProductVariant>.Update.Inc(v => v.StockQuantity, -item.Quantity);
+
+                // Ensure we don't go below zero? (Optional validation, currently just decrements)
+                await _mongo.ProductVariantInventory.UpdateOneAsync(filter, update);
+            }
+
+            order.Subtotal = subtotal;
+            order.Tax = 0;
+            order.ShippingFee = 0;
+            order.TotalAmount = subtotal + order.Tax + order.ShippingFee;
+
+            // 5. Insert Records into MongoDB
+
+            // A. Insert the Order
+            await _mongo.TbOrder.InsertOneAsync(order);
+
+            // B. Insert the Product Sales Records (Batch Insert)
+            if (productSalesList.Count > 0)
+            {
+                await _mongo.ProductSales.InsertManyAsync(productSalesList);
+            }
+
+            // 6. Log Action
             var userId = HttpContext.Session.GetString("UserId");
             var actionLog = new ActionLog(
-                userId: userId, // or your actual logged-in user’s ID
-                entity: "Invoice",
-                entityId: invoice.Id!, // use the generated Id here
+                userId: userId ?? "System",
+                entity: "Order",
+                entityId: order.Id!,
                 action: "CREATE",
-                description: $"Created invoice #{invoice.InvoiceNumber}"
+                description: $"Created order #{order.OrderNumber}"
             );
 
             await _mongo.ActionLog.InsertOneAsync(actionLog);
@@ -600,8 +701,6 @@ namespace Sheessential_Sales_Finance.Controllers
             ViewBag.NextInvoiceNumber = await GenerateInvoiceNumber();
             return RedirectToAction("Invoices");
         }
-
-
         private async Task<string> GenerateInvoiceNumber()
         {
             var lastInvoice = await _mongo.Invoices
@@ -693,36 +792,49 @@ namespace Sheessential_Sales_Finance.Controllers
 
 
 
-
         [HttpPost]
         public async Task<IActionResult> UpdateStatus(string id, string newStatus)
         {
             if (string.IsNullOrEmpty(id) || string.IsNullOrEmpty(newStatus))
-                return BadRequest("Invalid invoice ID or status.");
+                return BadRequest("Invalid order ID or status.");
 
-            var invoice = _mongo.Invoices.Find(i => i.Id == id).FirstOrDefault();
-            if (invoice == null) return NotFound("Noto foundo");
-            var filter = Builders<Invoice>.Filter.Eq(i => i.Id, id);
-            var update = Builders<Invoice>.Update
-                .Set(i => i.Status, newStatus)
+            // 1. Find the Order (using TbOrder)
+            var order = await _mongo.TbOrder.Find(i => i.Id == id).FirstOrDefaultAsync();
+
+            if (order == null)
+                return NotFound("Order not found.");
+
+            // 2. Prepare Update
+            var filter = Builders<TbOrder>.Filter.Eq(i => i.Id, id);
+
+            // We update 'PaymentStatus' because the UI dropdown selects Paid/Unpaid.
+            // We also update 'UpdatedAt'.
+            var update = Builders<TbOrder>.Update
+                .Set(i => i.PaymentStatus, newStatus)
                 .Set(i => i.UpdatedAt, DateTime.UtcNow);
 
-            var result = await _mongo.Invoices.UpdateOneAsync(filter, update);
+            // Optional: If you want logic where "Paid" also automatically sets OrderStatus to "Processing" or "Completed", add it here.
+            // e.g. if (newStatus == "Paid") update = update.Set(i => i.OrderStatus, "Processing");
+
+            // 3. Execute Update
+            var result = await _mongo.TbOrder.UpdateOneAsync(filter, update);
 
             if (result.MatchedCount == 0)
-                return NotFound("Invoice not found.");
+                return NotFound("Order not found.");
 
+            // 4. Log Action
             var userId = HttpContext.Session.GetString("UserId");
             var actionLog = new ActionLog(
-                userId: userId,
-                entity: "Invoice",
+                userId: userId ?? "System",
+                entity: "Order", // Changed from Invoice
                 entityId: id,
                 action: "Update",
-                description: $"Updated status of invoice #{invoice.InvoiceNumber} to {newStatus}"
+                description: $"Updated payment status of order #{order.OrderNumber} to {newStatus}"
             );
+
             await _mongo.ActionLog.InsertOneAsync(actionLog);
 
-            return Ok(new { success = true, message = "Invoice status updated successfully." });
+            return Ok(new { success = true, message = "Order status updated successfully." });
         }
         //delete
 
@@ -798,48 +910,101 @@ namespace Sheessential_Sales_Finance.Controllers
         }
 
         //Expenses in expense page
+        // Note: You must include a using statement for the new Display Model
+        // using Sheessential_Sales_Finance.Models; 
+
         public IActionResult Expenses(string status, DateTime? startDate, DateTime? endDate)
         {
             try
             {
-                // ✅ Default to "Pending" if no filter is provided
+                // --- 1. EXPENSES LOGIC (EXISTING) ---
+                // Retain existing logic for Expenses to keep the existing functionality intact.
+
                 if (string.IsNullOrEmpty(status))
                     status = "Pending";
 
-                var filter = Builders<Expenses>.Filter.Empty;
+                var expensesFilter = Builders<Expenses>.Filter.Empty;
 
-                // ✅ Apply Status Filter
                 if (!string.IsNullOrEmpty(status))
                 {
-                    filter &= Builders<Expenses>.Filter.Eq(e => e.Status, status);
+                    expensesFilter &= Builders<Expenses>.Filter.Eq(e => e.Status, status);
                 }
 
-                // ✅ Apply Date Range Filter
                 if (startDate.HasValue && endDate.HasValue)
                 {
-                    filter &= Builders<Expenses>.Filter.Gte(e => e.RequestedAt, startDate.Value)
-                           & Builders<Expenses>.Filter.Lte(e => e.RequestedAt, endDate.Value);
+                    expensesFilter &= Builders<Expenses>.Filter.Gte(e => e.RequestedAt, startDate.Value)
+                                   & Builders<Expenses>.Filter.Lte(e => e.RequestedAt, endDate.Value.AddDays(1).AddSeconds(-1)); // Lte up to the end of the day
                 }
 
-                // ✅ Fetch filtered expenses
-                var expenses = _mongo.Expenses.Find(filter).ToList() ?? new List<Expenses>();
+                var expenses = _mongo.Expenses.Find(expensesFilter).ToList() ?? new List<Expenses>();
 
-                // ✅ Fetch current balance
+
+                // --- 2. INGREDIENT STOCK REQUESTS LOGIC (NEW) ---
+
+                // a. Fetch Lookups (Ingredients & Suppliers)
+                // Convert to Dictionaries for efficient lookup by ID
+                var allIngredients = _mongo.Ingredients.Find(_ => true).ToList().ToDictionary(i => i.Id, i => i);
+                var allSuppliers = _mongo.Suppliers.Find(_ => true).ToList().ToDictionary(s => s.Id, s => s);
+
+                // b. Filter Stock Requests
+                var stockRequestFilter = Builders<IngredientStockRequests>.Filter.Empty;
+
+                if (!string.IsNullOrEmpty(status))
+                {
+                    // Apply status filter to the request status
+                    stockRequestFilter &= Builders<IngredientStockRequests>.Filter.Eq(r => r.RequestStatus, status);
+                }
+
+                if (startDate.HasValue && endDate.HasValue)
+                {
+                    // Apply date filter to the request date
+                    stockRequestFilter &= Builders<IngredientStockRequests>.Filter.Gte(r => r.RequestDate, startDate.Value)
+                                        & Builders<IngredientStockRequests>.Filter.Lte(r => r.RequestDate, endDate.Value.AddDays(1).AddSeconds(-1));
+                }
+
+                var rawRequests = _mongo.IngredientsStockRequests.Find(stockRequestFilter).ToList();
+
+                // c. Map and Enrich the Requests
+                var displayRequests = rawRequests.Select(r => new IngredientStockRequestDisplayModel
+                {
+                    Id = r.Id,
+                    RequestStatus = r.RequestStatus,
+                    TotalCost = r.TotalCost,
+                    RequestDate = r.RequestDate,
+                    RequestedBy = r.RequestedBy,
+                    QuantityRequested = r.QuantityRequested,
+                    Unit = r.Unit,
+                    CurrentStockAtRequest = r.CurrentStockAtRequest,
+                    Instructions = r.Instructions,
+
+                    // Perform lookups using the Ingredient and Supplier dictionaries
+                    IngredientName = allIngredients.GetValueOrDefault(r.IngredientId.ToString())?.IngredientName ?? "Unknown Ingredient",
+                    SupplierName = allSuppliers.GetValueOrDefault(r.SupplierId.ToString())?.SupplierName ?? "Unknown Supplier"
+                }).OrderByDescending(r => r.RequestDate).ToList(); // Order by most recent
+
+
+                // --- 3. FINAL VIEW MODEL ASSEMBLY ---
+
+                // Fetch current balance
                 var balance = _mongo.Balance.Find(_ => true).FirstOrDefault();
 
-                // ✅ Totals
+                // Totals for Expenses (Existing Logic)
                 ViewBag.TotalExpenses = expenses.Sum(e => e?.Amount ?? 0);
                 ViewBag.PendingTotal = expenses.Where(e => e.Status == "Pending").Sum(e => e.Amount);
                 ViewBag.ApprovedTotal = expenses.Where(e => e.Status == "Approved").Sum(e => e.Amount);
                 ViewBag.DeclinedTotal = expenses.Where(e => e.Status == "Declined").Sum(e => e.Amount);
 
-                // ✅ Pass the selected filter to the view so dropdown keeps selected value
+                // Totals for Stock Requests (New - Optional but Recommended)
+                ViewBag.TotalStockRequestCost = displayRequests.Sum(r => r.TotalCost);
+
+                // Pass the selected filter to the view
                 ViewBag.SelectedStatus = status;
 
                 var viewModel = new ExpensesWithBalanceViewModel
                 {
                     Expenses = expenses,
-                    Balance = balance
+                    Balance = balance,
+                    StockRequests = displayRequests // Add the processed requests list
                 };
 
                 return View(viewModel);
@@ -850,6 +1015,7 @@ namespace Sheessential_Sales_Finance.Controllers
                 return View(new ExpensesWithBalanceViewModel
                 {
                     Expenses = new List<Expenses>(),
+                    StockRequests = new List<IngredientStockRequestDisplayModel>(),
                     Balance = new Balance { CurrentBalance = 0 }
                 });
             }
