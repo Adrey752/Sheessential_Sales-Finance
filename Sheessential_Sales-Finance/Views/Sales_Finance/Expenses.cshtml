@@ -119,7 +119,7 @@
     <!-- BALANCE ALERT ondragend=" -->
 
     <!-- EXPENSE HEADER  -->
-    <div class="bg-white rounded-2xl shadow-md overflow-hidden">
+    <div class="bg-white rounded-2xl shadow-md overflow-hidden w-[1080px] mx-auto">
         <div class="p-6 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
             <div class="flex justify-between items-center">
                 <div>
@@ -413,19 +413,19 @@
                                 </td>
 
                                 <td class="px-6 py-4 whitespace-nowrap">
-                                    @if (request.RequestStatus == "Pending")
-                                    {
-                                        <button onclick="approveRequest('@request.Id')"
+                                        <button onclick="approveRequest(this)"
+                                                data-id="@request.Id"
+                                                data-requester="@request.RequestedBy"
+                                                data-supplier="@request.SupplierName"
+                                                data-ingredient="@request.IngredientName"
+                                                data-qty="@request.QuantityRequested"
+                                                data-unit="@request.Unit"
+                                                data-stock="@request.CurrentStockAtRequest"
+                                                data-status="@request.RequestStatus"
+                                                data-cost="@request.TotalCost"
                                                 class="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white text-sm font-medium rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all shadow-sm hover:shadow-md transform hover:-translate-y-0.5">
                                             Review
                                         </button>
-                                    }
-                                    else
-                                    {
-                                        <span class="px-4 py-2 bg-gray-100 text-gray-500 text-sm font-medium rounded-lg cursor-not-allowed inline-block">
-                                            Reviewed
-                                        </span>
-                                    }
                                 </td>
                             </tr>
                         }
@@ -584,147 +584,6 @@
 </div>
 
 </div>
-@* MAIN CONTAINER END *@
-
-@* <div class="bg-white rounded-2xl shadow-md overflow-hidden"> *@
-@*     <div class="p-6 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white"> *@
-@*         <div class="flex justify-between items-center"> *@
-@*             <div> *@
-@*                 <h2 class="text-2xl font-bold text-gray-900">Ingredient Requests</h2> *@
-@*                 <p class="text-gray-600 text-sm mt-1">Review and manage ingredient stock requests</p> *@
-@*             </div> *@
-
-@*             <div class="relative inline-block text-left"> *@
-@*                 <button id="filterButtonIngredient" *@
-@*                         type="button" *@
-@*                         class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2"> *@
-@*                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"> *@
-@*                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" *@
-@*                               d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /> *@
-@*                     </svg> *@
-@*                     Filter *@
-@*                 </button> *@
-@*             </div> *@
-
-@*         </div> *@
-@*     </div> *@
-
-@*     <div class="overflow-x-auto"> *@
-@*         <table class="min-w-full divide-y divide-gray-200"> *@
-@*             <thead class="bg-gray-50"> *@
-@*                 <tr> *@
-@*                     <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">ID</th> *@
-@*                     <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Request Date</th> *@
-@*                     <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Ingredient</th> *@
-@*                     <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Supplier</th> *@
-@*                     <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Qty</th> *@
-@*                     <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Total Cost</th> *@
-@*                     <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Current Stock</th> *@
-@*                     <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th> *@
-@*                     <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Action</th> *@
-@*                 </tr> *@
-@*             </thead> *@
-@*             <tbody class="bg-white divide-y divide-gray-200"> *@
-@*                 @if (Model != null && Model.StockRequests != null && Model.StockRequests.Any()) *@
-@*                 { *@
-@*                     @foreach (var request in Model.StockRequests) *@
-@*                     { *@
-@*                         <tr class="hover:bg-gray-50 transition-colors"> *@
-@*                             <td class="px-6 py-4 whitespace-nowrap"> *@
-@*                                 <span class="text-sm font-medium text-blue-600">@request.Id.Substring(request.Id.Length - 6)</span> *@
-@*                             </td> *@
-
-@*                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700"> *@
-@*                                 @request.RequestDate?.ToString("MMM dd, yyyy") *@
-@*                             </td> *@
-
-@*                             <td class="px-6 py-4 whitespace-nowrap"> *@
-@*                                 <span class="text-sm font-medium text-gray-900">@request.IngredientName</span> *@
-@*                             </td> *@
-
-@*                             <td class="px-6 py-4 whitespace-nowrap"> *@
-@*                                 <span class="px-3 py-1 inline-flex text-xs leading-5 font-medium rounded-full bg-gray-100 text-gray-800"> *@
-@*                                     @request.SupplierName *@
-@*                                 </span> *@
-@*                             </td> *@
-
-@*                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700"> *@
-@*                                 @request.QuantityRequested @request.Unit *@
-@*                             </td> *@
-
-@*                             <td class="px-6 py-4 whitespace-nowrap"> *@
-@*                                 <span class="text-sm font-semibold text-gray-900">₱@request.TotalCost.ToString("N2")</span> *@
-@*                             </td> *@
-
-@*                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700"> *@
-@*                                 @request.CurrentStockAtRequest *@
-@*                             </td> *@
-
-@*                             <td class="px-6 py-4 whitespace-nowrap"> *@
-@*                                 @{ *@
-@*                                     string statusText = request.RequestStatus; *@
-@*                                     string statusClass = statusText switch *@
-@*                                     { *@
-@*                                         "Pending" => "bg-yellow-100 text-yellow-800", *@
-@*                                         "Approved by Finance" => "bg-green-100 text-green-800", *@
-@*                                         "Approved by Admin" => "bg-green-100 text-green-800", *@
-@*                                         "Declined" => "bg-red-100 text-red-800", *@
-@*                                         _ => "bg-gray-100 text-gray-800" *@
-@*                                     }; *@
-@*                                 } *@
-@*                                 <span class="px-3 py-1 inline-flex items-center text-xs leading-5 font-semibold rounded-full @statusClass"> *@
-@*                                     @if (statusText == "Pending") *@
-@*                                     { *@
-@*                                         <span class="w-2 h-2 bg-yellow-500 rounded-full mr-2 animate-pulse"></span> *@
-@*                                     } *@
-@*                                     else if (statusText.StartsWith("Approved")) *@
-@*                                     { *@
-@*                                         <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path></svg> *@
-@*                                     } *@
-@*                                     else if (statusText == "Declined") *@
-@*                                     { *@
-@*                                         <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg> *@
-@*                                     } *@
-@*                                     @request.RequestStatus *@
-@*                                 </span> *@
-@*                             </td> *@
-
-@*                             <td class="px-6 py-4 whitespace-nowrap"> *@
-@*                                 @if (request.RequestStatus == "Pending") *@
-@*                                 { *@
-@*                                     <button onclick="approveRequest('@request.Id')" *@
-@*                                             class="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white text-sm font-medium rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all shadow-sm hover:shadow-md transform hover:-translate-y-0.5"> *@
-@*                                         Review *@
-@*                                     </button> *@
-@*                                 } *@
-@*                                 else *@
-@*                                 { *@
-@*                                     <span class="px-4 py-2 bg-gray-100 text-gray-500 text-sm font-medium rounded-lg cursor-not-allowed inline-block"> *@
-@*                                         Reviewed *@
-@*                                     </span> *@
-@*                                 } *@
-@*                             </td> *@
-@*                         </tr> *@
-@*                     } *@
-@*                 } *@
-@*                 else *@
-@*                 { *@
-@*                     <tr> *@
-@*                         <td colspan="9" class="px-6 py-12 text-center"> *@
-@*                             <div class="flex flex-col items-center"> *@
-@*                                 <svg class="w-16 h-16 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"> *@
-@*                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path> *@
-@*                                 </svg> *@
-@*                                 <p class="text-gray-500 text-lg font-medium">No ingredient requests found</p> *@
-@*                                 <p class="text-gray-400 text-sm mt-1">Create a new ingredient request to get started</p> *@
-@*                             </div> *@
-@*                         </td> *@
-@*                     </tr> *@
-@*                 } *@
-@*             </tbody> *@
-@*         </table> *@
-@*     </div> *@
-@* </div> *@
 
 <!-- PREVIEW/DETAILS MODAL -->
 <div id="previewModal" class="fixed inset-0 bg-white bg-opacity-60 hidden items-center justify-center z-50 backdrop-blur-sm">
@@ -816,8 +675,8 @@
                     <div class="flex-1">
                         <p class="text-sm text-blue-800 font-medium mb-2">Balance Information</p>
                         <div class="space-y-1 text-sm text-blue-700">
-                            <p>Current Available Balance: <span class="font-semibold">₱50,000.00</span></p>
-                            <p>After Approval: <span class="font-semibold" id="balance-after-approval">₱45,000.00</span></p>
+                            <p>Current Available Balance: <span class="font-semibold">@Model.Balance.CurrentBalance.ToString("C")</span></p>
+                            <p>After Approval: <span class="font-semibold" id="balance-after-approval">balance</span></p>
                         </div>
                     </div>
                 </div>
@@ -837,11 +696,128 @@
                 Decline Request
             </button>
             
-            <button type="button" id="approveBtn" class="px-6 py-2.5 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl hover:from-green-600 hover:to-green-700 transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5 font-medium flex items-center gap-2">
+            <button type="button" class="approveBtn px-6 py-2.5 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl hover:from-green-600 hover:to-green-700 transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5 font-medium flex items-center gap-2"
+                    data-request-type="general_expense">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                 </svg>
                 Approve & Transfer
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Ingridients Expense/DETAILS MODAL -->
+<div id="ingredientRequestModal" class="fixed inset-0 bg-white bg-opacity-60 hidden items-center justify-center z-50 backdrop-blur-sm">
+    <div class="bg-white w-full max-w-3xl rounded-3xl shadow-2xl p-8 max-h-[90vh] overflow-y-auto m-4 transform transition-all">
+        <div class="flex justify-between items-center mb-6 pb-4 border-b border-gray-200">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                    <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-900">Stock Request Details</h2>
+                    <p class="text-gray-500 text-sm">Review and take action</p>
+                </div>
+            </div>
+            <button id="closeIngredientRequestBtn" class="text-gray-400 hover:text-gray-600 transition-colors">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+
+        <div class="space-y-5">
+            <div class="bg-gradient-to-br from-blue-50 to-blue-100 p-5 rounded-xl border border-blue-200">
+                <p class="text-sm text-blue-700 font-medium mb-1">Stock Request ID</p>
+                <p class="text-xl font-bold text-blue-900" id="preview-request-id">SRQ-001</p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+
+                <div class="bg-gray-50 p-5 rounded-xl border border-gray-200">
+                    <p class="text-sm text-gray-600 font-medium mb-1">Requested By</p>
+                    <div class="flex items-center gap-2">
+                        <div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white text-xs font-medium">
+                            <span id="preview-requester-initial">J</span>
+                        </div>
+                        <p class="text-lg font-semibold text-gray-900" id="preview-requester-name">John Doe</p>
+                    </div>
+                </div>
+                <div class="bg-gray-50 p-5 rounded-xl border border-gray-200">
+                    <p class="text-sm text-gray-600 font-medium mb-1">Supplier</p>
+                    <p class="text-lg font-semibold text-gray-900" id="preview-supplier-name">Supplier Name</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div class="bg-gray-50 p-5 rounded-xl border border-gray-200">
+                    <p class="text-sm text-gray-600 font-medium mb-1">Ingredient Name</p>
+                    <p class="text-lg font-semibold text-gray-900" id="preview-ingredient-name">Ingredient Name</p>
+                </div>
+                <div class="bg-gradient-to-br from-green-50 to-emerald-50 p-5 rounded-xl border border-green-200">
+                    <p class="text-sm text-green-700 font-medium mb-1">Quantity Requested</p>
+                    <p class="text-2xl font-bold text-green-700" id="preview-quantity">50 pcs</p>
+                </div>
+            </div>
+
+            @* working on  *@
+            <div class="grid grid-cols-2 gap-4">
+
+            <div class="bg-yellow-50 p-5 rounded-xl border-l-4 border-yellow-500">
+                <div class="flex items-center gap-2 mb-1">
+                    <svg class="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <p class="text-sm text-yellow-700 font-medium">Current Status</p>
+                </div>
+                <p class="text-lg font-bold text-yellow-700" id="preview-request-status">Pending Review</p>
+            </div>
+
+                <div class="bg-gray-50 p-5 rounded-xl border border-gray-200">
+                    <p class="text-sm text-gray-600 font-medium mb-1">Total Cost</p>
+                    <p class="text-lg font-semibold text-gray-900" id="preview-total_cost">Cost</p>
+                </div>
+
+
+          
+        </div>
+            <div id="stockInfo" class="bg-blue-50 p-5 rounded-xl border border-blue-200">
+                <div class="flex items-start gap-3">
+                    <svg class="w-5 h-5 text-blue-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <div class="flex-1">
+                        <p class="text-sm text-blue-800 font-medium mb-2">Stock Information</p>
+                        <div class="space-y-1 text-sm text-blue-700">
+                            <p>Current Available Balance: <span class="font-semibold" id="current-stock">@Model.Balance.CurrentBalance.ToString("C")</span></p>
+                            <p>After Approval : <span class="font-semibold" id="stock-after-fulfillment">Balance</span></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex justify-end gap-3 mt-8 pt-6 border-t border-gray-200">
+            <button type="button" id="cancelRequestBtn" class="px-6 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium">
+                Cancel
+            </button>
+
+            <button type="button" id="declineRequestBtn" class="px-6 py-2.5 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl hover:from-red-600 hover:to-red-700 transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5 font-medium flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+                Decline Request
+            </button>
+
+            <button type="button"  class="approveBtn px-6 py-2.5 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl hover:from-green-600 hover:to-green-700 transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5 font-medium flex items-center gap-2"
+                    data-request-type="stock_expense">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                </svg>
+                Approve & Fulfill
             </button>
         </div>
     </div>
@@ -925,8 +901,7 @@
 
         <form id="approveForm" asp-action="ApproveExpense" asp-controller="Sales_Finance" method="post">
             <input type="hidden" name="id" id="approve-expense-id" value="" />
-            
-            <!-- Balance Summary -->
+            <input type="hidden" name="IsStockRequest" id="isStockReqInput" value="false" />            <!-- Balance Summary -->
             <div class="grid grid-cols-3 gap-4 mb-6">
                 <div class="bg-blue-50 p-4 rounded-xl border border-blue-200">
                     <p class="text-xs text-blue-700 font-medium mb-1">Current Balance</p>
@@ -1032,7 +1007,7 @@
             </div>
         </div>
 
-        <form asp-action="AddExpense" asp-controller="Sales_Finance" method="post">
+        <form id="expenseForm" asp-action="AddExpense" asp-controller="Sales_Finance" method="post">
             <div class="space-y-5">
                 <div class="grid grid-cols-2 gap-4">
                     <div>
@@ -1127,7 +1102,7 @@
 <script>
     let currentExpenseId = null;
     let currentExpenseAmount = null;
-    const AVAILABLE_BALANCE = 50000; // This should be dynamic from backend
+    const AVAILABLE_BALANCE = @Model.Balance.CurrentBalance; // This should be dynamic from backend
 
     // Helper function to format currency
     function formatCurrency(amount) {
@@ -1221,57 +1196,122 @@
         document.getElementById("previewModal").classList.remove("flex");
     });
 
-    // Approve Button - Show Transfer Fund Modal
-    document.getElementById("approveBtn").addEventListener("click", function () {
-        // Close preview modal
-        document.getElementById("previewModal").classList.add("hidden");
-        document.getElementById("previewModal").classList.remove("flex");
+     const approvedbuttons = document.querySelectorAll(".approveBtn");
+    approvedbuttons.forEach(approveBtn => {
+        approveBtn.addEventListener("click", async function (event) {
 
-        // Set expense ID and amount
-        document.getElementById("approve-expense-id").value = currentExpenseId;
-        document.getElementById("transfer-amount-display").value = "₱" + currentExpenseAmount;
-        document.getElementById("transfer-amount-display-main").textContent = "₱" + currentExpenseAmount;
+            // Close preview modals
+            ["previewModal", "ingredientRequestModal"].forEach(id => {
+                document.getElementById(id).classList.add("hidden");
+                document.getElementById(id).classList.remove("flex");
+            });
 
-        // Calculate balance after transfer
-        const balanceAfter = calculateBalanceAfter(currentExpenseAmount);
-        document.getElementById("balance-after-transfer").textContent = formatCurrency(balanceAfter);
+            const r = window.selectedStockRequest;
+            const requestType = event.currentTarget.dataset.requestType;
+            let isSufficient = true;
+            let balanceAfter = 0;
+            let amountToUse = 0;
 
-        // Check if balance is sufficient
-        const isSufficient = checkBalance(currentExpenseAmount);
-        const warningDiv = document.getElementById("insufficientBalanceWarning");
-        const submitBtn = document.getElementById("confirmApproveBtn");
+            if (requestType === "stock_expense") {
+                alert("Im in stock expense");
 
-        if (!isSufficient) {
-            warningDiv.classList.remove("hidden");
-            submitBtn.disabled = true;
-            submitBtn.classList.add("opacity-50", "cursor-not-allowed");
-            // Update balance after color to red
-            document.getElementById("balance-after-transfer").classList.add("text-red-600");
-            document.getElementById("balance-after-transfer").classList.remove("text-green-900");
-        } else {
-            warningDiv.classList.add("hidden");
-            submitBtn.disabled = false;
-            submitBtn.classList.remove("opacity-50", "cursor-not-allowed");
-            // Update balance after color
-            if (balanceAfter < 20000) {
-                document.getElementById("balance-after-transfer").classList.add("text-yellow-600");
+                document.getElementById("approve-expense-id").value = "No Id yet";
+                document.getElementById("transfer-amount-display").value = "₱" + r.TotalCost;
+                document.getElementById("transfer-amount-display-main").textContent = "₱" + r.TotalCost;
+
+                amountToUse = r.TotalCost;
+            } else {
+                alert("I'm not stock expense");
+
+                document.getElementById("approve-expense-id").value = currentExpenseId;
+                document.getElementById("transfer-amount-display").value = "₱" + currentExpenseAmount;
+                document.getElementById("transfer-amount-display-main").textContent = "₱" + currentExpenseAmount;
+
+                amountToUse = currentExpenseAmount;
+            }
+
+            // Calculate balance after transfer and check sufficiency
+            balanceAfter = calculateBalanceAfter(amountToUse);
+            document.getElementById("balance-after-transfer").textContent = formatCurrency(balanceAfter);
+            isSufficient = checkBalance(amountToUse);
+
+            const warningDiv = document.getElementById("insufficientBalanceWarning");
+            const submitBtn = document.getElementById("confirmApproveBtn");
+
+            if (!isSufficient) {
+                alert("I'm in if");
+                warningDiv.classList.remove("hidden");
+                submitBtn.disabled = true;
+                submitBtn.classList.add("opacity-50", "cursor-not-allowed");
+
+                document.getElementById("balance-after-transfer").classList.add("text-red-600");
                 document.getElementById("balance-after-transfer").classList.remove("text-green-900");
             } else {
-                document.getElementById("balance-after-transfer").classList.add("text-green-900");
-                document.getElementById("balance-after-transfer").classList.remove("text-yellow-600");
-            }
-        }
+                alert("I'm in else");
 
-        // Show transfer fund modal
-        document.getElementById("transferFundModal").classList.remove("hidden");
-        document.getElementById("transferFundModal").classList.add("flex");
+                // If stock expense, create the expense record
+                if (requestType === "stock_expense") {
+                    const stockExpenseData = {
+                        Department: "Inventory",
+                        ExpenseType: "Ingredient Stock Request",
+                        RequestedBy: r.RequestedBy,
+                        Amount: r.TotalCost,
+                        Description: `Replenishment: ${r.IngredientName} (${r.Quantity} ${r.Unit})`,
+                        Notes: "Generated via One-Click Approval.",
+                        isIngredientsRequest: true
+                    };
+
+                    const formData = new FormData();
+                    for (const key in stockExpenseData) {
+                        formData.append(key, stockExpenseData[key]);
+                    }
+
+                    try {
+                        const response = await fetch('/Sales_Finance/AddExpense', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        const result = await response.json();
+
+                        if (result.success) {
+                            console.log("Expense Created:", result.expenseId);
+                            document.getElementById("approve-expense-id").value = result.expenseId;
+                            alert("Stock Request Submitted Successfully!");
+                        } else {
+                            alert("Failed to submit stock request.");
+                        }
+                    } catch (error) {
+                        console.error("Network Error:", error);
+                        alert("A network error occurred.");
+                    }
+                }
+
+                // Reset warning and submit button
+                warningDiv.classList.add("hidden");
+                submitBtn.disabled = false;
+                submitBtn.classList.remove("opacity-50", "cursor-not-allowed");
+
+                // Update balance after color
+                if (balanceAfter < 20000) {
+                    document.getElementById("balance-after-transfer").classList.add("text-yellow-600");
+                    document.getElementById("balance-after-transfer").classList.remove("text-green-900");
+                } else {
+                    document.getElementById("balance-after-transfer").classList.add("text-green-900");
+                    document.getElementById("balance-after-transfer").classList.remove("text-yellow-600");
+                }
+
+                // Show modal
+                document.getElementById("transferFundModal").classList.remove("hidden");
+                document.getElementById("transferFundModal").classList.add("flex");
+            }
+        });
     });
 
-    // Transfer Fund Modal - Cancel
+        // Transfer Fund Modal - Cancel
     document.getElementById("cancelTransferBtn").addEventListener("click", function () {
         document.getElementById("transferFundModal").classList.add("hidden");
         document.getElementById("transferFundModal").classList.remove("flex");
-        
+
         // Clear form
         document.getElementById("approveForm").reset();
     });
@@ -1321,5 +1361,139 @@
                 dropdown.classList.add("hidden");
             }
         });
+    });
+</script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // 1. DOM Elements
+        const modal = document.getElementById('ingredientRequestModal');
+        const closeBtn = document.getElementById('closeIngredientRequestBtn');
+        const cancelBtn = document.getElementById('cancelRequestBtn');
+        const approveBtn = document.getElementById('approveRequestBtn');
+        const declineBtn = document.getElementById('declineRequestBtn');
+
+        // Preview Elements
+        const els = {
+            id: document.getElementById('preview-request-id'),
+            requesterName: document.getElementById('preview-requester-name'),
+            requesterInitial: document.getElementById('preview-requester-initial'),
+            supplier: document.getElementById('preview-supplier-name'),
+            ingredient: document.getElementById('preview-ingredient-name'),
+            quantity: document.getElementById('preview-quantity'),
+            status: document.getElementById('preview-request-status'),
+            cost: document.getElementById('preview-total_cost'),
+
+            currentStock: document.getElementById('current-stock'),
+            stockAfter: document.getElementById('stock-after-fulfillment')
+        };
+
+        let activeRequestId = null;
+
+        // 2. Function to Open Modal (Global scope to be accessible by HTML onclick)
+        window.approveRequest = function(buttonElement) {
+            // Get data from data-attributes (See HTML Update section below)
+            const data = buttonElement.dataset;
+
+                window.selectedStockRequest = {
+        Id: data.id,
+        RequestedBy: data.requester,
+        SupplierName: data.supplier,
+        IngredientName: data.ingredient,
+        QuantityRequested: data.qty,
+        Unit: data.unit,
+        CurrentStockAtRequest: data.stock,
+        RequestStatus: data.status,
+        TotalCost: data.cost
+    };
+
+
+            activeRequestId = data.id;
+
+            // Populate Modal Fields
+            els.id.textContent = `SRQ-${data.id.substr(data.id.length - 6)}`; // Format ID
+            els.requesterName.textContent = data.requester || 'Unknown';
+            els.requesterInitial.textContent = (data.requester || 'U').charAt(0).toUpperCase();
+            els.supplier.textContent = data.supplier;
+            els.ingredient.textContent = data.ingredient;
+            els.quantity.textContent = `${data.qty} ${data.unit}`;
+            els.status.textContent = data.status;
+            els.cost.textContent = '₱' + parseFloat(data.cost).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+            // Calculate Stock After Fulfillment (Simple Math)
+            // Assuming stock and qty are numbers.
+            // Note: Logic implies Request adds to stock? Or removes?
+            // Usually, an ingredient request means "Buy more", so we ADD.
+            const current = parseFloat(data.stock) || 0;
+            const incoming = parseFloat(data.qty) || 0;
+            const balanceAfter = calculateBalanceAfter(data.cost)
+
+            els.stockAfter.textContent = formatCurrency(balanceAfter);
+
+            // Show Modal
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        };
+
+        // 3. Function to Close Modal
+        function closeModal() {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            activeRequestId = null;
+        }
+
+        // 4. Event Listeners for Closing
+        closeBtn.addEventListener('click', closeModal);
+        cancelBtn.addEventListener('click', closeModal);
+
+        // Close on click outside (backdrop)
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeModal();
+        });
+
+        // 5. Action Buttons Logic
+        approveBtn.addEventListener('click', function() {
+            if(!activeRequestId) return;
+
+            // Add your AJAX/Fetch call here to backend
+            console.log(`Approving request: ${activeRequestId}`);
+            alert(`Request ${activeRequestId} Approved!`);
+
+            closeModal();
+            // Optional: reload page or remove row
+            // window.location.reload();
+        });
+
+        declineBtn.addEventListener('click', function() {
+            if(!activeRequestId) return;
+
+            // Add your AJAX/Fetch call here to backend
+            if(confirm('Are you sure you want to decline this request?')) {
+                console.log(`Declining request: ${activeRequestId}`);
+                closeModal();
+            }
+        });
+    });
+</script>
+
+<script>
+    document.getElementById("expenseForm").addEventListener("submit", async function (e) {
+        e.preventDefault(); // stop normal form submission
+
+        const formData = new FormData(this);
+
+        const response = await fetch('/Sales_Finance/AddExpense', {
+            method: 'POST',
+            body: formData
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            // Move to the Expenses view
+            window.location.href = "/Sales_Finance/Expenses";
+        } else {
+            alert("Something went wrong.");
+        }
     });
 </script>

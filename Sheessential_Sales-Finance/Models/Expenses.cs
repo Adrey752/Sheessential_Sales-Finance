@@ -38,7 +38,10 @@ namespace Sheessential_Sales_Finance.Models
         public string Notes { get; set; } = string.Empty;
 
         [BsonElement("attachmentUrl")]
-        public string AttachmentUrl { get; set; } = string.Empty;
+        public string AttachmentUrl { get; set; } = string.Empty;        
+        
+        [BsonElement("isIngredientsRequest")]
+        public bool isIngredientsRequest { get; set; } = false;
 
         [BsonElement("__v")]
         public int Version { get; set; }

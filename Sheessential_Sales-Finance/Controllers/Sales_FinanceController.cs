@@ -925,18 +925,28 @@ namespace Sheessential_Sales_Finance.Controllers
 
                 var expensesFilter = Builders<Expenses>.Filter.Empty;
 
+                // STATUS FILTER
                 if (!string.IsNullOrEmpty(status))
                 {
                     expensesFilter &= Builders<Expenses>.Filter.Eq(e => e.Status, status);
                 }
 
+                // DATE RANGE FILTER
                 if (startDate.HasValue && endDate.HasValue)
                 {
                     expensesFilter &= Builders<Expenses>.Filter.Gte(e => e.RequestedAt, startDate.Value)
-                                   & Builders<Expenses>.Filter.Lte(e => e.RequestedAt, endDate.Value.AddDays(1).AddSeconds(-1)); // Lte up to the end of the day
+                                   & Builders<Expenses>.Filter.Lte(e => e.RequestedAt, endDate.Value
+                                                                                .AddDays(1)
+                                                                                .AddSeconds(-1));
                 }
 
-                var expenses = _mongo.Expenses.Find(expensesFilter).ToList() ?? new List<Expenses>();
+                // ✅ NEW FILTER: Ingredients Request
+                // Assuming your Expenses model has:  public bool IsInredientsRequest { get; set; }
+                expensesFilter &= Builders<Expenses>.Filter.Eq(e => e.isIngredientsRequest, false);
+
+                // EXECUTE QUERY
+                var expenses = _mongo.Expenses.Find(expensesFilter).ToList()
+                              ?? new List<Expenses>();
 
 
                 // --- 2. INGREDIENT STOCK REQUESTS LOGIC (NEW) ---
@@ -947,22 +957,22 @@ namespace Sheessential_Sales_Finance.Controllers
                 var allSuppliers = _mongo.Suppliers.Find(_ => true).ToList().ToDictionary(s => s.Id, s => s);
 
                 // b. Filter Stock Requests
-                var stockRequestFilter = Builders<IngredientStockRequests>.Filter.Empty;
+                //var stockRequestFilter = Builders<IngredientStockRequests>.Filter.Empty;
 
-                if (!string.IsNullOrEmpty(status))
-                {
-                    // Apply status filter to the request status
-                    stockRequestFilter &= Builders<IngredientStockRequests>.Filter.Eq(r => r.RequestStatus, status);
-                }
+                //if (!string.IsNullOrEmpty(status))
+                //{
+                //    // Apply status filter to the request status
+                //    stockRequestFilter &= Builders<IngredientStockRequests>.Filter.Eq(r => r.RequestStatus, status);
+                //}
 
-                if (startDate.HasValue && endDate.HasValue)
-                {
-                    // Apply date filter to the request date
-                    stockRequestFilter &= Builders<IngredientStockRequests>.Filter.Gte(r => r.RequestDate, startDate.Value)
-                                        & Builders<IngredientStockRequests>.Filter.Lte(r => r.RequestDate, endDate.Value.AddDays(1).AddSeconds(-1));
-                }
+                //if (startDate.HasValue && endDate.HasValue)
+                //{
+                //    // Apply date filter to the request date
+                //    stockRequestFilter &= Builders<IngredientStockRequests>.Filter.Gte(r => r.RequestDate, startDate.Value)
+                //                        & Builders<IngredientStockRequests>.Filter.Lte(r => r.RequestDate, endDate.Value.AddDays(1).AddSeconds(-1));
+                //}
 
-                var rawRequests = _mongo.IngredientsStockRequests.Find(stockRequestFilter).ToList();
+                var rawRequests = _mongo.IngredientsStockRequests.Find(_ => true).ToList();
 
                 // c. Map and Enrich the Requests
                 var displayRequests = rawRequests.Select(r => new IngredientStockRequestDisplayModel
@@ -1022,14 +1032,15 @@ namespace Sheessential_Sales_Finance.Controllers
         }
 
 
+        ///
 
 
-
-
+        // add the logic for updating stock request
         //accept expense
         [HttpPost]
         public IActionResult ApproveExpense(string id)
         {
+
             try
             {
                 // ✅ 1. Find the expense record
@@ -1092,33 +1103,28 @@ namespace Sheessential_Sales_Finance.Controllers
         [HttpPost]
         public IActionResult AddExpense(Expenses newExpense)
         {
-            // ✅ 1. Get the latest expense by ExpenseId
             var lastExpense = _mongo.Expenses
                 .Find(_ => true)
                 .SortByDescending(e => e.ExpenseId)
                 .FirstOrDefault();
 
-            // ✅ 2. Generate the next ExpenseId (EXP-0006, etc.)
             int nextNumber = 1;
             if (lastExpense != null && !string.IsNullOrEmpty(lastExpense.ExpenseId))
             {
                 string lastNumberPart = lastExpense.ExpenseId.Replace("EXP-", "");
                 if (int.TryParse(lastNumberPart, out int lastNumber))
-                {
                     nextNumber = lastNumber + 1;
-                }
             }
 
-            newExpense.ExpenseId = $"EXP-{nextNumber.ToString("D4")}";
+            newExpense.ExpenseId = $"EXP-{nextNumber:D4}";
             newExpense.Status = "Pending";
             newExpense.RequestedAt = DateTime.UtcNow;
 
-            // ✅ 3. Save to MongoDB
             _mongo.Expenses.InsertOne(newExpense);
 
-            // ✅ 4. Redirect back to Expense list
-            return RedirectToAction("Expenses");
+            return Json(new { success = true, expenseId = newExpense.ExpenseId });
         }
+
 
 
         //Get all Vendors
