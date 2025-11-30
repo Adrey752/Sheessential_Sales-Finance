@@ -16,7 +16,11 @@ public class IngredientStockRequests
 
     [BsonRepresentation(BsonType.ObjectId)]
     [BsonElement("supplierID")]
-    public ObjectId SupplierId { get; set; }
+    public ObjectId SupplierId { get; set; }    
+    
+    [BsonRepresentation(BsonType.ObjectId)]
+    [BsonElement("ExpenseId")]
+    public ObjectId? ExpenseId { get; set; }
 
     [BsonRepresentation(BsonType.ObjectId)]
 

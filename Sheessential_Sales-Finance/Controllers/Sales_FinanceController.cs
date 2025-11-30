@@ -974,10 +974,11 @@ namespace Sheessential_Sales_Finance.Controllers
 
                 var rawRequests = _mongo.IngredientsStockRequests.Find(_ => true).ToList();
 
-                // c. Map and Enrich the Requests
+                // Fix for CS0029: Convert ObjectId? to string using ToString() or null-coalescing operator
                 var displayRequests = rawRequests.Select(r => new IngredientStockRequestDisplayModel
                 {
                     Id = r.Id,
+                    ExpenseId = r.ExpenseId?.ToString(), // Convert ObjectId? to string safely
                     RequestStatus = r.RequestStatus,
                     TotalCost = r.TotalCost,
                     RequestDate = r.RequestDate,
@@ -1031,16 +1032,90 @@ namespace Sheessential_Sales_Finance.Controllers
             }
         }
 
+        [HttpPost]
+        public IActionResult DeclineExpense(string id, bool isStockRequest, string DeclineReason)
+        {
+            _logger.LogInformation("\n\n\n\n\n\n I'm here brooooooo we're declining \n\n\n\n\n\n");
+
+            bool updated = false;
+
+            if (isStockRequest)
+            {
+                // Update IngredientStockRequests
+            _logger.LogInformation("\n\n\n\n\n\n Updating: "+id+ "\n\n\n\n\n\n");
+                var filter = Builders<IngredientStockRequests>.Filter.Eq(r => r.Id, id);
+
+                var update = Builders<IngredientStockRequests>.Update
+                    .Set(r => r.RequestStatus, "Declined")
+                    .Set(r => r.RejectionReason, DeclineReason)
+                    .Set(r => r.StatusUpdatedDate, DateTime.UtcNow);
+
+                var result = _mongo.IngredientsStockRequests.UpdateOne(filter, update);
+
+                updated = result.MatchedCount > 0 && result.ModifiedCount > 0;
+
+                _logger.LogInformation($"StockRequest Updated? {updated} | Matched: {result.MatchedCount} | Modified: {result.ModifiedCount}");
+            }
+            else
+            {
+                // Update Expenses collection
+                var filter = Builders<Expenses>.Filter.Eq(e => e.Id, id);
+
+                var update = Builders<Expenses>.Update
+                    .Set(e => e.Status, "Declined")
+                    .Set(e => e.Notes, DeclineReason);
+
+                var result = _mongo.Expenses.UpdateOne(filter, update);
+
+                updated = result.MatchedCount > 0 && result.ModifiedCount > 0;
+
+                _logger.LogInformation($"Expense Updated? {updated} | Matched: {result.MatchedCount} | Modified: {result.ModifiedCount}");
+            }
+
+            if (!updated)
+            {
+                TempData["DeclineError"] = "❌ Decline failed — no document was updated.";
+            }
+            else
+            {
+                TempData["DeclineSuccess"] = "✔️ Declined successfully.";
+            }
+
+            return RedirectToAction("Expenses");
+        }
+
+
 
         ///
+        [HttpPost]
+        public IActionResult UpdatedStockRequestStatus(string id, string expenseId)
+        {
+            _logger.LogInformation("\n\n\n\n\n\n I'm approving \n\n\n\n");
+            var filter = Builders<IngredientStockRequests>.Filter.Eq(r => r.Id, id);
+
+            var update = Builders<IngredientStockRequests>.Update
+                .Set(r => r.RequestStatus, "Approved by Finance")
+                .Set(r => r.ExpenseId, string.IsNullOrWhiteSpace(expenseId) ? null : new ObjectId(expenseId));
+
+            _mongo.IngredientsStockRequests.UpdateOne(filter, update);
+
+            return Json(new { success = true, message = "Stock request approved." });
+        }
+
+
 
 
         // add the logic for updating stock request
         //accept expense
         [HttpPost]
-        public IActionResult ApproveExpense(string id)
+        public IActionResult ApproveExpense(
+           string id,
+           string requestId,
+           string TransferTo,
+           string PaymentMethod,
+           string ReferenceNumber,
+           string TransferNotes)
         {
-
             try
             {
                 // ✅ 1. Find the expense record
@@ -1051,49 +1126,82 @@ namespace Sheessential_Sales_Finance.Controllers
                     return RedirectToAction("Expenses");
                 }
 
-                // ✅ 2. Find the current balance (assuming only 1 record)
+                // ✅ 2. Find the current balance
                 var balance = _mongo.Balance.Find(_ => true).FirstOrDefault();
 
                 if (balance != null)
                 {
-                    // ✅ 3. Check if there's enough balance
+                    // ✅ 3. Check sufficiency
                     if (balance.CurrentBalance >= expense.Amount)
                     {
-                        // Deduct the expense amount
+                        // --- TRANSACTION START ---
+
+                        // A. Deduct the amount
                         balance.CurrentBalance -= expense.Amount;
 
-                        // ✅ 4. Update the Balance collection
+                        // B. Update Balance in DB
                         var balanceFilter = Builders<Balance>.Filter.Eq(b => b.Id, balance.Id);
-                        var balanceUpdate = Builders<Balance>.Update
-                            .Set(b => b.CurrentBalance, balance.CurrentBalance);
-                        _mongo.Balance.UpdateOne(balanceFilter, balanceUpdate);
+                        var balanceUpdate = Builders<Balance>.Update.Set(b => b.CurrentBalance, balance.CurrentBalance);
+                        _mongo.Balance.UpdateOne(balanceFilter, balanceUpdate);                        
+                        
+                        
+                        // B. Update Balance in DB
+                        var stockRequestFilter = Builders<IngredientStockRequests>.Filter.Eq(b => b.Id, balance.Id);
+                        // Replace this line:
+                        // var stockUpdate = Builders<IngredientStockRequests>.Update.Set(b => b.ExpenseId, id);
 
-                        // ✅ 5. Update the Expense status
+                        // With this corrected line:
+                        var stockUpdate = Builders<IngredientStockRequests>.Update.Set("ExpenseId", id);
+                        _mongo.IngredientsStockRequests.UpdateOne(stockRequestFilter, stockUpdate);
+
+                        // C. CREATE THE PAYMENT TRANSACTION RECORD (New Logic)
+                        var newTransaction = new PaymentTransaction
+                        {
+                            ExpenseId = id,
+                            Amount = expense.Amount,
+                            PaymentDate = DateTime.UtcNow,
+                            TransferTo = TransferTo,
+                            PaymentMethod = PaymentMethod,
+                            ReferenceNumber = ReferenceNumber ?? "N/A", // Handle nulls if optional
+                            Notes = TransferNotes ?? ""
+                        };
+
+                        // Save transaction to a new collection (e.g., PaymentTransactions)
+                        _mongo.PaymentTransactions.InsertOne(newTransaction);
+                        if (newTransaction.Id != null)
+                        {
+                            _logger.LogInformation("\n\n\n we inserted" + newTransaction.Id);
+                        }
+                        else
+                        {
+                            _logger.LogInformation("\n\\n\nBobo\n\n\n");
+                        }
+                        // D. Update Expense Status
                         var expenseFilter = Builders<Expenses>.Filter.Eq(e => e.Id, id);
                         var expenseUpdate = Builders<Expenses>.Update
                             .Set(e => e.Status, "Approved")
-                            .Set(e => e.RequestedAt, DateTime.UtcNow);
+                            .Set(e => e.RequestedAt, DateTime.UtcNow); // Or maybe add a "PaidAt" field?
+
                         _mongo.Expenses.UpdateOne(expenseFilter, expenseUpdate);
 
-                        _logger.LogInformation($"Expense {id} approved and balance updated.");
+                        _logger.LogInformation($"Expense {id} paid to {TransferTo}.");
                     }
                     else
                     {
-                        // Not enough balance to approve
                         TempData["Error"] = "Insufficient balance to approve this expense.";
                     }
                 }
                 else
                 {
-                    _logger.LogWarning("No balance record found in the database.");
+                    _logger.LogWarning("No balance record found.");
                 }
 
                 return RedirectToAction("Expenses");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error approving expense with ID {id}");
-                TempData["Error"] = "An error occurred while approving the expense.";
+                _logger.LogError(ex, $"Error approving expense {id}");
+                TempData["Error"] = "An error occurred.";
                 return RedirectToAction("Expenses");
             }
         }
@@ -1103,6 +1211,7 @@ namespace Sheessential_Sales_Finance.Controllers
         [HttpPost]
         public IActionResult AddExpense(Expenses newExpense)
         {
+            _logger.LogInformation("\n\n\n\n\n Im in Add expense \n\n\n");
             var lastExpense = _mongo.Expenses
                 .Find(_ => true)
                 .SortByDescending(e => e.ExpenseId)
@@ -1122,7 +1231,7 @@ namespace Sheessential_Sales_Finance.Controllers
 
             _mongo.Expenses.InsertOne(newExpense);
 
-            return Json(new { success = true, expenseId = newExpense.ExpenseId });
+            return Json(new { success = true, expenseId = newExpense.Id });
         }
 
 
@@ -1162,7 +1271,43 @@ namespace Sheessential_Sales_Finance.Controllers
         }
 
 
+        [HttpGet]
+        public IActionResult GetExpenseAndPaymentDetails(string expenseId)
+        {
+            _logger.LogInformation("I'm in Get ikspinis mitod");
+            _logger.LogInformation("\n\n\n\n"+expenseId+"\n\n\n\n");
+            try
+            {
+                // 1. Fetch the Expense
+                var expense = _mongo.Expenses.Find(e => e.Id == expenseId).FirstOrDefault();
 
+                if (expense == null)
+                {
+                    _logger.LogInformation("No found bruuhhh");
+                    return NotFound(new { success = false, message = "Expense not found." });
+                }
+
+                // 2. Fetch the corresponding Payment Transaction using the ExpenseId
+                var paymentTransaction = _mongo.PaymentTransactions
+                                               .Find(p => p.ExpenseId == expenseId)
+                                               .FirstOrDefault();
+                _logger.LogInformation("I'm should be succed");
+
+                // 3. Return both objects as a combined result
+                return Json(new
+                {
+
+                    success = true,
+                    expense = expense,
+                    payment = paymentTransaction // Will be null if payment hasn't been recorded yet
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error fetching expense and payment details for ID {expenseId}");
+                return StatusCode(500, new { success = false, message = "Internal server error." });
+            }
+        }
 
 
 

@@ -98,6 +98,7 @@ namespace Sheessential_Sales_Finance.helpers
         public IMongoCollection<Vendor> Vendors => GetPrimaryCollection<Vendor>("Vendors");
         public IMongoCollection<Expenses> Expenses => GetPrimaryCollection<Expenses>("Expenses");
         public IMongoCollection<Balance> Balance => GetPrimaryCollection<Balance>("Balance");
+        public IMongoCollection<PaymentTransaction> PaymentTransactions => GetPrimaryCollection<PaymentTransaction>("PaymentTransaction");
 
 
         // === SECONDARY DATABASE COLLECTIONS (db_shessentials) ===

@@ -267,7 +267,7 @@
                                         <button type="button" 
                                                 class="view-details-btn px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white text-sm font-medium rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all shadow-sm hover:shadow-md transform hover:-translate-y-0.5"
                                                 data-id="@expense.Id"
-                                                data-expense-id="@expense.ExpenseId"
+                                                data-expenseId="@expense.ExpenseId"
                                                 data-requester="@expense.RequestedBy"
                                                 data-department="@expense.Department"
                                                 data-type="@expense.ExpenseType"
@@ -415,6 +415,7 @@
                                 <td class="px-6 py-4 whitespace-nowrap">
                                         <button onclick="approveRequest(this)"
                                                 data-id="@request.Id"
+                                            data-expense-id="@request.ExpenseId"
                                                 data-requester="@request.RequestedBy"
                                                 data-supplier="@request.SupplierName"
                                                 data-ingredient="@request.IngredientName"
@@ -841,6 +842,7 @@
 
         <form id="declineForm" asp-action="DeclineExpense" asp-controller="Sales_Finance" method="post">
             <input type="hidden" name="id" id="decline-expense-id" value="" />
+            <input type="hidden" name="isStockRequest" id="is-stock-request" value="" />
             
             <div class="mb-6">
                 <label class="block text-gray-700 font-medium mb-2">
@@ -901,6 +903,7 @@
 
         <form id="approveForm" asp-action="ApproveExpense" asp-controller="Sales_Finance" method="post">
             <input type="hidden" name="id" id="approve-expense-id" value="" />
+            <input type="hidden" name="requestId" id="request-id" value="" />
             <input type="hidden" name="IsStockRequest" id="isStockReqInput" value="false" />            <!-- Balance Summary -->
             <div class="grid grid-cols-3 gap-4 mb-6">
                 <div class="bg-blue-50 p-4 rounded-xl border border-blue-200">
@@ -1096,6 +1099,118 @@
     </div>
 
 </div>
+<div id="transactionDetailsModal" class="fixed inset-0 bg-black bg-opacity-40 hidden items-center justify-center z-50 backdrop-blur-sm">
+    <div class="bg-white w-full max-w-3xl rounded-3xl shadow-2xl p-8 m-4 max-h-[90vh] overflow-y-auto transform transition-all">
+
+        <div class="flex justify-between items-center mb-6 pb-4 border-b border-gray-200 sticky top-0 bg-white z-10">
+            <h2 class="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                <svg class="w-6 h-6 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z"></path>
+                    <path fill-rule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h10a1 1 0 010 2H5a1 1 0 01-1-1z" clip-rule="evenodd"></path>
+                </svg>
+                Payment Transaction Details
+            </h2>
+            <button onclick="closeTransactionModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+
+        <div>
+
+            <h3 class="text-xl font-semibold text-gray-800 mb-3 pt-2">Request Details</h3>
+            <div class="space-y-4">
+                <div class="bg-blue-50 p-4 rounded-xl border border-blue-200">
+                    <p class="text-sm text-blue-700 font-medium">Request ID</p>
+                    <p id="transaction-request-id" class="text-xl font-bold text-blue-900"></p>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                        <p class="text-sm text-gray-600">Requested By</p>
+                        <p id="transaction-requester" class="text-lg font-semibold"></p>
+                    </div>
+                    <div class="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                        <p class="text-sm text-gray-600">Supplier</p>
+                        <p id="transaction-supplier" class="text-lg font-semibold"></p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                        <p class="text-sm text-gray-600">Ingredient</p>
+                        <p id="transaction-ingredient" class="text-lg font-semibold"></p>
+                    </div>
+                    <div class="bg-green-50 p-4 rounded-xl border border-green-200">
+                        <p class="text-sm text-green-700">Quantity</p>
+                        <p id="transaction-qty" class="text-lg font-bold text-green-700"></p>
+                    </div>
+                </div>
+
+                <div class="bg-yellow-50 p-4 rounded-xl border-l-4 border-yellow-500">
+                    <p class="text-sm text-yellow-700">Total Cost</p>
+                    <p id="transaction-total-cost" class="text-xl font-bold text-yellow-700"></p>
+                </div>
+            </div>
+
+            <div id="payment-section" class="mt-8 hidden">
+                <h3 class="text-xl font-semibold text-gray-800 mb-3 border-t pt-4">Transaction Record</h3>
+
+                <div class="space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-purple-50 p-4 rounded-xl border border-purple-200">
+                            <p class="text-sm text-purple-700">Amount Paid</p>
+                            <p id="payment-amount" class="text-xl font-bold text-purple-900"></p>
+                        </div>
+
+                        <div class="bg-purple-50 p-4 rounded-xl border border-purple-200">
+                            <p class="text-sm text-purple-700">Payment Date</p>
+                            <p id="payment-date" class="text-lg font-semibold"></p>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                            <p class="text-sm text-gray-700">Method</p>
+                            <p id="payment-method" class="text-lg font-semibold"></p>
+                        </div>
+
+                        <div class="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                            <p class="text-sm text-gray-700">Transferred To</p>
+                            <p id="payment-transfer-to" class="text-lg font-semibold"></p>
+                        </div>
+                    </div>
+
+                    <div class="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                        <p class="text-sm text-gray-700">Reference Number</p>
+                        <p id="payment-ref" class="text-lg font-semibold break-all"></p>
+                    </div>
+
+                    <div class="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                        <p class="text-sm text-gray-700">Notes</p>
+                        <p id="payment-notes" class="text-lg font-semibold"></p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="flex justify-end mt-6 sticky bottom-0 bg-white pt-4 border-t border-gray-200">
+            <button onclick="closeTransactionModal()" class="px-6 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium">
+                Close
+            </button>
+        </div>
+
+    </div>
+</div>
+<script>
+    function closeTransactionModal() {
+        const modal = document.getElementById("transactionDetailsModal");
+        modal.classList.add("hidden");
+        modal.classList.remove("flex");
+    }
+</script>
 
 
 
@@ -1213,15 +1328,13 @@
             let amountToUse = 0;
 
             if (requestType === "stock_expense") {
-                alert("Im in stock expense");
-
                 document.getElementById("approve-expense-id").value = "No Id yet";
+                document.getElementById("request-id").value = window.selectedStockRequest.Id;
                 document.getElementById("transfer-amount-display").value = "₱" + r.TotalCost;
                 document.getElementById("transfer-amount-display-main").textContent = "₱" + r.TotalCost;
 
                 amountToUse = r.TotalCost;
             } else {
-                alert("I'm not stock expense");
 
                 document.getElementById("approve-expense-id").value = currentExpenseId;
                 document.getElementById("transfer-amount-display").value = "₱" + currentExpenseAmount;
@@ -1239,7 +1352,6 @@
             const submitBtn = document.getElementById("confirmApproveBtn");
 
             if (!isSufficient) {
-                alert("I'm in if");
                 warningDiv.classList.remove("hidden");
                 submitBtn.disabled = true;
                 submitBtn.classList.add("opacity-50", "cursor-not-allowed");
@@ -1247,7 +1359,6 @@
                 document.getElementById("balance-after-transfer").classList.add("text-red-600");
                 document.getElementById("balance-after-transfer").classList.remove("text-green-900");
             } else {
-                alert("I'm in else");
 
                 // If stock expense, create the expense record
                 if (requestType === "stock_expense") {
@@ -1266,24 +1377,42 @@
                         formData.append(key, stockExpenseData[key]);
                     }
 
-                    try {
-                        const response = await fetch('/Sales_Finance/AddExpense', {
-                            method: 'POST',
-                            body: formData
-                        });
-                        const result = await response.json();
+    try {
+        // FIRST REQUEST — Add Expense
+        const response1 = await fetch('/Sales_Finance/AddExpense', {
+            method: 'POST',
+            body: formData
+        });
 
-                        if (result.success) {
-                            console.log("Expense Created:", result.expenseId);
-                            document.getElementById("approve-expense-id").value = result.expenseId;
-                            alert("Stock Request Submitted Successfully!");
-                        } else {
-                            alert("Failed to submit stock request.");
-                        }
-                    } catch (error) {
-                        console.error("Network Error:", error);
-                        alert("A network error occurred.");
-                    }
+        const result1 = await response1.json();
+
+        if (result1.success) {
+            alert("Expense Created:", result1.expenseId);
+            document.getElementById("approve-expense-id").value = result1.expenseId;
+
+            // SECOND REQUEST — Update Stock Request Status
+    const response2 = await fetch(`/Sales_Finance/UpdatedStockRequestStatus?id=${window.selectedStockRequest.Id}&expenseId=${result1.expenseId}`, {
+        method: "POST"
+    });
+
+
+            const result2 = await response2.json();
+
+            if (result2.success) {
+                alert("Stock Request status updated!");
+            } else {
+                alert("Failed to update stock request status.");
+            } 
+
+        } else {
+            alert("Failed to submit stock request.");
+        }
+
+    } catch (error) {
+        console.error("Network Error:", error);
+        alert("A network error occurred.");
+    }
+
                 }
 
                 // Reset warning and submit button
@@ -1324,6 +1453,33 @@
 
         // Set expense ID
         document.getElementById("decline-expense-id").value = currentExpenseId;
+        document.getElementById("is-stock-request").value = false;
+
+        // Show decline reason modal
+        document.getElementById("declineReasonModal").classList.remove("hidden");
+        document.getElementById("declineReasonModal").classList.add("flex");
+    });
+
+    // Decline Reason Modal - Cancel
+    document.getElementById("cancelDeclineBtn").addEventListener("click", function () {
+        document.getElementById("declineReasonModal").classList.add("hidden");
+        document.getElementById("declineReasonModal").classList.remove("flex");
+        
+        // Clear form
+        document.getElementById("declineForm").reset();
+    });
+       
+    
+    
+    // Decline Button FROM INGRIDIENTS STOCK REQUEST
+    document.getElementById("declineRequestBtn").addEventListener("click", function () {
+        // Close preview modal
+        document.getElementById("ingredientRequestModal").classList.add("hidden");
+        document.getElementById("ingredientRequestModal").classList.remove("flex");
+
+        // Set expense ID
+        document.getElementById("decline-expense-id").value = window.selectedStockRequest.Id;
+        document.getElementById("is-stock-request").value = true;
 
         // Show decline reason modal
         document.getElementById("declineReasonModal").classList.remove("hidden");
@@ -1391,49 +1547,110 @@
         let activeRequestId = null;
 
         // 2. Function to Open Modal (Global scope to be accessible by HTML onclick)
-        window.approveRequest = function(buttonElement) {
-            // Get data from data-attributes (See HTML Update section below)
-            const data = buttonElement.dataset;
+        window.approveRequest = async function (buttonElement) {
 
-                window.selectedStockRequest = {
-        Id: data.id,
-        RequestedBy: data.requester,
-        SupplierName: data.supplier,
-        IngredientName: data.ingredient,
-        QuantityRequested: data.qty,
-        Unit: data.unit,
-        CurrentStockAtRequest: data.stock,
-        RequestStatus: data.status,
-        TotalCost: data.cost
+        const data = buttonElement.dataset;
+
+        // ------------------------------------------------------
+        // SHOW VIEW-ONLY MODAL IF ALREADY APPROVED BY FINANCE
+        // ------------------------------------------------------
+        if (data.status === "Approved by Finance") {
+
+            // Fetch full expense + payment detail
+            const response = await fetch(`/Sales_Finance/GetExpenseAndPaymentDetails?expenseId=${data.expenseId}`);
+            const result = await response.json();
+
+            if (!result.success) {
+                alert("Failed to load payment info.");
+                return;
+            }
+
+            const expense = result.expense;
+            const payment = result.payment;
+
+            // Fill request info
+            document.getElementById("transaction-request-id").textContent = `SRQ-${data.id.substr(data.id.length - 6)}`;
+            document.getElementById("transaction-requester").textContent = expense.requestedBy || data.requester;
+            document.getElementById("transaction-supplier").textContent = expense.supplierName || data.supplier;
+            document.getElementById("transaction-ingredient").textContent = expense.ingredientName || data.ingredient;
+            document.getElementById("transaction-qty").textContent = data.qty;
+            document.getElementById("transaction-total-cost").textContent =
+                "₱" + parseFloat(payment.amount).toLocaleString("en-PH", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                });
+                 
+            // ----------------------------
+            // PAYMENT SECTION
+            // ----------------------------
+            if (payment) {
+                document.getElementById("payment-section").classList.remove("hidden");
+
+                document.getElementById("payment-amount").textContent =
+                    "₱" + parseFloat(payment.amount).toLocaleString("en-PH", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                    });
+
+                document.getElementById("payment-date").textContent =
+                    new Date(payment.paymentDate).toLocaleString("en-PH");
+
+                document.getElementById("payment-method").textContent = payment.paymentMethod;
+                document.getElementById("payment-transfer-to").textContent = payment.transferTo;
+                document.getElementById("payment-ref").textContent = payment.referenceNumber || "—";
+                document.getElementById("payment-notes").textContent = payment.notes || "—";
+
+            } else {
+                // hide if no payment
+                document.getElementById("payment-section").classList.add("hidden");
+            }
+
+            // Show modal
+            const transModal = document.getElementById("transactionDetailsModal");
+            transModal.classList.remove("hidden");
+            transModal.classList.add("flex");
+
+            return; // STOP normal flow
+        }
+
+        // ------------------------------------------------------
+        // NORMAL FLOW (pending, etc.) — show approval modal
+        // ------------------------------------------------------
+        window.selectedStockRequest = {
+            Id: data.id,
+            expenseId: data.expenseId,
+            RequestedBy: data.requester,
+            SupplierName: data.supplier,
+            IngredientName: data.ingredient,
+            QuantityRequested: data.qty,
+            Unit: data.unit,
+            CurrentStockAtRequest: data.stock,
+            RequestStatus: data.status,
+            TotalCost: data.cost
+        };
+
+        activeRequestId = data.id;
+
+        els.id.textContent = `SRQ-${data.id.substr(data.id.length - 6)}`;
+        els.requesterName.textContent = data.requester || 'Unknown';
+        els.requesterInitial.textContent = (data.requester || 'U').charAt(0).toUpperCase();
+        els.supplier.textContent = data.supplier;
+        els.ingredient.textContent = data.ingredient;
+        els.quantity.textContent = `${data.qty} ${data.unit}`;
+        els.status.textContent = data.status;
+        els.cost.textContent = '₱' + parseFloat(data.cost).toLocaleString('en-PH', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+
+        const balanceAfter = calculateBalanceAfter(data.cost);
+        els.stockAfter.textContent = formatCurrency(balanceAfter);
+
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
     };
 
 
-            activeRequestId = data.id;
-
-            // Populate Modal Fields
-            els.id.textContent = `SRQ-${data.id.substr(data.id.length - 6)}`; // Format ID
-            els.requesterName.textContent = data.requester || 'Unknown';
-            els.requesterInitial.textContent = (data.requester || 'U').charAt(0).toUpperCase();
-            els.supplier.textContent = data.supplier;
-            els.ingredient.textContent = data.ingredient;
-            els.quantity.textContent = `${data.qty} ${data.unit}`;
-            els.status.textContent = data.status;
-            els.cost.textContent = '₱' + parseFloat(data.cost).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-            // Calculate Stock After Fulfillment (Simple Math)
-            // Assuming stock and qty are numbers.
-            // Note: Logic implies Request adds to stock? Or removes?
-            // Usually, an ingredient request means "Buy more", so we ADD.
-            const current = parseFloat(data.stock) || 0;
-            const incoming = parseFloat(data.qty) || 0;
-            const balanceAfter = calculateBalanceAfter(data.cost)
-
-            els.stockAfter.textContent = formatCurrency(balanceAfter);
-
-            // Show Modal
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
-        };
 
         // 3. Function to Close Modal
         function closeModal() {

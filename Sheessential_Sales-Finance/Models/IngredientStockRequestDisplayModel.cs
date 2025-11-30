@@ -6,7 +6,9 @@ namespace Sheessential_Sales_Finance.Models
     {
         // Fields for processing/action
         public string Id { get; set; }
+        public string? ExpenseId { get; set; }
         public string RequestStatus { get; set; }
+
         public decimal TotalCost { get; set; }
         public string RequestedByUserId { get; set; } // For actions if needed
 
