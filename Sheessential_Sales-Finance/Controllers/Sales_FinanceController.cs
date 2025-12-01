@@ -15,6 +15,7 @@ using System.Security.Cryptography.X509Certificates;
 using System.Globalization;
 using MongoDB.Driver.Linq;
 using Microsoft.AspNetCore.Mvc.ViewEngines;
+using Microsoft.Extensions.Logging;
 
 namespace Sheessential_Sales_Finance.Controllers
 {
@@ -948,29 +949,14 @@ namespace Sheessential_Sales_Finance.Controllers
                 var expenses = _mongo.Expenses.Find(expensesFilter).ToList()
                               ?? new List<Expenses>();
 
-
+                var Payrolls = _mongo.ParyrollRuns.Find(payroll => payroll.Status == "Calculated").ToList() ?? new List<PayrollRun>(); ;
                 // --- 2. INGREDIENT STOCK REQUESTS LOGIC (NEW) ---
+                _logger.LogInformation("\n\\n\n"+Payrolls.Count+"\n\n\n\n");
 
                 // a. Fetch Lookups (Ingredients & Suppliers)
                 // Convert to Dictionaries for efficient lookup by ID
                 var allIngredients = _mongo.Ingredients.Find(_ => true).ToList().ToDictionary(i => i.Id, i => i);
                 var allSuppliers = _mongo.Suppliers.Find(_ => true).ToList().ToDictionary(s => s.Id, s => s);
-
-                // b. Filter Stock Requests
-                //var stockRequestFilter = Builders<IngredientStockRequests>.Filter.Empty;
-
-                //if (!string.IsNullOrEmpty(status))
-                //{
-                //    // Apply status filter to the request status
-                //    stockRequestFilter &= Builders<IngredientStockRequests>.Filter.Eq(r => r.RequestStatus, status);
-                //}
-
-                //if (startDate.HasValue && endDate.HasValue)
-                //{
-                //    // Apply date filter to the request date
-                //    stockRequestFilter &= Builders<IngredientStockRequests>.Filter.Gte(r => r.RequestDate, startDate.Value)
-                //                        & Builders<IngredientStockRequests>.Filter.Lte(r => r.RequestDate, endDate.Value.AddDays(1).AddSeconds(-1));
-                //}
 
                 var rawRequests = _mongo.IngredientsStockRequests.Find(_ => true).ToList();
 
@@ -1015,7 +1001,8 @@ namespace Sheessential_Sales_Finance.Controllers
                 {
                     Expenses = expenses,
                     Balance = balance,
-                    StockRequests = displayRequests // Add the processed requests list
+                    PayrollRuns = Payrolls,// Add the processed requests list
+                    StockRequests = displayRequests
                 };
 
                 return View(viewModel);
@@ -1027,6 +1014,7 @@ namespace Sheessential_Sales_Finance.Controllers
                 {
                     Expenses = new List<Expenses>(),
                     StockRequests = new List<IngredientStockRequestDisplayModel>(),
+                    PayrollRuns = new List<PayrollRun>(),
                     Balance = new Balance { CurrentBalance = 0 }
                 });
             }
@@ -2257,5 +2245,30 @@ namespace Sheessential_Sales_Finance.Controllers
 
             return Json(reportData);
         }
+        [HttpPost]
+        public async Task<IActionResult> ReleasePayroll([FromBody] dynamic data)
+        {
+            string id = data.id;
+
+            var filter = Builders<PayrollRun>.Filter.Eq(r => r.Id, id);
+
+            var update = Builders<PayrollRun>.Update
+                .Set(r => r.Status, "Released")
+                .Set(r => r.IsFinalized, true)
+                .Set(r => r.IsSentToFinance, true)
+                .Set(r => r.IsPayslipsGenerated, true)
+                .Set(r => r.ReviewedBy, "Adrial")
+                .Set(r => r.ReviewedAt, DateTime.UtcNow)
+                .Set(r => r.ApprovedBy, "Adrial")
+                .Set(r => r.ApprovalComments, "")
+                .Set(r => r.UpdatedAt, DateTime.UtcNow);
+
+            var result = await _mongo.ParyrollRuns.UpdateOneAsync(filter, update);
+            if (result.ModifiedCount > 0)
+                return Json(new { success = true });
+
+            return Json(new { success = false });
+        }
+
     }
 }
