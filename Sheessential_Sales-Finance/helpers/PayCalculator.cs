@@ -1,4 +1,5 @@
 ﻿using Sheessential_Sales_Finance.Models;
+using Sheessential_Sales_Finance.Models.Sheessential_Sales_Finance.Models;
 
 namespace Sheessential_Sales_Finance.helpers
 {

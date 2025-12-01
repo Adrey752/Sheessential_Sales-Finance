@@ -31,7 +31,10 @@ namespace Sheessential_Sales_Finance.Models
         public decimal Price { get; set; }
 
         [BsonElement("stockQuantity")]
-        public int StockQuantity { get; set; }
+        public int StockQuantity { get; set; }        
+        
+        [BsonElement("description")]
+        public string? Description { get; set; }
 
         [BsonElement("minimumStock")]
         public int MinimumStock { get; set; }

@@ -112,7 +112,13 @@ namespace Sheessential_Sales_Finance.Models
         public string TransactionId { get; set; } = string.Empty;
 
         [BsonElement("created_at")]
-        public DateTime CreatedAt { get; set; }
+        public DateTime CreatedAt { get; set; }        
+        
+        [BsonElement("discount")]
+        public decimal? discount { get; set; }        
+        
+        [BsonElement("promo_code")]
+        public string? promocode { get; set; }
 
         [BsonElement("updated_at")]
         public DateTime UpdatedAt { get; set; }
