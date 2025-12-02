@@ -34,6 +34,10 @@ namespace Sheessential_Sales_Finance.Models
         [BsonElement("requestedAt")]
         public DateTime RequestedAt { get; set; } = DateTime.UtcNow;
 
+        [BsonElement("dateApproved")]
+
+        public DateTime? DateApproved { get; set; } = null;
+
         [BsonElement("notes")]
         public string Notes { get; set; } = string.Empty;
 

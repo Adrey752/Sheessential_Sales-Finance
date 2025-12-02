@@ -317,10 +317,6 @@ function selectInvoice(id) {
     const dateIssued = formatDate(order.CreatedAt);
 
     container.innerHTML = `
-        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 invoice-detail">
-            <h2 class="text-lg font-semibold text-gray-700 mb-3">Order of the courts Details</h2>
-
-            <div class="border border-gray-200 rounded-xl p-4 text-sm">
                 <div class="flex justify-between mb-3">
                     <div>
                         <h3 class="text-xl font-semibold text-gray-800">Order</h3>
@@ -372,8 +368,6 @@ function selectInvoice(id) {
                     <hr class="my-1 border-gray-100"/>
                     <p class="text-lg font-semibold">Total: ₱${Number(order.TotalAmount).toFixed(2)}</p>
                 </div>
-            </div>
-        </div>
     `;
 
     // Smooth scroll mobile/tablet
@@ -455,19 +449,14 @@ document.addEventListener("DOMContentLoaded", () => {
                     body: new URLSearchParams({ id, newStatus })
                 });
 
-                if (!response.ok) throw new Error("Failed to update status");
 
-                const result = await response.json();
-                if (result.success) {
-                    updateInvoiceRowStatus(id, newStatus);
-                    closeModal("updateModal");
-                    // Update data source as well to reflect in receipt view
-                    const order = invoices.find(i => i.Id === id);
-                    if (order) order.PaymentStatus = newStatus;
-                }
+                closeModal("updateModal");
+
+                // 2. Refresh the current page
+                window.location.reload();
             } catch (err) {
                 console.error(err);
-                alert("Error updating status.");
+                alert(err.message);
             }
         });
     }

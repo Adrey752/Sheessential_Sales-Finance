@@ -801,6 +801,8 @@ namespace Sheessential_Sales_Finance.Controllers
 
             // 1. Find the Order (using TbOrder)
             var order = await _mongo.TbOrder.Find(i => i.Id == id).FirstOrDefaultAsync();
+            _logger.LogInformation("\n\n\n\n" + order.OrderNumber + "\n\n\n");
+
 
             if (order == null)
                 return NotFound("Order not found.");
@@ -819,6 +821,7 @@ namespace Sheessential_Sales_Finance.Controllers
 
             // 3. Execute Update
             var result = await _mongo.TbOrder.UpdateOneAsync(filter, update);
+            _logger.LogInformation("\n\n\n\\n\n\n\nI'm  n\n\n");
 
             if (result.MatchedCount == 0)
                 return NotFound("Order not found.");
@@ -835,11 +838,13 @@ namespace Sheessential_Sales_Finance.Controllers
 
             await _mongo.ActionLog.InsertOneAsync(actionLog);
 
-            return Ok(new { success = true, message = "Order status updated successfully." });
-        }
+            _logger.LogInformation("\n\n\n\\n\n\n\nI'm here inserting log n\n\n");
+            // 4. Log Action...
+            return View("Invoices");
+        } // Correct JSON response        }
         //delete
 
-        //Fetch Customers in customers page with search function
+            //Fetch Customers in customers page with search function
         public IActionResult Customers(string? searchQuery, string? selectedId)
         {
             // ✅ Base filter: only customers
@@ -949,7 +954,7 @@ namespace Sheessential_Sales_Finance.Controllers
                 var expenses = _mongo.Expenses.Find(expensesFilter).ToList()
                               ?? new List<Expenses>();
 
-                var Payrolls = _mongo.ParyrollRuns.Find(payroll => payroll.Status == "Calculated").ToList() ?? new List<PayrollRun>(); ;
+                var Payrolls = _mongo.ParyrollRuns.Find(payroll => true).ToList() ?? new List<PayrollRun>(); ;
                 // --- 2. INGREDIENT STOCK REQUESTS LOGIC (NEW) ---
                 _logger.LogInformation("\n\\n\n"+Payrolls.Count+"\n\n\n\n");
 
@@ -1168,7 +1173,7 @@ namespace Sheessential_Sales_Finance.Controllers
                         var expenseFilter = Builders<Expenses>.Filter.Eq(e => e.Id, id);
                         var expenseUpdate = Builders<Expenses>.Update
                             .Set(e => e.Status, "Approved")
-                            .Set(e => e.RequestedAt, DateTime.UtcNow); // Or maybe add a "PaidAt" field?
+                            .Set(e => e.DateApproved, DateTime.UtcNow); // Or maybe add a "PaidAt" field?
 
                         _mongo.Expenses.UpdateOne(expenseFilter, expenseUpdate);
 
@@ -2246,12 +2251,30 @@ namespace Sheessential_Sales_Finance.Controllers
             return Json(reportData);
         }
         [HttpPost]
-        public async Task<IActionResult> ReleasePayroll([FromBody] dynamic data)
+        public async Task<IActionResult> ReleasePayroll(string id)
         {
-            string id = data.id;
+            _logger.LogInformation("ReleasePayroll triggered for PayrollRun Id: {Id}", id);
 
+            // 1. Find the payroll run
             var filter = Builders<PayrollRun>.Filter.Eq(r => r.Id, id);
+            var payrollRun = await _mongo.ParyrollRuns.Find(filter).FirstOrDefaultAsync();
 
+            if (payrollRun == null)
+                return Json(new { success = false, message = "PayrollRun not found." });
+
+            // 2. Decrement balance by total gross salary
+            var balance = _mongo.Balance.Find(_ => true).FirstOrDefault();
+            if (balance != null)
+            {
+                balance.CurrentBalance -= payrollRun.TotalGrossSalary;
+                var balanceFilter = Builders<Balance>.Filter.Eq(b => b.Id, balance.Id);
+                var balanceUpdate = Builders<Balance>.Update
+                    .Set(b => b.CurrentBalance, balance.CurrentBalance)
+                    .Set(b => b.LastUpdated, DateTime.UtcNow);
+                _mongo.Balance.UpdateOne(balanceFilter, balanceUpdate);
+            }
+
+            // 3. Update payroll run status
             var update = Builders<PayrollRun>.Update
                 .Set(r => r.Status, "Released")
                 .Set(r => r.IsFinalized, true)

@@ -12,40 +12,40 @@
 </head>
 <body class="h-screen flex">
 
-    <!-- Left Side (Blurred Background Image) -->
     <div class="w-1/2 bg-cover bg-center filter blur-sm"
          style="background-image: url('/images/login_background.jpg');">
     </div>
 
-    <!-- Right Side (Login Panel) -->
     <div class="w-1/2 flex items-center justify-center bg-white">
         <div class="w-80 text-center space-y-5">
 
-            <!-- Logo -->
             <img src="~/images/Logo.jpg" alt="Logo" class="h-35 w-100 mb-4" />
-            <!-- Welcome Text -->
+
             <h2 class="text-gray-800 text-lg font-medium">Welcome</h2>
 
-            <!-- Login Form -->
+            @if (ViewBag.Error != null)
+            {
+                <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded relative text-sm">
+                    <span class="block sm:inline">@ViewBag.Error</span>
+                </div>
+            }
+
             <form asp-controller="Auth" asp-action="Login" method="post" class="space-y-4">
-                <input type="email" name="Email" value="a@gmail.com" placeholder="E-mail" 
+                <input type="email" name="Email" value="a@gmail.com" placeholder="E-mail"
                        class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-pink-300 focus:outline-none" required />
 
                 <div class="relative">
-                    <input id="password" type="password" value="1" name="Password" placeholder="Password" 
+                    <input id="password" type="password" value="1" name="Password" placeholder="Password"
                            class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-pink-300 focus:outline-none" required />
 
-                    <!-- Toggle Button -->
                     <button type="button" id="togglePassword"
                             class="absolute right-2 top-2 text-gray-400 hover:text-gray-600 focus:outline-none">
-                        <!-- 👁️ Default: Eye Closed -->
                         <svg id="eyeClosed" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none"
                              viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                   d="M3 3l18 18M9.88 9.88A3 3 0 0112 9c1.657 0 3 1.343 3 3 0 .386-.073.752-.207 1.086M6.11 6.11C4.24 7.676 2.913 9.72 2.458 12c1.274 4.057 5.064 7 9.542 7 1.848 0 3.593-.502 5.107-1.384M17.89 17.89C19.76 16.324 21.087 14.28 21.542 12c-.387-1.235-1.01-2.39-1.824-3.384M15 12a3 3 0 01-3 3" />
                         </svg>
 
-                        <!-- 👁️ Eye Open -->
                         <svg id="eyeOpen" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 hidden" fill="none"
                              viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -65,7 +65,7 @@
                     LOGIN
                 </button>
             </form>
-             @* <a href="@Url.Action("Register","Auth")" class="text-l text-blue-400 hover:underline">Register</a>  *@
+            @* <a href="@Url.Action("Register","Auth")" class="text-l text-blue-400 hover:underline">Register</a>  *@
         </div>
     </div>
 
@@ -76,7 +76,7 @@
     const eyeOpen = document.getElementById("eyeOpen");
     const eyeClosed = document.getElementById("eyeClosed");
 
-    togglePassword.addEventListener("click", () => {z
+    togglePassword.addEventListener("click", () => {
         const isPassword = passwordInput.type === "password";
         passwordInput.type = isPassword ? "text" : "password";
 

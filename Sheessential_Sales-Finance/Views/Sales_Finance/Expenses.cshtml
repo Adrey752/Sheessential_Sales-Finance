@@ -113,7 +113,7 @@
     </div>
     <!-- BALANCE ALERT ondragend=" -->
     <!-- EXPENSE HEADER -->
-    <div class="bg-white rounded-2xl shadow-md overflow-hidden w-[1200px] mx-auto">
+    <div class="bg-white rounded-2xl shadow-md overflow-hidden w-[1200px] mx-auto mb-4">
         <div class="p-6 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
             <div class="flex justify-between items-center">
                 <div>
@@ -132,20 +132,116 @@
 
                     <div class="relative inline-block text-left">
                         <button id="filterButton"
-                                class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2">
+                                class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2 bg-white text-gray-700 font-medium shadow-sm">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                       d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                             </svg>
-                            Filter
+                            Filter & Sort
                         </button>
                     </div>
                 </div>
 
-                <!-- FILTER DROPDOWN (unchanged) -->
                 <div id="filterDropdown"
-                     class="hidden fixed bottom-[40px] right-[40px] w-72 bg-white border border-gray-200 rounded-xl shadow-2xl p-4 z-[9999] animate-fadeIn">
-                    <!-- (your original form kept intact) -->
+                     class="hidden fixed bottom-[40px] right-[40px] w-80 bg-white border border-gray-200 rounded-xl shadow-2xl z-[9999] animate-fadeIn flex flex-col max-h-[80vh]">
+
+                    <div class="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-xl">
+                        <h3 class="font-bold text-gray-800">Filter Options</h3>
+                        <button type="button" onclick="document.getElementById('filterForm').reset()" class="text-xs text-red-500 hover:text-red-700 font-medium">
+                            Reset All
+                        </button>
+                    </div>
+
+                    <div class="p-4 overflow-y-auto">
+                        <form id="filterForm" method="get" action="@Url.Action("Index")">
+                            <div class="mb-5">
+                                <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Sort By</label>
+                                <select name="sortOrder" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                                    <option value="">Default</option>
+                                    <option value="date_desc">Date Requested (Newest First)</option>
+                                    <option value="date_asc">Date Requested (Oldest First)</option>
+                                    <option value="amount_desc">Amount (Highest First)</option>
+                                    <option value="amount_asc">Amount (Lowest First)</option>
+                                    <option value="approved_date_desc">Approved Date (Newest First)</option>
+                                </select>
+                            </div>
+
+                            <div class="mb-5">
+                                <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Department</label>
+                                <div class="space-y-2">
+                                    <label class="flex items-center space-x-2 cursor-pointer">
+                                        <input type="checkbox" name="departments" value="Marketing" class="rounded text-blue-600 focus:ring-blue-500" />
+                                        <span class="text-sm text-gray-700">Marketing</span>
+                                    </label>
+                                    <label class="flex items-center space-x-2 cursor-pointer">
+                                        <input type="checkbox" name="departments" value="Website" class="rounded text-blue-600 focus:ring-blue-500" />
+                                        <span class="text-sm text-gray-700">Website</span>
+                                    </label>
+                                    <label class="flex items-center space-x-2 cursor-pointer">
+                                        <input type="checkbox" name="departments" value="HR" class="rounded text-blue-600 focus:ring-blue-500" />
+                                        <span class="text-sm text-gray-700">HR</span>
+                                    </label>
+                                    <label class="flex items-center space-x-2 cursor-pointer">
+                                        <input type="checkbox" name="departments" value="Accounting" class="rounded text-blue-600 focus:ring-blue-500" />
+                                        <span class="text-sm text-gray-700">Accounting</span>
+                                    </label>
+                                    <label class="flex items-center space-x-2 cursor-pointer">
+                                        <input type="checkbox" name="departments" value="Inventory" class="rounded text-blue-600 focus:ring-blue-500" />
+                                        <span class="text-sm text-gray-700">Inventory</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <hr class="border-gray-100 my-4">
+
+                            <div class="mb-5">
+                                <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Status</label>
+                                <div class="flex gap-4">
+                                    <label class="flex items-center space-x-2 cursor-pointer">
+                                        <input type="checkbox" name="status" value="Approved" class="rounded text-green-600 focus:ring-green-500" />
+                                        <span class="text-sm text-gray-700">Approved</span>
+                                    </label>
+                                    <label class="flex items-center space-x-2 cursor-pointer">
+                                        <input type="checkbox" name="status" value="Pending" class="rounded text-yellow-500 focus:ring-yellow-500" />
+                                        <span class="text-sm text-gray-700">Pending</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <hr class="border-gray-100 my-4">
+
+                            <div class="mb-5">
+                                <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Amount</label>
+                                <div class="flex items-center gap-2">
+                                    <input type="number" name="minAmount" placeholder="Min" class="w-1/2 border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+                                    <span class="text-gray-400">-</span>
+                                    <input type="number" name="maxAmount" placeholder="Max" class="w-1/2 border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+                                </div>
+                            </div>
+
+                            <hr class="border-gray-100 my-4">
+
+                            <div class="mb-2">
+                                <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Date Requested</label>
+                                <div class="space-y-2">
+                                    <div class="flex flex-col">
+                                        <span class="text-[10px] text-gray-400">From</span>
+                                        <input type="date" name="startDate" class="w-full border border-gray-300 rounded-md px-3 py-1.5 text-sm text-gray-600 focus:ring-2 focus:ring-blue-500 outline-none" />
+                                    </div>
+                                    <div class="flex flex-col">
+                                        <span class="text-[10px] text-gray-400">To</span>
+                                        <input type="date" name="endDate" class="w-full border border-gray-300 rounded-md px-3 py-1.5 text-sm text-gray-600 focus:ring-2 focus:ring-blue-500 outline-none" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mt-6 pt-2">
+                                <button type="submit" class="w-full bg-blue-600 text-white font-medium py-2 rounded-lg hover:bg-blue-700 transition shadow-md">
+                                    Apply Filters
+                                </button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
 
             </div>
@@ -163,6 +259,8 @@
                     <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-[140px]">Type</th>
                     <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-[150px]">Amount</th>
                     <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-[260px]">Description</th>
+                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-[350px]">Date Requested</th>
+                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-[350px]">Date Approved</th>
                     <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-[140px]">Status</th>
                     <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-[140px]">Actions</th>
                 </tr>
@@ -200,6 +298,14 @@
 
                             <td class="px-6 py-4 max-w-[240px] break-words text-sm text-gray-700 w-[260px]">
                                 @expense.Description
+                            </td>                            
+
+                            <td class="px-6 py-4 max-w-[300px] break-words text-sm text-gray-700 w-[300px]">
+                                @(expense.RequestedAt == null ? "not yet" : expense.RequestedAt.ToString("MMM dd, yyyy"))
+                            </td>
+
+                            <td class="px-6 py-4 max-w-[300px] break-words text-sm text-gray-700 w-[300px]">
+                                @(expense.DateApproved == null ? "not yet" : expense.DateApproved.Value.ToString("MMM dd, yyyy"))
                             </td>
 
                             <td class="px-6 py-4 break-words w-[140px]">
@@ -471,14 +577,15 @@
                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">@run.TotalGrossSalary.ToString("N2")</td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">@run.TotalNetSalary.ToString("N2")</td>
                                 <td class="px-6 py-4 whitespace-nowrap">
-                                    <span class="px-3 py-1 inline-flex items-center text-xs leading-5 font-semibold rounded-full @(run.Status == "Pending" ? "bg-yellow-100 text-yellow-800" : "bg-green-100 text-green-800")">
+                                    <span class="px-3 py-1 inline-flex items-center text-xs leading-5 font-semibold rounded-full @(run.Status == "Calculated" ? "bg-blue-100 text-yellow-800" : "bg-green-100 text-green-800")">
                                         @run.Status
                                     </span>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
 
                                     <button onclick="releasePayroll('@run.Id')"
-                                            class="px-4 py-2 bg-gray-100 text-gray-600 text-sm font-medium rounded-lg">
+                                            class="px-4 py-2 bg-gray-100 text-gray-600 text-sm font-medium rounded-lg"
+                                            @(run.Status == "Released" ? "disabled style='opacity:0.5;cursor:not-allowed;'" : "")>
                                         Release
                                     </button>
 
@@ -1431,6 +1538,7 @@
         const button = document.getElementById("filterButton");
         const dropdown = document.getElementById("filterDropdown");
 
+
         // Toggle dropdown visibility
         button.addEventListener("click", function (e) {
             e.stopPropagation();
@@ -1673,10 +1781,11 @@
         async function releasePayroll(id) {
             if (!confirm("Release payroll?")) return;
 
-            const response = await fetch('/Payroll/ReleasePayroll', {
-                method: 'POST',
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ id })
+            const response = await fetch(`/Sales_Finance/ReleasePayroll?id=${id}`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                }
             });
 
             const result = await response.json();
@@ -1689,3 +1798,4 @@
             }
         }
     </script>
+

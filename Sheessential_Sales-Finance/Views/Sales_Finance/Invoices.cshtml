@@ -249,8 +249,8 @@
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-        <div class="col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+        <!-- Left: Orders table -->
+        <div class="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
             <div class="flex justify-between items-center mb-4">
                 <h2 class="text-lg font-semibold text-gray-700">All Orders</h2>
 
@@ -264,7 +264,8 @@
                         <input type="text" id="searchBox" placeholder="Search here..." autocomplete="off"
                                class="pl-10 pr-4 py-2.5 w-56 rounded-xl bg-gray-50 focus:bg-white focus:ring-2 focus:ring-pink-300 outline-none text-gray-600 text-sm transition" />
                         <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-gray-400"></i>
-                        <div id="searchSuggestions" class="absolute left-0 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg hidden z-50 overflow-hidden"></div>
+                        <div id="searchSuggestions"
+                             class="absolute left-0 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg hidden z-50 overflow-hidden"></div>
                     </div>
                 </div>
             </div>
@@ -294,7 +295,6 @@
                                 _ => "bg-gray-100 text-gray-600"
                             };
 
-                            // Construct Full Name safely
                             var fullName = $"{order.ShippingAddress.FirstName} {order.ShippingAddress.LastName}";
 
                             <tr class="border-t transition cursor-pointer hover:bg-pink-50"
@@ -329,11 +329,15 @@
             </div>
         </div>
 
-        <div id="invoiceDetailContainer" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 text-sm text-gray-700">
-            <p class="text-gray-500 text-center py-10">Select an order to view details</p>
+        <!-- Right: Invoice detail -->
+        <div class="lg:col-span-1">
+            <div id="invoiceDetailContainer"
+                 class="w-full bg-white rounded-2xl shadow-sm border border-gray-100 p-5 text-sm text-gray-700
+                    min-h-[300px] max-h-[600px] overflow-y-auto sticky top-24">
+                <!-- Invoice details here -->
+            </div>
         </div>
     </div>
-</div>
 
 
                     @* NEW Invoice MODAL *@
