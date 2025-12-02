@@ -259,61 +259,29 @@ namespace Sheessential_Sales_Finance.Controllers
         }
 
 
-
-        public IActionResult Products(int page = 1)
+        public async Task<IActionResult> Products()
         {
-            int pageSize = 5; // Show 10 products per page
+            // Get all products
+            var products = await _mongo.ProductInventory.Find(_ => true).ToListAsync();
 
-            // ✅ Fetch all sales data
-            var sales = _mongo.ProductSales.Find(_ => true).ToList();
-            var products = _mongo.Inventories.Find(_ => true).ToList();
+            // Get all product sales
+            var productSales = await _mongo.ProductSalesInventory.Find(_ => true).ToListAsync();
 
-            // ✅ Group by item name and calculate total quantity sold
-            // Assuming you have these two collections loaded
-            // var sales = await _productSalesCollection.Find(_ => true).ToListAsync();
-            // var products = await _productsCollection.Find(_ => true).ToListAsync();
+            // Combine into InventoryView
+            var model = new InventoryView
+            {
+                Products = products,
+                ProductSales = productSales
+            };
 
-            var topProduct = sales
-                .Join(
-                    products,
-                    sale => sale.ProductId,        // match ProductSale.ProductId
-                    product => product.Id,         // with Product.Id
-                    (sale, product) => new         // combine both objects
-                    {
-                        ProductName = product.Item,
-                        sale.Quantity,
-                        sale.SalePrice
-                    }
-                )
-                .GroupBy(x => x.ProductName)
-                .Select(g => new
-                {
-                    Item = g.Key,
-                    TotalQuantity = g.Sum(x => x.Quantity),
-                    TotalRevenue = g.Sum(x => x.SalePrice * x.Quantity)
-                })
-                .OrderByDescending(x => x.TotalQuantity)
-                .FirstOrDefault();
-
-
-            // ✅ Pass top product to view
-            ViewBag.TopProduct = topProduct;
-
-            // ✅ Fetch inventory list with pagination
-            var totalProducts = (int)_mongo.Inventories.CountDocuments(_ => true);
-            int totalPages = (int)Math.Ceiling((double)totalProducts / pageSize);
-
-            var pagedProducts = _mongo.Inventories.Find(_ => true)
-                .Skip((page - 1) * pageSize)
-                .Limit(pageSize)
-                .ToList();
-
-            // ✅ Pass pagination info to View
-            ViewBag.CurrentPage = page;
-            ViewBag.TotalPages = totalPages;
-
-            return View(pagedProducts);
+            return View("Products", model);
         }
+
+
+
+
+
+
 
 
 
