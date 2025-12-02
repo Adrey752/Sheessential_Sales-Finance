@@ -1,4 +1,6 @@
-﻿@model IEnumerable<Products>
+﻿@model Sheessential_Sales_Finance.Models.InventoryView
+
+
 @{
     ViewData["Title"] = "Products Overview";
 }
@@ -103,33 +105,43 @@
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
-                    @foreach (var p in Model)
+                    @foreach (var p in Model.Products)
                     {
-                        var statusColor = p.StockQuantity >= 10 ? "text-sky-500" : (p.StockQuantity < 10 && p.StockQuantity > 0 ? "text-orange-400" : "text-red-500");
-                        var categoryColor = p.Category switch
+                        var statusColor = p.ProductVal >= 10 ? "text-sky-500"
+                        : (p.ProductVal < 10 && p.ProductVal > 0 ? "text-orange-400"
+                        : "text-red-500");
+
+                        var categoryColor = p.ProductCategory switch
                         {
-"Skincare" => "bg-pink-100 text-pink-700", // Retained
-    "Haircare" => "bg-teal-100 text-teal-700", // Changed from sky-blue to teal
-    "Makeup" => "bg-purple-100 text-purple-700",
+                            "Skincare" => "bg-pink-100 text-pink-700",
+                            "Haircare" => "bg-teal-100 text-teal-700",
+                            "Makeup" => "bg-purple-100 text-purple-700",
                             _ => "bg-gray-100 text-gray-700"
                         };
 
                         <tr class="hover:bg-[#F0E4E3] transition cursor-pointer"
-                            onclick="selectProduct('@p.Item', '@p.Id' )">
+                            onclick="selectProduct('@p.ProductName', '@p.Id')">
                             <td class="px-4 py-3 font-medium text-gray-600">@p.Id</td>
-                            <td class="px-4 py-3 text-gray-800">@p.Item</td>
+
+                            <td class="px-4 py-3 text-gray-800">@p.ProductName</td>
+
                             <td class="px-4 py-3">
-                                <span class="@categoryColor text-xs font-semibold px-3 py-1 rounded-lg">@p.Category</span>
+                                <span class="@categoryColor text-xs font-semibold px-3 py-1 rounded-lg">
+                                    @p.ProductCategory
+                                </span>
                             </td>
-                            <td class="px-4 py-3">₱@p.UnitPrice</td>
-                            <td class="px-4 py-3">₱@p.UnitPrice</td>
-                            <td class="px-4 py-3">@p.StockQuantity</td>
+
+                            <td class="px-4 py-3">₱@p.ProductVal</td>
+                            <td class="px-4 py-3">₱@p.ProductVal</td>
+
+                            <td class="px-4 py-3">@p.ProductVal</td>
+
                             <td class="px-4 py-3">
-                                @if (p.StockQuantity >= 10)
+                                @if (p.ProductVal >= 10)
                                 {
                                     <span class="@statusColor font-semibold uppercase text-xs">Available</span>
                                 }
-                                else if (p.StockQuantity < 10 && p.StockQuantity > 0)
+                                else if (p.ProductVal < 10 && p.ProductVal > 0)
                                 {
                                     <span class="@statusColor font-semibold uppercase text-xs">Low</span>
                                 }
@@ -138,8 +150,9 @@
                                     <span class="@statusColor font-semibold uppercase text-xs">Sold</span>
                                 }
                             </td>
+
                             <td class="px-4 py-3 text-center">
-                                <button onclick="openModal('@p.Item', '@p.Category', '@p.UnitPrice', '@p.UnitPrice')"
+                                <button onclick="openModal('@p.ProductName', '@p.ProductCategory', '@p.ProductVal', '@p.ProductVal')"
                                         class="text-blue-500 hover:underline text-sm font-medium">
                                     Details
                                 </button>
@@ -147,6 +160,7 @@
                         </tr>
                     }
                 </tbody>
+
             </table>
 
             <div class="flex justify-center mt-6 space-x-2">

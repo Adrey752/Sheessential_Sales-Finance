@@ -117,7 +117,8 @@ namespace Sheessential_Sales_Finance.helpers
 
         // FIX: Renamed property to avoid conflict
         public IMongoCollection<TbUser> TbUserCollection => GetSecondaryCollection<TbUser>("tbl_user");
-        public IMongoCollection<Product> ProductInventory => GetInventoryCollection<Product>("Products");
+        public IMongoCollection<InventoryProducts> ProductInventory => GetInventoryCollection<InventoryProducts>("Products");
+
         public IMongoCollection<ProductVariant> ProductVariantInventory => GetInventoryCollection<ProductVariant>("ProductVariants");
         public IMongoCollection<IngredientStockRequests> IngredientsStockRequests => GetInventoryCollection<IngredientStockRequests>("IngredientStockRequests");
         public IMongoCollection<Ingredient> Ingredients => GetInventoryCollection<Ingredient>("Ingredients");
@@ -126,6 +127,7 @@ namespace Sheessential_Sales_Finance.helpers
         public IMongoCollection<PayrollRun> ParyrollRuns => GetHrCollection<PayrollRun>("PayRuns");
 
 
+        public IMongoCollection<InventoryProductSales> ProductSalesInventory => GetInventoryCollection<InventoryProductSales>("ProductSales");
 
 
         // ✅ Safe query wrapper (updated to use EnsureConnection)
