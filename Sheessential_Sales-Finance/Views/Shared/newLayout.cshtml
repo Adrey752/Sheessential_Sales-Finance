@@ -93,45 +93,65 @@
             </div>
 
             <nav class="py-6">
+                @{
+                    // Get the current URL path. Example: "/Sales_Finance/DashBoard"
+                    var currentPath = Context.Request.Path.Value;
+
+                    // Define the common active classes based on your hover styles
+                    const string activeClasses = "bg-sidebar-hover text-primary rounded-xl mr-25px";
+                }
+
                 <div class="mb-8">
                     <div class="text-nav-label text-xs font-semibold uppercase tracking-wider px-6 mb-3 ml-25px">Menu</div>
 
                     <ul class="p-0 m-0 list-none">
+
                         <li class="mb-1">
-                            <a asp-controller="Sales_Finance" asp-action="DashBoard" class="nav-link flex items-center py-3 px-6 text-primary no-underline font-medium text-sm ml-25px hover:bg-sidebar-hover hover:text-primary hover:rounded-xl hover:mr-25px active:bg-sidebar-hover active:text-primary active:rounded-xl active:mr-25px">
+                            @{
+                                // Check if the current path matches the Dashboard route
+                                // We use StartsWith for a safe match, assuming the link URL is correct.
+                                string dashboardClass = currentPath.StartsWith("/Sales_Finance/DashBoard", StringComparison.OrdinalIgnoreCase) ? activeClasses : "";
+                            }
+                            <a asp-controller="Sales_Finance" asp-action="DashBoard" class="nav-link flex items-center py-3 px-6 text-primary no-underline font-medium text-sm ml-25px hover:bg-sidebar-hover hover:text-primary hover:rounded-xl hover:mr-25px @dashboardClass">
                                 <i class="fas fa-chart-line mr-4 text-lg w-5 text-center"></i>
                                 <span class="nav-text">Dashboard</span>
                             </a>
                         </li>
 
                         <li class="mb-1">
-                            <a asp-controller="Sales_Finance" asp-action="Invoices" class="nav-link flex items-center py-3 px-6 text-primary no-underline font-medium text-sm ml-25px hover:bg-sidebar-hover hover:text-primary hover:rounded-xl hover:mr-25px">
+                            @{
+                                // Check for Payments route
+                                string invoicesClass = currentPath.StartsWith("/Sales_Finance/Invoices", StringComparison.OrdinalIgnoreCase) ? activeClasses : "";
+                            }
+                            <a asp-controller="Sales_Finance" asp-action="Invoices" class="nav-link flex items-center py-3 px-6 text-primary no-underline font-medium text-sm ml-25px hover:bg-sidebar-hover hover:text-primary hover:rounded-xl hover:mr-25px @invoicesClass">
                                 <i class="fas fa-credit-card mr-4 text-lg w-5 text-center"></i>
                                 <span class="nav-text">Payments</span>
                             </a>
                         </li>
+
                         <li class="mb-1">
-                            <a asp-controller="Sales_Finance" asp-action="Products" class="nav-link flex items-center py-3 px-6 text-primary no-underline font-medium text-sm ml-25px hover:bg-sidebar-hover hover:text-primary hover:rounded-xl hover:mr-25px">
+                            @{
+                                // Check for Sales/Products route
+                                string productsClass = currentPath.StartsWith("/Sales_Finance/Products", StringComparison.OrdinalIgnoreCase) ? activeClasses : "";
+                            }
+                            <a asp-controller="Sales_Finance" asp-action="Products" class="nav-link flex items-center py-3 px-6 text-primary no-underline font-medium text-sm ml-25px hover:bg-sidebar-hover hover:text-primary hover:rounded-xl hover:mr-25px @productsClass">
                                 <i class="fas fa-shopping-cart mr-4 text-lg w-5 text-center"></i>
                                 <span class="nav-text">Sales</span>
                             </a>
                         </li>
+
                         <li class="mb-1">
-                            <a asp-controller="Sales_Finance" asp-action="Expenses" class="nav-link flex items-center py-3 px-6 text-primary no-underline font-medium text-sm ml-25px hover:bg-sidebar-hover hover:text-primary hover:rounded-xl hover:mr-25px">
+                            @{
+                                // Check for Expenses route
+                                string expensesClass = currentPath.StartsWith("/Sales_Finance/Expenses", StringComparison.OrdinalIgnoreCase) ? activeClasses : "";
+                            }
+                            <a asp-controller="Sales_Finance" asp-action="Expenses" class="nav-link flex items-center py-3 px-6 text-primary no-underline font-medium text-sm ml-25px hover:bg-sidebar-hover hover:text-primary hover:rounded-xl hover:mr-25px @expensesClass">
                                 <i class="fas fa-file-invoice-dollar mr-4 text-lg w-5 text-center"></i>
                                 <span class="nav-text">Expenses</span>
                             </a>
-                        </li>                        
-                        @* <li class="mb-1"> *@
-                        @*     <a asp-controller="Sales_Finance" asp-action="SalesReport" class="nav-link flex items-center py-3 px-6 text-primary no-underline font-medium text-sm ml-25px hover:bg-sidebar-hover hover:text-primary hover:rounded-xl hover:mr-25px"> *@
-                        @*         <i class="fas fa-file-invoice-dollar mr-4 text-lg w-5 text-center"></i> *@
-                        @*         <span class="nav-text">Expenses</span> *@
-                        @*     </a> *@
-                        @* </li> *@
-
+                        </li>
                     </ul>
                 </div>
-
             </nav>
         </aside>
 

@@ -1,6 +1,4 @@
-﻿@model Sheessential_Sales_Finance.Models.InventoryView
-
-
+﻿@model IEnumerable<ProductVariant>
 @{
     ViewData["Title"] = "Products Overview";
 }
@@ -38,7 +36,7 @@
                     </div>
                     <div>
                         <h2 class="text-lg font-semibold" style="color: #A36A66;">Total Sales</h2>
-                        <p class="text-2xl font-bold text-gray-900 mt-0.5">₱123,000.00</p>
+                        <p class="text-2xl font-bold text-gray-900 mt-0.5">@ViewBag.TotalSales</p>
                     </div>
                 </div>
 
@@ -48,31 +46,37 @@
                     </div>
                     <div>
                         <h2 class="text-lg font-semibold" style="color: #A36A66;">Total Orders</h2>
-                        <p class="text-2xl font-bold text-gray-900 mt-0.5">100</p>
+                        <p class="text-2xl font-bold text-gray-900 mt-0.5">@ViewBag.TotalOrders</p>
                     </div>
                 </div>
             </div>
 
-            <div class="bg-white rounded-2xl shadow-lg p-6 h-[20rem]">
+            <div class="bg-white rounded-2xl shadow-lg p-6 h-[30rem] flex flex-col">
                 <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-xl font-semibold text-gray-800">Product Sales Trend</h2> <span id="chartProductName" class="text-[#A36A66] ml-2"></span>
-
+                    <h2 class="text-xl font-semibold text-gray-800">Product Sales Trend</h2>
+                    <span id="chartProductName" class="text-[#A36A66] ml-2"></span>
                 </div>
-                <canvas id="productSalesChart" height="100"></canvas>
+                <div class="flex-1 relative">
+                    <canvas id="productSalesChart" class="w-full h-full" style="display:block;"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="lg:col-span-2 bg-white rounded-2xl shadow-lg p-5 border border-gray-100 flex flex-col justify-between">
+            <div class="aspect-square w-full rounded-xl overflow-hidden bg-gray-100 flex items-center justify-center">
+                <img src="~/images/Hand_Sanitizer.jpg"
+                     id="productCardImg"
+                     class="object-cover w-full h-full"
+                     alt="Product Image">
+            </div>
+
+            <div class="mt-4">
+                <p class="text-center font-bold text-lg text-gray-800" id="productCardName">Hydrating Face Cream</p>
+                <p class="text-center text-gray-500 text-sm mt-1">Total Order</p>
+                <p class="text-center font-bold text-2xl text-[#A36A66] mt-1" id="productCardTotalOrder">47</p>
             </div>
         </div>
 
-        <div class="lg:col-span-2 bg-white rounded-2xl shadow-lg p-5 border border-gray-100 flex flex-col justify-between">
-            <div class="flex-grow flex flex-col">
-                <h6 class="text-center font-semibold text-gray-700 mb-3 uppercase">TOP PRODUCT</h6>
-                <img src="~/images/Hand_Sanitizer.jpg" alt="Top Product" class="rounded-xl mb-4 mx-auto w-full object-contain h-auto max-h-52">
-            </div>
-            <div class="mt-auto">
-                <p class="text-center font-bold text-lg text-gray-800">Hydrating Face Cream</p>
-                <p class="text-center text-gray-500 text-sm mt-1">Total Order</p>
-                <p class="text-center font-bold text-2xl text-[#A36A66] mt-1">47</p>
-            </div>
-        </div>
+
     </div>
 
 
@@ -87,7 +91,7 @@
             </div>
         </div>
 
- 
+
 
         <div class="overflow-x-auto">
 
@@ -98,50 +102,38 @@
                         <th class="px-4 py-3 text-left">Product Name</th>
                         <th class="px-4 py-3 text-left">Category</th>
                         <th class="px-4 py-3 text-left">Selling Price</th>
-                        <th class="px-4 py-3 text-left">Purchase Price</th>
                         <th class="px-4 py-3 text-left">Stock</th>
                         <th class="px-4 py-3 text-left">Status</th>
                         <th class="px-4 py-3 text-center">Options</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
-                    @foreach (var p in Model.Products)
+                    @foreach (var p in Model)
                     {
-                        var statusColor = p.ProductVal >= 10 ? "text-sky-500"
-                        : (p.ProductVal < 10 && p.ProductVal > 0 ? "text-orange-400"
-                        : "text-red-500");
-
-                        var categoryColor = p.ProductCategory switch
+                        var statusColor = p.StockQuantity >= 10 ? "text-sky-500" : (p.StockQuantity < 10 && p.StockQuantity > 0 ? "text-orange-400" : "text-red-500");
+                        var categoryColor = p.Category switch
                         {
-                            "Skincare" => "bg-pink-100 text-pink-700",
-                            "Haircare" => "bg-teal-100 text-teal-700",
+                            "Skincare" => "bg-pink-100 text-pink-700", // Retained
+                            "Haircare" => "bg-teal-100 text-teal-700", // Changed from sky-blue to teal
                             "Makeup" => "bg-purple-100 text-purple-700",
                             _ => "bg-gray-100 text-gray-700"
                         };
 
                         <tr class="hover:bg-[#F0E4E3] transition cursor-pointer"
-                            onclick="selectProduct('@p.ProductName', '@p.Id')">
+                            onclick="selectProduct('@p.VariantName', '@p.Id' , '@p.OrdersCount', '@p.VariantImg')">
                             <td class="px-4 py-3 font-medium text-gray-600">@p.Id</td>
-
-                            <td class="px-4 py-3 text-gray-800">@p.ProductName</td>
-
+                            <td class="px-4 py-3 text-gray-800">@p.VariantName</td>
                             <td class="px-4 py-3">
-                                <span class="@categoryColor text-xs font-semibold px-3 py-1 rounded-lg">
-                                    @p.ProductCategory
-                                </span>
+                                <span class="@categoryColor text-xs font-semibold px-3 py-1 rounded-lg">@p.Category</span>
                             </td>
-
-                            <td class="px-4 py-3">₱@p.ProductVal</td>
-                            <td class="px-4 py-3">₱@p.ProductVal</td>
-
-                            <td class="px-4 py-3">@p.ProductVal</td>
-
+                            <td class="px-4 py-3">₱@p.Price</td>
+                            <td class="px-4 py-3">@p.StockQuantity</td>
                             <td class="px-4 py-3">
-                                @if (p.ProductVal >= 10)
+                                @if (p.StockQuantity >= 10)
                                 {
                                     <span class="@statusColor font-semibold uppercase text-xs">Available</span>
                                 }
-                                else if (p.ProductVal < 10 && p.ProductVal > 0)
+                                else if (p.StockQuantity < 10 && p.StockQuantity > 0)
                                 {
                                     <span class="@statusColor font-semibold uppercase text-xs">Low</span>
                                 }
@@ -150,9 +142,8 @@
                                     <span class="@statusColor font-semibold uppercase text-xs">Sold</span>
                                 }
                             </td>
-
                             <td class="px-4 py-3 text-center">
-                                <button onclick="openModal('@p.ProductName', '@p.ProductCategory', '@p.ProductVal', '@p.ProductVal')"
+                                <button onclick="openModal('@p.VariantName', '@p.Category', '@p.Price', '@p.VariantImg', '@p.Description', '@p.OrdersCount')"
                                         class="text-blue-500 hover:underline text-sm font-medium">
                                     Details
                                 </button>
@@ -160,7 +151,6 @@
                         </tr>
                     }
                 </tbody>
-
             </table>
 
             <div class="flex justify-center mt-6 space-x-2">
@@ -197,36 +187,36 @@
             </div>
         </div>
     </div>
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-    <!-- Sales Revenue Chart -->
-    <div class="bg-white shadow-lg rounded-2xl p-6 flex flex-col h-[460px]" id="revenueCard">
+        <!-- Sales Revenue Chart -->
+        <div class="bg-white shadow-lg rounded-2xl p-6 flex flex-col h-[460px]" id="revenueCard">
 
-        <div class="flex justify-between items-center mb-3">
-            <p class="font-semibold text-sm">Total Revenue</p>
-        </div>
-
-        <div class="flex-1 relative">
-            <canvas id="salesRevenueChart"></canvas>
-        </div>
-    </div>
-
-    <!-- Top Products Card -->
-    <div id="topProductsCard" class="bg-white shadow-lg rounded-2xl p-6 flex flex-col h-[460px]">
-        <h2 class="font-semibold text-sm mb-4">Top Products</h2>
-
-        <div class="flex flex-1 items-center justify-center gap-6">
-            <!-- Donut Chart (Left) -->
-            <div class="w-1/2 max-w-[280px] relative aspect-square">
-                <canvas id="topProductsChart"></canvas>
+            <div class="flex justify-between items-center mb-3">
+                <p class="font-semibold text-sm">Total Revenue</p>
             </div>
 
-            <div id="topProductsList" class="w-1/2 flex flex-col ...">
-                <!-- dynamically generated -->
+            <div class="flex-1 relative">
+                <canvas id="salesRevenueChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Top Products Card -->
+        <div id="topProductsCard" class="bg-white shadow-lg rounded-2xl p-6 flex flex-col h-[460px]">
+            <h2 class="font-semibold text-sm mb-4">Top Products</h2>
+
+            <div class="flex flex-1 items-center justify-center gap-6">
+                <!-- Donut Chart (Left) -->
+                <div class="w-1/2 max-w-[280px] relative aspect-square">
+                    <canvas id="topProductsChart"></canvas>
+                </div>
+
+                <div id="topProductsList" class="w-1/2 flex flex-col ...">
+                    <!-- dynamically generated -->
+                </div>
             </div>
         </div>
     </div>
-</div>
 </div>
 
 <div id="productModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -235,7 +225,7 @@
         <div class="flex-1">
             <h2 id="modalName" class="text-2xl font-bold text-gray-800 mb-2">Product Name</h2>
             <span id="modalCategory" class="bg-[#A36A66] text-white text-sm font-semibold px-3 py-1 rounded-lg inline-block mb-3">Category</span>
-            <p class="text-gray-600 text-sm leading-relaxed mb-4">
+            <p class="text-gray-600 text-sm leading-relaxed mb-4" id="modalDescription">
                 Lorem ipsum dolor sit amet, consectetur adipiscing elit. Etiam sollicitudin ipsum arcu.
             </p>
             <div class="mt-4">
@@ -247,7 +237,7 @@
             </div>
         </div>
         <div class="w-60">
-            <img src="~/images/Hand_Sanitizer.jpg" alt="Product Image" class="rounded-xl shadow-sm w-full object-cover">
+            <img src="~/images/Hand_Sanitizer.jpg" alt="Product Image" class="rounded-xl shadow-sm w-full object-cover" id="modalImage">
         </div>
     </div>
 </div>
@@ -289,10 +279,11 @@
         }
     });
 
-    function selectProduct(itemName, productId) {
+    function selectProduct(itemName, productId, totalOrders, image) {
         selectedProductId = productId;
         document.getElementById("chartProductName").textContent = itemName;
         loadProductSales(selectedPeriod);
+        UpdateCardDisplay(itemName, image, totalOrders)
     }
 
     document.getElementById("dateRangeSelect").addEventListener("change", (e) => {
@@ -320,7 +311,7 @@
             showToast("Sales data loaded successfully! ✅", "success");
 
         } catch (err) {
-            console.error(err);
+            alert(err.message)
             showToast("Error loading sales 😭", "error");
         }
     }
@@ -435,7 +426,7 @@
         4. OFFSCREEN CHART CREATION FOR PDF (CORRECTED)
         ============================================================ */
 
- 
+
     /* ... (rest of your script) ... */
     /* ============================================================
         5. PDF CHART CONFIGS (MATCHES YOUR PINK THEME)
@@ -499,12 +490,36 @@
     /* ============================================================
         7. MODAL UTILITIES (Missing in your code, added for completeness)
         ============================================================ */
-    function openModal(name, category, sellingPrice, purchasePrice) {
+    function openModal(name, category, sellingPrice, imageUrl, description, totalOrders) {
+        // Set the text content for existing elements
         document.getElementById("modalName").textContent = name;
         document.getElementById("modalCategory").textContent = category;
         document.getElementById("modalSelling").textContent = sellingPrice;
-        document.getElementById("modalPurchase").textContent = purchasePrice;
+        document.getElementById("modalDescription").textContent = description;
+
+        // Set the image source (assuming you add id="modalImage" to your <img> tag)
+        const imageElement = document.getElementById("modalImage");
+        if (imageElement) {
+            // Since the image URL from the database is a string, set it as the src.
+            imageElement.src = imageUrl;
+
+            // Optional: Set alt text for accessibility, using the product name
+            imageElement.alt = name + " Image";
+        }
+
+        // Show the modal
         document.getElementById("productModal").classList.remove("hidden");
+    }
+
+    function UpdateCardDisplay(name, image, totalOrders){
+        // 1. Update Product Name
+        document.getElementById("productCardName").textContent = name;
+
+        // 2. FIX: Use .src to change the image source on the <img> element
+        document.getElementById("productCardImg").src = image;
+
+        // 3. Update Total Orders
+        document.getElementById("productCardTotalOrder").textContent = totalOrders;
     }
 
     function closeModal() {

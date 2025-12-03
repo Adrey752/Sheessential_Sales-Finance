@@ -259,23 +259,82 @@ namespace Sheessential_Sales_Finance.Controllers
         }
 
 
-        public async Task<IActionResult> Products()
+        public IActionResult Products(int page = 1)
         {
-            // Get all products
-            var products = await _mongo.ProductInventory.Find(_ => true).ToListAsync();
+            int pageSize = 5;
 
-            // Get all product sales
-            var productSales = await _mongo.ProductSalesInventory.Find(_ => true).ToListAsync();
+            // --- 1. PRE-FETCH ALL PRODUCT DATA & SALES DATA ---
+            var allProducts = _mongo.ProductInventory.Find(_ => true)
+                .ToList()
+                .ToDictionary(p => p.Id, p => p);
 
-            // Combine into InventoryView
-            var model = new InventoryView
+            var sales = _mongo.ProductSalesInventory.Find(_ => true).ToList();
+
+            // --- NEW: CALCULATE TOTAL ORDERS AND SALES ---
+
+            // 1. Calculate Total Orders
+            int totalOrders = sales.Count;
+
+            // 2. Calculate Total Sales
+            decimal totalSales = Math.Round(sales.Sum(s => decimal.Parse(s.SalePrice)), 2);
+
+            // --- NEW: CALCULATE ORDERS COUNT PER VARIANT ---
+            // Group the sales records by their VariantId and count the records in each group.
+            // NOTE: This assumes your ProductSalesInventory model has a property named 'VariantId'
+            // that links back to the ProductVariant.
+            var variantSalesCounts = sales
+                .GroupBy(s => s.VariantId) // Group by the ID of the variant being sold
+                .ToDictionary(
+                    g => g.Key,  // The key is the VariantId (the ID we grouped by)
+                    g => g.Count() // The value is the total number of sales/orders for that variant
+                );
+
+            // --- 2. FETCH PAGINATED PRODUCT VARIANTS ---
+            var totalProducts = (int)_mongo.ProductVariantInventory.CountDocuments(_ => true);
+            int totalPages = (int)Math.Ceiling((double)totalProducts / pageSize);
+
+            var pagedVariants = _mongo.ProductVariantInventory.Find(_ => true)
+                .Skip((page - 1) * pageSize)
+                .Limit(pageSize)
+                .ToList();
+
+            // --- 3. ENRICH VARIANTS WITH CATEGORY, DESCRIPTION, AND ORDERS COUNT ---
+            foreach (var variant in pagedVariants)
             {
-                Products = products,
-                ProductSales = productSales
-            };
+                // 3a. Enrich with Product Data (Category and Description)
+                if (allProducts.TryGetValue(variant.ProductId, out var product))
+                {
+                    variant.Category = product.ProductCategory;
+                    variant.Description = product.ProductDesc;
+                }
+                else
+                {
+                    variant.Category = "N/A";
+                    variant.Description = "No description available";
+                }
 
-            return View("Products", model);
+                // 3b. Enrich with Orders Count
+                // Check if the variant's ID exists in the sales count dictionary
+                if (variantSalesCounts.TryGetValue(variant.Id, out int count))
+                {
+                    variant.OrdersCount = count;
+                }
+                else
+                {
+                    variant.OrdersCount = 0; // Set to 0 if no sales records are found
+                }
+            }
+
+            // --- 4. PASS DATA TO VIEW BAGS ---
+            ViewBag.CurrentPage = page;
+            ViewBag.TotalPages = totalPages;
+
+            ViewBag.TotalOrders = totalOrders;
+            ViewBag.TotalSales = $"₱{totalSales:N2}";
+
+            return View(pagedVariants);
         }
+
 
 
 
@@ -698,10 +757,7 @@ namespace Sheessential_Sales_Finance.Controllers
             if (string.IsNullOrEmpty(productId))
                 return Json(new { message = "Missing product ID" });
 
-            var productSales = _mongo.Invoices.Find(_ => true).ToList()
-                .SelectMany(inv => inv.Items)
-                .Where(item => item.ProductId == productId)
-                .ToList();
+            var productSales = _mongo.ProductSalesInventory.Find(product => product.Id == productId).ToList();
 
             if (!productSales.Any())
                 return Json(new { message = "No sales data found" });
@@ -1779,81 +1835,76 @@ namespace Sheessential_Sales_Finance.Controllers
             };
 
             // ✅ Fetch paid invoices within period
-            var invoices = await _mongo.Invoices.Find(i =>
-                i.Status == "Paid" &&
-                i.Items.Any(it => it.TransactionDate >= start && it.TransactionDate <= now))
+            var ProductSales = await _mongo.ProductSalesInventory.Find(i =>
+                i.TransactionDate >= start && i.TransactionDate <= now)
                 .ToListAsync();
 
             var viewModel = new SalesReportViewModel
             {
-                TotalSales = invoices.Sum(inv => inv.Total),
-                TotalOrders = invoices.Count,
-                ActiveCustomers = invoices.Select(inv => inv.BilledTo).Distinct().Count(),
+                TotalSales = ProductSales.Sum(sale => decimal.Parse(sale.SalePrice)),
+                TotalOrders = ProductSales.Count,
             };
 
             // ✅ Flatten items and filter by date range
-            var items = invoices
-                .SelectMany(i => i.Items)
-                .Where(i => i.TransactionDate >= start && i.TransactionDate <= now)
-                .ToList();
+
 
             // ✅ Collect distinct ProductIds
-            var productIds = items.Select(i => i.ProductId).Distinct().ToList();
+            var productIds = ProductSales.Select(i => i.Id).Distinct().ToList();
 
             // ✅ Fetch product names and categories
-            var products = await _mongo.Inventories
+            var products = await _mongo.ProductVariantInventory
                 .Find(p => productIds.Contains(p.Id))
                 .ToListAsync();
 
             // ✅ Lookup dictionaries
-            var productLookup = products.ToDictionary(p => p.Id, p => p.Item);
+            var productLookup = products.ToDictionary(p => p.Id, p => p.VariantName);
             var categoryLookup = products.ToDictionary(p => p.Id, p => p.Category);
 
             // ✅ Chart data
             if (period == "all" || period == "year")
             {
-                viewModel.ChartLabels = items
+                viewModel.ChartLabels = ProductSales
                     .GroupBy(i => new { i.TransactionDate.Year, i.TransactionDate.Month })
                     .OrderBy(g => g.Key.Year).ThenBy(g => g.Key.Month)
                     .Select(g => new DateTime(g.Key.Year, g.Key.Month, 1).ToString("MMM yyyy"))
                     .ToList();
 
-                viewModel.ChartValues = items
+                viewModel.ChartValues = ProductSales
                     .GroupBy(i => new { i.TransactionDate.Year, i.TransactionDate.Month })
-                    .Select(g => g.Sum(x => (decimal)x.SalePrice * x.Quantity))
+                    .Select(g => g.Sum(x => decimal.Parse(x.SalePrice) * x.Quantity))
                     .ToList();
             }
             else
             {
-                viewModel.ChartLabels = items
+                viewModel.ChartLabels = ProductSales
                     .GroupBy(i => i.TransactionDate.Date)
                     .OrderBy(g => g.Key)
                     .Select(g => g.Key.ToString("MMM dd"))
                     .ToList();
 
-                viewModel.ChartValues = items
+                viewModel.ChartValues = ProductSales
                     .GroupBy(i => i.TransactionDate.Date)
-                    .Select(g => g.Sum(x => (decimal)x.SalePrice * x.Quantity))
+                    .Select(g => g.Sum(x => decimal.Parse(x.SalePrice) * x.Quantity))
                     .ToList();
             }
 
             // ✅ Top Products
-            viewModel.TopProducts = items
-                .GroupBy(i => i.ProductId)
+            viewModel.TopProducts = ProductSales
+                .GroupBy(i => i.VariantId)
                 .Select(g => new TopProductDto
                 {
                     ProductName = productLookup.ContainsKey(g.Key)
                         ? productLookup[g.Key]
                         : "(Unknown Product)",
-                    TotalAmount = g.Sum(x => (decimal)x.SalePrice * x.Quantity)
+                    TotalAmount = g.Sum(x => decimal.Parse(x.SalePrice) * x.Quantity)
                 })
                 .OrderByDescending(p => p.TotalAmount)
                 .Take(5)
                 .ToList();
 
             // ✅ Product Sales Table (added Category)
-            viewModel.SalesRows = items
-                .GroupBy(x => x.ProductId)
+            viewModel.SalesRows = ProductSales
+                .GroupBy(x => x.VariantId)
                 .Select(g => new ProductSalesRow
                 {
                     ProductId = g.Key ?? "(Unknown)",
@@ -1863,9 +1914,9 @@ namespace Sheessential_Sales_Finance.Controllers
                     Category = categoryLookup.ContainsKey(g.Key)
                         ? categoryLookup[g.Key]
                         : "(Unknown)",
-                    UnitPrice = g.Average(x => (decimal)x.SalePrice),
+                    UnitPrice = g.Average(x => decimal.Parse(x.SalePrice)),
                     Quantity = g.Sum(x => x.Quantity),
-                    TotalAmount = g.Sum(x => (decimal)x.SalePrice * x.Quantity)
+                    TotalAmount = g.Sum(x => decimal.Parse(x.SalePrice) * x.Quantity)
                 })
                 .OrderByDescending(x => x.TotalAmount)
                 .ToList();

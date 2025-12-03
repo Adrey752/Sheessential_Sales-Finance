@@ -18,6 +18,11 @@ namespace Sheessential_Sales_Finance.Models
         [BsonElement("quantity")]
         public int Quantity { get; set; } // int32
 
+        [BsonElement("productId")]
+        [BsonRepresentation(BsonType.ObjectId)]
+
+        public string? productId { get; set; } // int32
+
         [BsonElement("salePrice")]
         public string SalePrice { get; set; }
 
@@ -32,5 +37,15 @@ namespace Sheessential_Sales_Finance.Models
 
         [BsonElement("srp")]
         public string SRP { get; set; }
+
+        [BsonElement("isActive")]
+        public bool? isActive { get; set; }
+
+        [BsonElement("createdAt")]
+        public DateTime? CreatedAt { get; set; }        
+        
+        [BsonElement("updatedAt")]
+        public DateTime? updatedAt { get; set; }
+
     }
 }

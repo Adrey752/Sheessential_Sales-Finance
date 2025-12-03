@@ -21,7 +21,9 @@ namespace Sheessential_Sales_Finance.Models
         public string Size { get; set; } = string.Empty;
 
         [BsonElement("color")]
-        public string Color { get; set; } = string.Empty;
+        public string Color { get; set; } = string.Empty;        
+        
+        public string? Category { get; set; } = string.Empty;
 
         [BsonElement("sku")]
         public string SKU { get; set; } = string.Empty;
@@ -29,6 +31,7 @@ namespace Sheessential_Sales_Finance.Models
         [BsonElement("price")]
         [BsonIgnoreIfNull]
         public decimal Price { get; set; }
+        public int OrdersCount { get; set; }
 
         [BsonElement("stockQuantity")]
         public int StockQuantity { get; set; }        
