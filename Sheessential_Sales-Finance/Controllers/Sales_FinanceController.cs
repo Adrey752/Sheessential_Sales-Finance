@@ -2110,8 +2110,7 @@ namespace Sheessential_Sales_Finance.Controllers
             if (periodLower == "alltime")
             {
                 // 1. Fetch ALL data
-                var allInvoicesTask = _mongo.Invoices.AsQueryable()
-                    .Where(i => !i.IsArchived)
+                var allInvoicesTask = _mongo.ProductSalesInventory.AsQueryable()
                     .ToListAsync();
 
                 var allExpensesTask = _mongo.Expenses.AsQueryable()
@@ -2131,15 +2130,15 @@ namespace Sheessential_Sales_Finance.Controllers
                 // 3. Process Revenue Trend (Line Chart)
                 // Group by Year, then create a dataset for each year
                 var revenueDatasets = allInvoices
-                    .GroupBy(i => i.IssuedAt.Year)
+                    .GroupBy(i => i.TransactionDate.Year)
                     .OrderBy(g => g.Key)
                     .Select(yearGroup => new
                     {
                         Label = yearGroup.Key.ToString(), // e.g., "2023", "2024"
                         Data = Enumerable.Range(1, 12)
                             .Select(month => yearGroup
-                                .Where(i => i.IssuedAt.Month == month)
-                                .Sum(i => i.Total))
+                                .Where(i => i.TransactionDate.Month == month)
+                                .Sum(i => decimal.Parse(i.SalePrice)))
                             .ToList()
                     })
                     .ToList();

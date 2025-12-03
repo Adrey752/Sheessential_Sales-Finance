@@ -2,6 +2,13 @@
 @{
     ViewData["Title"] = "Products Overview";
 }
+
+<style>
+    .row-selected {
+        background-color: #F3D7D5 !important; /* light rose highlight */
+    }
+</style>
+
 <div id="loadingOverlay" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-[9999]">
     <div class="text-white text-lg font-semibold">
         <span class="animate-pulse">...</span>
@@ -56,8 +63,10 @@
                     <h2 class="text-xl font-semibold text-gray-800">Product Sales Trend</h2>
                     <span id="chartProductName" class="text-[#A36A66] ml-2"></span>
                 </div>
-                <div class="flex-1 relative">
-                    <canvas id="productSalesChart" class="w-full h-full" style="display:block;"></canvas>
+
+                <!-- Chart wrapper must grow and stretch -->
+                <div class="flex-grow relative">
+                    <canvas id="productSalesChart" class="absolute inset-0 w-full h-full"></canvas>
                 </div>
             </div>
         </div>
@@ -119,8 +128,9 @@
                             _ => "bg-gray-100 text-gray-700"
                         };
 
-                        <tr class="hover:bg-[#F0E4E3] transition cursor-pointer"
-                            onclick="selectProduct('@p.VariantName', '@p.Id' , '@p.OrdersCount', '@p.VariantImg')">
+                        <tr class="product-row hover:bg-[#F0E4E3] transition cursor-pointer"
+                            onclick="selectProduct('@p.VariantName', '@p.Id', '@p.OrdersCount', '@p.VariantImg', this)">
+
                             <td class="px-4 py-3 font-medium text-gray-600">@p.Id</td>
                             <td class="px-4 py-3 text-gray-800">@p.VariantName</td>
                             <td class="px-4 py-3">
@@ -279,13 +289,33 @@
         }
     });
 
-    function selectProduct(itemName, productId, totalOrders, image) {
-        selectedProductId = productId;
-        document.getElementById("chartProductName").textContent = itemName;
+    let selectedRow = null;
+
+    function selectProduct(name, id, totalOrders, image, rowElement) {
+
+        // Remove highlight from previous row
+        if (selectedRow) {
+            selectedRow.classList.remove("row-selected");
+        }
+
+        // Highlight new row
+        selectedRow = rowElement;
+        selectedRow.classList.add("row-selected");
+
+        // Your original logic
+        selectedProductId = id;
+        document.getElementById("chartProductName").textContent = name;
         loadProductSales(selectedPeriod);
-        UpdateCardDisplay(itemName, image, totalOrders)
+        UpdateCardDisplay(name, image, totalOrders);
     }
 
+
+    document.addEventListener("DOMContentLoaded", function () {
+        const firstRow = document.querySelector(".product-row");
+        if (firstRow) {
+            firstRow.click(); // triggers selectProduct()
+        }
+    });
     document.getElementById("dateRangeSelect").addEventListener("change", (e) => {
         selectedPeriod = e.target.value;
         if (selectedProductId) loadProductSales(selectedPeriod);
