@@ -943,57 +943,149 @@ namespace Sheessential_Sales_Finance.Controllers
         // Note: You must include a using statement for the new Display Model
         // using Sheessential_Sales_Finance.Models; 
 
-        public IActionResult Expenses(string status, DateTime? startDate, DateTime? endDate)
+        public IActionResult Expenses(
+    // Expense filters
+    string? sortOrder,
+    string[]? departments,
+    string[]? status,
+    decimal? minAmount,
+    decimal? maxAmount,
+    DateTime? startDate,
+    DateTime? endDate,
+
+    // Ingredient filters
+    string[]? ingredientStatus,
+    DateTime? ingredientStartDate,
+    DateTime? ingredientEndDate,
+    int? minQty,
+    int? maxQty,
+    string? supplier,
+
+              // Payroll filters
+    string[]? payrollStatus,
+    DateTime? startPeriod,
+    DateTime? endPeriod,
+    string? payType,
+    int? minEmployees,
+    int? maxEmployees,
+    decimal? minGross,
+    decimal? maxGross,
+    decimal? minNet,
+    decimal? maxNet
+)
         {
             try
             {
-                // --- 1. EXPENSES LOGIC (EXISTING) ---
-                // Retain existing logic for Expenses to keep the existing functionality intact.
+                // --------------------
+                // 1. FILTER EXPENSES
+                // --------------------
+                var expenseFilter = Builders<Expenses>.Filter.Eq(e => e.isIngredientsRequest, false);
 
-                if (string.IsNullOrEmpty(status))
-                    status = "Pending";
+                if (status != null && status.Length > 0)
+                    expenseFilter &= Builders<Expenses>.Filter.In(e => e.Status, status);
 
-                var expensesFilter = Builders<Expenses>.Filter.Empty;
+                if (departments != null && departments.Length > 0)
+                    expenseFilter &= Builders<Expenses>.Filter.In(e => e.Department, departments);
 
-                // STATUS FILTER
-                if (!string.IsNullOrEmpty(status))
+                if (minAmount.HasValue)
+                    expenseFilter &= Builders<Expenses>.Filter.Gte(e => e.Amount, minAmount.Value);
+                if (maxAmount.HasValue)
+                    expenseFilter &= Builders<Expenses>.Filter.Lte(e => e.Amount, maxAmount.Value);
+
+                if (startDate.HasValue)
+                    expenseFilter &= Builders<Expenses>.Filter.Gte(e => e.RequestedAt, startDate.Value);
+                if (endDate.HasValue)
+                    expenseFilter &= Builders<Expenses>.Filter.Lte(e => e.RequestedAt, endDate.Value.AddDays(1).AddSeconds(-1));
+
+                var expenses = _mongo.Expenses.Find(expenseFilter).ToList();
+
+                // Sorting Expenses
+                expenses = sortOrder switch
                 {
-                    expensesFilter &= Builders<Expenses>.Filter.Eq(e => e.Status, status);
+                    "date_desc" => expenses.OrderByDescending(e => e.RequestedAt).ToList(),
+                    "date_asc" => expenses.OrderBy(e => e.RequestedAt).ToList(),
+                    "amount_desc" => expenses.OrderByDescending(e => e.Amount).ToList(),
+                    "amount_asc" => expenses.OrderBy(e => e.Amount).ToList(),
+                    _ => expenses.OrderByDescending(e => e.RequestedAt).ToList()
+                };
+
+                // ------------------------------
+                // 2. FILTER INGREDIENT REQUESTS
+                // ------------------------------
+                var ingredientFilter = Builders<IngredientStockRequests>.Filter.Empty;
+
+                if (ingredientStatus != null && ingredientStatus.Length > 0)
+                    ingredientFilter &= Builders<IngredientStockRequests>.Filter.In(r => r.RequestStatus, ingredientStatus);
+
+                if (ingredientStartDate.HasValue)
+                    ingredientFilter &= Builders<IngredientStockRequests>.Filter.Gte(r => r.RequestDate, ingredientStartDate.Value);
+
+                if (ingredientEndDate.HasValue)
+                    ingredientFilter &= Builders<IngredientStockRequests>.Filter.Lte(r => r.RequestDate, ingredientEndDate.Value.AddDays(1).AddSeconds(-1));
+
+                if (minQty.HasValue)
+                    ingredientFilter &= Builders<IngredientStockRequests>.Filter.Gte(r => r.QuantityRequested, minQty.Value);
+
+                if (maxQty.HasValue)
+                    ingredientFilter &= Builders<IngredientStockRequests>.Filter.Lte(r => r.QuantityRequested, maxQty.Value);
+
+                if (!string.IsNullOrEmpty(supplier))
+                {
+                    if (ObjectId.TryParse(supplier, out ObjectId supplierId))
+                    {
+                        ingredientFilter &= Builders<IngredientStockRequests>.Filter.Eq(r => r.SupplierId, supplierId);
+                    }
                 }
 
-                // DATE RANGE FILTER
-                if (startDate.HasValue && endDate.HasValue)
-                {
-                    expensesFilter &= Builders<Expenses>.Filter.Gte(e => e.RequestedAt, startDate.Value)
-                                   & Builders<Expenses>.Filter.Lte(e => e.RequestedAt, endDate.Value
-                                                                                .AddDays(1)
-                                                                                .AddSeconds(-1));
-                }
+                var rawRequests = _mongo.IngredientsStockRequests.Find(ingredientFilter).ToList();
 
-                // ✅ NEW FILTER: Ingredients Request
-                // Assuming your Expenses model has:  public bool IsInredientsRequest { get; set; }
-                expensesFilter &= Builders<Expenses>.Filter.Eq(e => e.isIngredientsRequest, false);
 
-                // EXECUTE QUERY
-                var expenses = _mongo.Expenses.Find(expensesFilter).ToList()
-                              ?? new List<Expenses>();
+                // --------------------
+                // 6. FILTER PAYROLL RUNS
+                // --------------------
+                var payrollFilter = Builders<PayrollRun>.Filter.Empty;
 
-                var Payrolls = _mongo.ParyrollRuns.Find(payroll => true).ToList() ?? new List<PayrollRun>(); ;
-                // --- 2. INGREDIENT STOCK REQUESTS LOGIC (NEW) ---
-                _logger.LogInformation("\n\\n\n"+Payrolls.Count+"\n\n\n\n");
+                if (payrollStatus != null && payrollStatus.Length > 0)
+                    payrollFilter &= Builders<PayrollRun>.Filter.In(p => p.Status, payrollStatus);
 
-                // a. Fetch Lookups (Ingredients & Suppliers)
-                // Convert to Dictionaries for efficient lookup by ID
+                if (startPeriod.HasValue)
+                    payrollFilter &= Builders<PayrollRun>.Filter.Gte(p => p.PayPeriodStart, startPeriod.Value);
+
+                if (endPeriod.HasValue)
+                    payrollFilter &= Builders<PayrollRun>.Filter.Lte(p => p.PayPeriodEnd, endPeriod.Value);
+
+                if (!string.IsNullOrEmpty(payType))
+                    payrollFilter &= Builders<PayrollRun>.Filter.Eq(p => p.PayPeriodType, payType);
+
+                if (minEmployees.HasValue)
+                    payrollFilter &= Builders<PayrollRun>.Filter.Gte(p => p.TotalEmployees, minEmployees.Value);
+
+                if (maxEmployees.HasValue)
+                    payrollFilter &= Builders<PayrollRun>.Filter.Lte(p => p.TotalEmployees, maxEmployees.Value);
+
+                if (minGross.HasValue)
+                    payrollFilter &= Builders<PayrollRun>.Filter.Gte(p => p.TotalGrossSalary, minGross.Value);
+
+                if (maxGross.HasValue)
+                    payrollFilter &= Builders<PayrollRun>.Filter.Lte(p => p.TotalGrossSalary, maxGross.Value);
+
+                if (minNet.HasValue)
+                    payrollFilter &= Builders<PayrollRun>.Filter.Gte(p => p.TotalNetSalary, minNet.Value);
+
+                if (maxNet.HasValue)
+                    payrollFilter &= Builders<PayrollRun>.Filter.Lte(p => p.TotalNetSalary, maxNet.Value);
+
+                // Fetch filtered payroll runs
+                var payrollRuns = _mongo.ParyrollRuns.Find(payrollFilter).ToList();
+
+                // Lookup dictionaries for display
                 var allIngredients = _mongo.Ingredients.Find(_ => true).ToList().ToDictionary(i => i.Id, i => i);
                 var allSuppliers = _mongo.Suppliers.Find(_ => true).ToList().ToDictionary(s => s.Id, s => s);
 
-                var rawRequests = _mongo.IngredientsStockRequests.Find(_ => true).ToList();
-
-                // Fix for CS0029: Convert ObjectId? to string using ToString() or null-coalescing operator
                 var displayRequests = rawRequests.Select(r => new IngredientStockRequestDisplayModel
                 {
                     Id = r.Id,
-                    ExpenseId = r.ExpenseId?.ToString(), // Convert ObjectId? to string safely
+                    ExpenseId = r.ExpenseId?.ToString(),
                     RequestStatus = r.RequestStatus,
                     TotalCost = r.TotalCost,
                     RequestDate = r.RequestDate,
@@ -1002,52 +1094,48 @@ namespace Sheessential_Sales_Finance.Controllers
                     Unit = r.Unit,
                     CurrentStockAtRequest = r.CurrentStockAtRequest,
                     Instructions = r.Instructions,
-
-                    // Perform lookups using the Ingredient and Supplier dictionaries
                     IngredientName = allIngredients.GetValueOrDefault(r.IngredientId.ToString())?.IngredientName ?? "Unknown Ingredient",
                     SupplierName = allSuppliers.GetValueOrDefault(r.SupplierId.ToString())?.SupplierName ?? "Unknown Supplier"
-                }).OrderByDescending(r => r.RequestDate).ToList(); // Order by most recent
+                }).OrderByDescending(r => r.RequestDate).ToList();
 
+                // --------------------
+                // 3. FETCH BALANCE
+                // --------------------
+                var balance = _mongo.Balance.Find(_ => true).FirstOrDefault() ?? new Balance();
 
-                // --- 3. FINAL VIEW MODEL ASSEMBLY ---
-
-                // Fetch current balance
-                var balance = _mongo.Balance.Find(_ => true).FirstOrDefault();
-
-                // Totals for Expenses (Existing Logic)
+                // --------------------
+                // 4. CALCULATE TOTALS
+                // --------------------
                 ViewBag.TotalExpenses = expenses.Sum(e => e?.Amount ?? 0);
                 ViewBag.PendingTotal = expenses.Where(e => e.Status == "Pending").Sum(e => e.Amount);
                 ViewBag.ApprovedTotal = expenses.Where(e => e.Status == "Approved").Sum(e => e.Amount);
                 ViewBag.DeclinedTotal = expenses.Where(e => e.Status == "Declined").Sum(e => e.Amount);
-
-                // Totals for Stock Requests (New - Optional but Recommended)
                 ViewBag.TotalStockRequestCost = displayRequests.Sum(r => r.TotalCost);
 
-                // Pass the selected filter to the view
-                ViewBag.SelectedStatus = status;
-
+                // --------------------
+                // 5. BUILD VIEW MODEL
+                // --------------------
                 var viewModel = new ExpensesWithBalanceViewModel
                 {
                     Expenses = expenses,
                     Balance = balance,
-                    PayrollRuns = Payrolls,// Add the processed requests list
-                    StockRequests = displayRequests
+                    StockRequests = displayRequests,
+                    PayrollRuns = payrollRuns // filtered runs
                 };
+
 
                 return View(viewModel);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error loading Expenses page.");
-                return View(new ExpensesWithBalanceViewModel
-                {
-                    Expenses = new List<Expenses>(),
-                    StockRequests = new List<IngredientStockRequestDisplayModel>(),
-                    PayrollRuns = new List<PayrollRun>(),
-                    Balance = new Balance { CurrentBalance = 0 }
-                });
+                _logger.LogError(ex, "Error loading Expenses page with filters.");
+                return View(new ExpensesWithBalanceViewModel());
             }
         }
+
+
+
+
 
         [HttpPost]
         public IActionResult DeclineExpense(string id, bool isStockRequest, string DeclineReason)
@@ -2269,6 +2357,8 @@ namespace Sheessential_Sales_Finance.Controllers
 
             return Json(reportData);
         }
+
+
         [HttpPost]
         public async Task<IActionResult> ReleasePayroll(string id)
         {
