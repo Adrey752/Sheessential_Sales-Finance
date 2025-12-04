@@ -349,7 +349,7 @@
                                     <button type="button"
                                             class="review-btn bg-gradient-to-r from-green-600 to-green-700 text-white"
                                             data-mode="approved"
-                                            data-respondedDate="@expense.DateApproved"
+                                            data-responded-date="@(expense.DateApproved.HasValue ? expense.DateApproved.Value.ToString("MMM dd, yyyy") : "")"
                                             data-expense-id="@expense.Id"
                                             data-requester="@expense.RequestedBy"
                                             data-department="@expense.Department"
@@ -366,6 +366,7 @@
                                     <button type="button"
                                             class="review-btn bg-gradient-to-r from-red-600 to-red-700 text-white"
                                             data-mode="declined"
+                                            data-responded-date="@(expense.DateApproved.HasValue ? expense.DateApproved.Value.ToString("MMM dd, yyyy") : "")"
                                             data-expense-id="@expense.Id"
                                             data-requester="@expense.RequestedBy"
                                             data-department="@expense.Department"
@@ -545,7 +546,9 @@
             </table>
         </div>
     </div>
-   
+
+
+
 
     <!-- Filter Modal -->
     <div id="filterDropdownIngredient"
@@ -636,30 +639,90 @@
         });
     </script>
 
-    <!-- PAYROLL MANAGEMENT SECTION WITH SIDE PANEL -->
-    <div class="mt-3 p-4 grid my-10 grid-cols-1 lg:grid-cols-4 gap-6">
+ 
 
-        <!-- LEFT: Payroll Table (3/4 width) -->
+    @* start of new *@
+    @using Newtonsoft.Json
+
+    <!-- PAYROLL MANAGEMENT SECTION WITH SIDE PANEL -->
+    <div class="mt-3 p-4 grid my-10 grid-cols-1 lg:grid-cols-5 gap-6 min-h-[500px]">
+
+        <!-- LEFT: Payroll Runs Table (60% width) -->
         <div class="lg:col-span-3 bg-white rounded-2xl shadow-md overflow-hidden">
             <div class="p-6 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white flex justify-between items-center">
                 <div>
                     <h2 class="text-2xl font-bold text-[#A36A66]">Payroll Management</h2>
                     <p class="text-[#A36A66] text-sm mt-1">Employee payroll overview</p>
                 </div>
-                <button id="filterButtonPayroll"
-                        class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                              d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                    </svg>
-                    Filter
-                </button>
+
+                <div class="relative inline-block">
+                    <button id="filterButtonPayroll"
+                            class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                        </svg>
+                        Filter
+                    </button>
+
+                    <div id="filterDropdownPayroll"
+                         class="hidden absolute top-full right-0 mt-2 w-80 bg-white border border-gray-200 rounded-xl shadow-2xl z-[9999] animate-fadeIn flex flex-col max-h-[80vh]">
+
+                        <div class="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-xl">
+                            <h3 class="font-bold text-gray-800">Filter Payroll</h3>
+                            <button type="button" onclick="resetPayrollFilters()"
+                                    class="text-xs text-red-500 hover:text-red-700 font-medium">
+                                Reset All
+                            </button>
+                        </div>
+
+                        <div class="p-4 overflow-y-auto">
+                            <form id="filterFormPayroll" onsubmit="event.preventDefault(); applyPayrollFilters();">
+                                <div class="mb-5">
+                                    <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Category</label>
+                                    <div class="flex flex-wrap gap-4">
+                                        <label class="flex items-center space-x-2 cursor-pointer">
+                                            <input type="checkbox" name="category" value="Approved" class="rounded text-green-600">
+                                            <span class="text-sm text-gray-700">Approved</span>
+                                        </label>
+
+                                        <label class="flex items-center space-x-2 cursor-pointer">
+                                            <input type="checkbox" name="category" value="Declined" class="rounded text-red-600">
+                                            <span class="text-sm text-gray-700">Declined</span>
+                                        </label>
+
+                                        <label class="flex items-center space-x-2 cursor-pointer">
+                                            <input type="checkbox" name="category" value="Calculated" class="rounded text-blue-600">
+                                            <span class="text-sm text-gray-700">Calculated</span>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div class="mb-5">
+                                    <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Sort By</label>
+                                    <select id="sortBy" class="w-full border rounded-md px-3 py-2 text-sm">
+                                        <option value="">None</option>
+                                        <option value="date-desc">Date – Newest First</option>
+                                        <option value="date-asc">Date – Oldest First</option>
+                                        <option value="gross-desc">Gross – High to Low</option>
+                                        <option value="gross-asc">Gross – Low to High</option>
+                                        <option value="count-desc">Employees – High to Low</option>
+                                        <option value="count-asc">Employees – Low to High</option>
+                                    </select>
+                                </div>
+
+                                <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700">
+                                    Apply Filters
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <!-- Table -->
-            <div class="overflow-x-auto">
+            <div class="overflow-x-auto h-[calc(100vh-250px)]">
                 <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
+                    <thead class="bg-gray-50 sticky top-0 z-10">
                         <tr>
                             <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Pay Run #</th>
                             <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Pay Period</th>
@@ -672,39 +735,53 @@
                             <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Action</th>
                         </tr>
                     </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
+                    <tbody id="payrollTableBody" class="bg-white divide-y divide-gray-200">
                         @foreach (var run in Model.PayrollRuns)
                         {
                             <tr class="hover:bg-gray-50 cursor-pointer transition-colors payroll-row"
                                 data-id="@run.Id"
-                                data-payrunnumber="@run.PayRunNumber"
-                                data-payperiod="@run.PayPeriodStart.ToString("yyyy-MM-dd") – @run.PayPeriodEnd.ToString("yyyy-MM-dd")"
-                                data-paydate="@run.PayDate.ToString("yyyy-MM-dd")"
-                                data-paytype="@run.PayPeriodType"
-                                data-employees="@run.TotalEmployees"
-                                data-grosstotal="@run.TotalGrossSalary.ToString("N2")"
-                                data-status="@run.Status"
-                                data-description="@run.Description"
-                                data-approvedby="@run.ApprovedBy">
-
+                                data-payslips="@JsonConvert.SerializeObject(run.Items)"
+                                onclick="selectPayrollRow(this)"
+                                id="payroll-row-@run.Id">
                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">@run.PayRunNumber</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">@run.PayPeriodStart.ToString("yyyy-MM-dd") – @run.PayPeriodEnd.ToString("yyyy-MM-dd")</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">@run.PayDate.ToString("yyyy-MM-dd")</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">@run.PayPeriodStart.ToString("MMM dd") – @run.PayPeriodEnd.ToString("MMM dd, yyyy")</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">@run.PayDate.ToString("MMM dd, yyyy")</td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">@run.PayPeriodType</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">@run.TotalEmployees</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">@run.TotalGrossSalary.ToString("N2")</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">@run.TotalNetSalary.ToString("N2")</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">@run.TotalEmployees</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">₱@run.TotalGrossSalary.ToString("N2")</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">₱@run.TotalNetSalary.ToString("N2")</td>
                                 <td class="px-6 py-4 whitespace-nowrap">
-                                    <span class="px-3 py-1 inline-flex items-center text-xs leading-5 font-semibold rounded-full @(run.Status == "Calculated" ? "bg-blue-100 text-yellow-800" : "bg-green-100 text-green-800")">
+                                    <span class="px-3 py-1 inline-flex items-center text-xs leading-5 font-semibold rounded-full
+                                    @(run.Status == "Calculated" ? "bg-blue-100 text-blue-800" :
+                                      run.Status == "Approved" ? "bg-green-100 text-green-800" :
+                                      run.Status == "Declined" ? "bg-red-100 text-red-800" :
+                                      "bg-gray-100 text-gray-800")">
                                         @run.Status
                                     </span>
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <button onclick="releasePayroll('@run.Id')"
-                                            class="px-4 py-2 bg-gray-100 text-gray-600 text-sm font-medium rounded-lg"
-                                    @(run.Status == "Released" ? "disabled style='opacity:0.5;cursor:not-allowed;'" : "")>
-                                        Release
-                                    </button>
+                                <td class="px-6 py-4 whitespace-nowrap space-x-2">
+                                    @if (run.Status == "Approved" || run.Status == "Declined")
+                                    {
+                                        <button disabled
+                                                class="px-3 py-1.5 bg-gray-100 text-gray-400 text-xs font-medium rounded cursor-not-allowed">
+                                            Approve
+                                        </button>
+                                        <button disabled
+                                                class="px-3 py-1.5 bg-gray-100 text-gray-400 text-xs font-medium rounded cursor-not-allowed">
+                                            Decline
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <button onclick="releasePayroll('@run.Id', 'Approved')"
+                                                class="px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-xs font-medium rounded transition">
+                                            Approve
+                                        </button>
+                                        <button onclick="releasePayroll('@run.Id', 'Declined')"
+                                                class="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-medium rounded transition">
+                                            Decline
+                                        </button>
+                                    }
                                 </td>
                             </tr>
                         }
@@ -712,25 +789,273 @@
                 </table>
             </div>
         </div>
-
-
-        <!-- RIGHT: Payroll Details Panel (1/4 width) -->
-        <div id="payroll-details" class="lg:col-span-1 bg-white rounded-2xl shadow-md p-6 border border-gray-200 h-fit sticky top-24">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-bold text-[#A36A66]">Payroll Details</h3>
-                <button class="text-gray-400 hover:text-gray-600 transition-colors" onclick="clearDetails()">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                    </svg>
-                </button>
+        <!-- End left -->
+        <!-- RIGHT: Payslip Details Panel (40% width) -->
+        <div class="lg:col-span-2 bg-white rounded-2xl shadow-md overflow-hidden flex flex-col">
+            <div class="p-6 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
+                <h2 class="text-2xl font-bold text-[#A36A66]">Payslip Details</h2>
+                <p class="text-[#A36A66] text-sm mt-1" id="selectedPayrunInfo">Select a pay run to view payslips</p>
             </div>
 
-            <div id="details-content">
-                <p class="text-gray-500 text-sm">Select a payroll run to see details.</p>
+            <div class="flex-1 overflow-auto p-4" id="payslipTableContainer">
+                <!-- Default empty state -->
+                <div class="h-full flex flex-col items-center justify-center text-gray-400">
+                    <div class="text-center mb-8">
+                        <div class="w-20 h-20 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
+                            <svg class="w-10 h-10 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                      d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                            </svg>
+                        </div>
+                        <h3 class="text-lg font-medium text-gray-500 mb-2">No Pay Run Selected</h3>
+                        <p class="text-sm text-gray-400 max-w-xs">Click on any pay run from the left table to view individual payslips</p>
+                    </div>
+                </div>
             </div>
         </div>
-
     </div>
+
+    <!-- JavaScript for row selection and payslip display -->
+    <script>
+        // Add this to your existing JavaScript code
+
+        // Global variable to track selected row
+        let selectedRowId = null;
+
+        function selectPayrollRow(row) {
+            // Remove highlight from all rows
+            document.querySelectorAll('.payroll-row').forEach(r => {
+                r.classList.remove('bg-blue-50', 'border-l-4', 'border-l-blue-500', 'shadow-sm');
+                r.classList.add('hover:bg-gray-50');
+            });
+
+            // Add highlight to clicked row
+            row.classList.remove('hover:bg-gray-50');
+            row.classList.add('bg-blue-50', 'border-l-4', 'border-l-blue-500', 'shadow-sm');
+
+            // Update selected row ID
+            selectedRowId = row.dataset.id;
+
+            try {
+                // Parse the payslips data
+                const payslipsData = JSON.parse(row.dataset.payslips);
+
+                // Get payrun details from the row
+                const payrunNumber = row.cells[0].textContent;
+                const payPeriod = row.cells[1].textContent;
+                const payDate = row.cells[2].textContent;
+                const payType = row.cells[3].textContent;
+                const employeeCount = row.cells[4].textContent;
+                const grossTotal = row.cells[5].textContent;
+                const netTotal = row.cells[6].textContent;
+
+                // Update the right panel info
+                document.getElementById('selectedPayrunInfo').innerHTML =
+                    `<span class="font-semibold">${payrunNumber}</span> • ${payDate} • ${payType}<br>
+                     <span class="text-xs">${employeeCount} employees • Gross: ${grossTotal} • Net: ${netTotal}</span>`;
+
+                // Display payslips table
+                displayPayslipsTable(payslipsData, payrunNumber);
+            } catch (error) {
+                console.error('Error parsing payslips data:', error);
+                document.getElementById('payslipTableContainer').innerHTML =
+                    '<div class="text-center py-10 text-red-500">Error loading payslip data</div>';
+            }
+        }
+
+        function displayPayslipsTable(payslips, payrunNumber) {
+            const container = document.getElementById('payslipTableContainer');
+
+            if (!payslips || payslips.length === 0) {
+                container.innerHTML = `
+                    <div class="h-full flex flex-col items-center justify-center text-gray-400">
+                        <div class="text-center">
+                            <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-yellow-50 flex items-center justify-center">
+                                <svg class="w-8 h-8 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                          d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.464 0L4.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                                </svg>
+                            </div>
+                            <h3 class="text-lg font-medium text-gray-600 mb-2">No Payslips Found</h3>
+                            <p class="text-sm text-gray-500">No payslip data available for this pay run</p>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            // Create the table HTML
+            const tableHtml = `
+                <div class="mb-4">
+                    <div class="flex justify-between items-center mb-3">
+                        <h3 class="font-semibold text-gray-700">Employee Payslips</h3>
+                        <span class="text-sm text-gray-500">${payslips.length} records</span>
+                    </div>
+
+                    <div class="overflow-x-auto rounded-lg border border-gray-200">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Employee</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Position</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Days</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Gross</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Net</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                ${payslips.map((payslip, index) => `
+                                    <tr class="${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-gray-100 transition-colors">
+                                        <td class="px-4 py-3 whitespace-nowrap">
+                                            <div class="flex items-center">
+                                                <div class="flex-shrink-0 h-8 w-8 bg-blue-100 rounded-full flex items-center justify-center mr-3">
+                                                    <span class="text-xs font-medium text-blue-600">
+                                                        ${(payslip.EmployeeName || 'N/A').charAt(0)}
+                                                    </span>
+                                                </div>
+                                                <div>
+                                                    <div class="text-sm font-medium text-gray-900">${escapeHtml(payslip.EmployeeName || 'N/A')}</div>
+                                                    <div class="text-xs text-gray-500">${escapeHtml(payslip.Department || '')}</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">${escapeHtml(payslip.Position || 'N/A')}</td>
+                                        <td class="px-4 py-3 whitespace-nowrap text-center">
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                ${payslip.TotalWorkingDays || 0}
+                                            </span>
+                                        </td>
+                                        <td class="px-4 py-3 whitespace-nowrap text-sm font-semibold text-gray-900">${formatCurrency(payslip.GrossSalary || 0)}</td>
+                                        <td class="px-4 py-3 whitespace-nowrap text-sm font-semibold text-green-600">${formatCurrency(payslip.NetSalary || 0)}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                            <tfoot class="bg-gray-50 border-t border-gray-200">
+                                <tr>
+                                    <td colspan="3" class="px-4 py-3 text-sm font-semibold text-gray-700 text-right">Totals:</td>
+                                    <td class="px-4 py-3 text-sm font-bold text-gray-900 border-l border-gray-200">
+                                        ${formatCurrency(payslips.reduce((sum, p) => sum + (p.GrossSalary || 0), 0))}
+                                    </td>
+                                    <td class="px-4 py-3 text-sm font-bold text-green-600 border-l border-gray-200">
+                                        ${formatCurrency(payslips.reduce((sum, p) => sum + (p.NetSalary || 0), 0))}
+                                    </td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+
+                    <div class="mt-4 grid grid-cols-2 gap-3">
+                        <div class="bg-blue-50 p-3 rounded-lg">
+                            <p class="text-xs text-blue-600 font-medium">Average Gross</p>
+                            <p class="text-lg font-bold text-blue-700">
+                                ${formatCurrency(payslips.reduce((sum, p) => sum + (p.GrossSalary || 0), 0) / payslips.length)}
+                            </p>
+                        </div>
+                        <div class="bg-green-50 p-3 rounded-lg">
+                            <p class="text-xs text-green-600 font-medium">Average Net</p>
+                            <p class="text-lg font-bold text-green-700">
+                                ${formatCurrency(payslips.reduce((sum, p) => sum + (p.NetSalary || 0), 0) / payslips.length)}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            container.innerHTML = tableHtml;
+        }
+
+        // Helper function to format currency
+        function formatCurrency(amount) {
+            return Number(amount).toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
+        }
+
+        // Helper function to escape HTML (prevent XSS)
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Initialize by selecting the first row if exists
+        document.addEventListener('DOMContentLoaded', function() {
+            const firstRow = document.querySelector('.payroll-row');
+            if (firstRow) {
+                // Add a small delay to ensure DOM is ready
+                setTimeout(() => selectPayrollRow(firstRow), 100);
+            }
+
+            // Add click event to filter button toggle
+            const filterButton = document.getElementById('filterButtonPayroll');
+            const filterDropdown = document.getElementById('filterDropdownPayroll');
+
+            if (filterButton && filterDropdown) {
+                filterButton.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    filterDropdown.classList.toggle('hidden');
+                });
+
+                // Close dropdown when clicking outside
+                document.addEventListener('click', function() {
+                    filterDropdown.classList.add('hidden');
+                });
+
+                filterDropdown.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                });
+            }
+        });
+
+        // Optional: Add keyboard navigation
+        document.addEventListener('keydown', function(e) {
+            if (!selectedRowId) return;
+
+            const rows = Array.from(document.querySelectorAll('.payroll-row'));
+            const currentIndex = rows.findIndex(row => row.dataset.id === selectedRowId);
+
+            if (e.key === 'ArrowDown' && currentIndex < rows.length - 1) {
+                selectPayrollRow(rows[currentIndex + 1]);
+                e.preventDefault();
+            } else if (e.key === 'ArrowUp' && currentIndex > 0) {
+                selectPayrollRow(rows[currentIndex - 1]);
+                e.preventDefault();
+            }
+        });
+    </script>
+
+    <!-- Add this CSS for better styling -->
+    <style>
+        .payroll-row {
+            transition: all 0.2s ease;
+        }
+
+            .payroll-row:hover {
+                background-color: #f9fafb;
+                transform: translateX(1px);
+            }
+
+        #payslipTableContainer {
+            scrollbar-width: thin;
+            scrollbar-color: #cbd5e0 #f7fafc;
+        }
+
+            #payslipTableContainer::-webkit-scrollbar {
+                width: 6px;
+            }
+
+            #payslipTableContainer::-webkit-scrollbar-track {
+                background: #f7fafc;
+                border-radius: 3px;
+            }
+
+            #payslipTableContainer::-webkit-scrollbar-thumb {
+                background-color: #cbd5e0;
+                border-radius: 3px;
+            }
+
+    </style>
+    @* end of new *@
+
 
 
 <!-- PREVIEW/DETAILS MODAL -->
@@ -1450,6 +1775,29 @@
         </div>
     </div>
 
+<!-- APPROVAL CONFIRMATION MODAL -->
+<div id="approveModal" class="fixed inset-0 bg-black/50 hidden flex items-center justify-center z-50 backdrop-blur-sm">
+  <div class="bg-white rounded-xl shadow-lg p-6 w-full max-w-md">
+    <h2 class="text-xl font-bold text-green-700 mb-4">Confirm Approval</h2>
+    <p class="text-gray-700 mb-6">Are you sure you want to approve this payroll?</p>
+    <div class="flex justify-end gap-3">
+      <button onclick="closeApproveModal()" class="px-4 py-2 bg-gray-200 rounded-lg">Cancel</button>
+      <button id="approveConfirmBtn" class="px-4 py-2 bg-green-600 text-white rounded-lg">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- DECLINE CONFIRMATION MODAL -->
+<div id="declineModal" class="fixed inset-0 bg-black/50 hidden flex items-center justify-center z-50 backdrop-blur-sm">
+  <div class="bg-white rounded-xl shadow-lg p-6 w-full max-w-md">
+    <h2 class="text-xl font-bold text-red-700 mb-4">Confirm Decline</h2>
+    <p class="text-gray-700 mb-6">Are you sure you want to decline this payroll?</p>
+    <div class="flex justify-end gap-3">
+      <button onclick="closeDeclineModal()" class="px-4 py-2 bg-gray-200 rounded-lg">Cancel</button>
+      <button id="declineConfirmBtn" class="px-4 py-2 bg-red-600 text-white rounded-lg">Confirm</button>
+    </div>
+  </div>
+</div>
 <script>
     function closeTransactionModal() {
         const modal = document.getElementById("transactionDetailsModal");
@@ -1458,291 +1806,6 @@
     }
 </script>
 
-
-
-@* <script> *@
-@*     let currentExpenseId = null; *@
-@*     let currentExpenseAmount = null; *@
-@*     const AVAILABLE_BALANCE = @Model.Balance.CurrentBalance; // This should be dynamic from backend *@
-
-@*     function formatCurrency(amount) { *@
-@*         return '₱' + parseFloat(amount).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); *@
-@*     } *@
-
-@*     // Helper function to calculate balance after approval *@
-@*     function calculateBalanceAfter(expenseAmount) { *@
-@*         const amount = parseFloat(expenseAmount.replace(/,/g, '')); *@
-@*         return AVAILABLE_BALANCE - amount; *@
-@*     } *@
-
-@*     // Check if balance is sufficient *@
-@*     function checkBalance(expenseAmount) { *@
-@*         const amount = parseFloat(expenseAmount.replace(/,/g, '')); *@
-@*         return AVAILABLE_BALANCE >= amount; *@
-@*     } *@
-
-@*     // Show low balance alert *@
-@*     function checkLowBalance() { *@
-@*         const alertDiv = document.getElementById('balanceAlert'); *@
-@*         if (AVAILABLE_BALANCE < 20000) { *@
-@*             alertDiv.classList.remove('hidden'); *@
-@*         } *@
-@*     } *@
-
-@*     // Initialize page *@
-@*     document.addEventListener('DOMContentLoaded', function() { *@
-@*         checkLowBalance(); *@
-@*     }); *@
-
-@*     // Add Expense Modal - Show *@
-@*     document.getElementById("openModalBtn").addEventListener("click", function () { *@
-@*         alert("Hello") *@
-@*         document.getElementById("expenseModal").classList.remove("hidden"); *@
-@*         document.getElementById("expenseModal").classList.add("flex"); *@
-@*     }); *@
-
-@*     // Add Expense Modal - Close *@
-@*     document.getElementById("closeModalBtn").addEventListener("click", function () { *@
-@*         document.getElementById("expenseModal").classList.add("hidden"); *@
-@*         document.getElementById("expenseModal").classList.remove("flex"); *@
-@*     }); *@
-
-@*     // Preview Modal - Open and populate with expense data *@
-@*     document.querySelectorAll(".view-details-btn").forEach(button => { *@
-@*         button.addEventListener("click", function () { *@
-@*             // Get data from button attributes *@
-@*             const expenseId = this.getAttribute("data-expense-id"); *@
-@*             const requester = this.getAttribute("data-requester"); *@
-@*             const department = this.getAttribute("data-department"); *@
-@*             const type = this.getAttribute("data-type"); *@
-@*             const amount = this.getAttribute("data-amount"); *@
-@*             const description = this.getAttribute("data-description"); *@
-@*             const notes = this.getAttribute("data-notes") || "No additional notes provided"; *@
-@*             const status = this.getAttribute("data-status"); *@
-@*             const id = this.getAttribute("data-id"); *@
-
-@*             // Store for later use *@
-@*             currentExpenseId = id; *@
-@*             currentExpenseAmount = amount; *@
-
-@*             // Calculate balance after approval *@
-@*             const balanceAfter = calculateBalanceAfter(amount); *@
-@*             // Populate preview modal *@
-@*             document.getElementById("preview-expense-id").textContent = expenseId; *@
-@*             document.getElementById("preview-requester").textContent = requester; *@
-@*             document.getElementById("preview-requester-initial").textContent = requester.substring(0, 1).toUpperCase(); *@
-@*             document.getElementById("preview-department").textContent = department; *@
-@*             document.getElementById("preview-type").textContent = type; *@
-@*             document.getElementById("preview-amount").textContent = "₱" + amount; *@
-@*             document.getElementById("preview-description").textContent = description; *@
-@*             document.getElementById("preview-notes").textContent = notes; *@
-@*             document.getElementById("preview-status").textContent = status; *@
-@*             document.getElementById("balance-after-approval").textContent = formatCurrency(balanceAfter); *@
-
-@*             // Show preview modal *@
-@*             document.getElementById("previewModal").classList.remove("hidden"); *@
-@*             document.getElementById("previewModal").classList.add("flex"); *@
-@*         }); *@
-@*     }); *@
-
-@*     // Preview Modal - Close *@
-@*     document.getElementById("closePreviewBtn").addEventListener("click", function () { *@
-@*         document.getElementById("previewModal").classList.add("hidden"); *@
-@*         document.getElementById("previewModal").classList.remove("flex"); *@
-@*     }); *@
-
-@*     document.getElementById("cancelPreviewBtn").addEventListener("click", function () { *@
-@*         document.getElementById("previewModal").classList.add("hidden"); *@
-@*         document.getElementById("previewModal").classList.remove("flex"); *@
-@*     }); *@
-
-@*      const approvedbuttons = document.querySelectorAll(".approveBtn"); *@
-@*     approvedbuttons.forEach(approveBtn => { *@
-@*         approveBtn.addEventListener("click", async function (event) { *@
-@*             // Close preview modals *@
-@*             ["previewModal", "ingredientRequestModal"].forEach(id => { *@
-@*                 document.getElementById(id).classList.add("hidden"); *@
-@*                 document.getElementById(id).classList.remove("flex"); *@
-@*             }); *@
-@*             alert(I'm here') *@
-@*             const r = window.selectedStockRequest; *@
-@*             const requestType = event.currentTarget.dataset.requestType; *@
-@*             let isSufficient = true; *@
-@*             let balanceAfter = 0;  *@
-@*             let amountToUse = 0; *@
-
-@*             if (requestType === "stock_expense") { *@
-@*                 document.getElementById("approve-expense-id").value = "No Id yet"; *@
-@*                 document.getElementById("request-id").value = window.selectedStockRequest.Id; *@
-@*                 document.getElementById("transfer-amount-display").value = "₱" + r.TotalCost; *@
-@*                 document.getElementById("transfer-amount-display-main").textContent = "₱" + r.TotalCost; *@
-
-@*                 amountToUse = r.TotalCost; *@
-@*             } else { *@
-
-@*             alert(I'm here1') *@
-@*                 document.getElementById("approve-expense-id").value = currentExpenseId; *@
-@*                 document.getElementById("transfer-amount-display").value = "₱" + currentExpenseAmount; *@
-@*                 document.getElementById("transfer-amount-display-main").textContent = "₱" + currentExpenseAmount; *@
-@*                 amountToUse = currentExpenseAmount; *@
-@*             alert(I'm here2') *@
-@*             } *@
-
-@*             // Calculate balance after transfer and check sufficiency *@
-@*             alert(I'm here3') *@
-@*             balanceAfter = calculateBalanceAfter(amountToUse); *@
-@*             document.getElementById("balance-after-transfer").textContent = formatCurrency(balanceAfter); *@
-@*             alert(I'm here4') *@
-@*             isSufficient = checkBalance(amountToUse); *@
-@*             alert(I'm here5') *@
-
-@*             const warningDiv = document.getElementById("insufficientBalanceWarning"); *@
-@*             const submitBtn = document.getElementById("confirmApproveBtn"); *@
-
-@*             if (!isSufficient) { *@
-@*                 warningDiv.classList.remove("hidden"); *@
-@*                 submitBtn.disabled = true; *@
-@*                 submitBtn.classList.add("opacity-50", "cursor-not-allowed"); *@
-
-@*                 document.getElementById("balance-after-transfer").classList.add("text-red-600"); *@
-@*                 document.getElementById("balance-after-transfer").classList.remove("text-green-900"); *@
-@*             } else { *@
-
-@*                 // If stock expense, create the expense record *@
-@*                 if (requestType === "stock_expense") { *@
-@*                     const stockExpenseData = { *@
-@*                         Department: "Inventory", *@
-@*                         ExpenseType: "Ingredient Stock Request", *@
-@*                         RequestedBy: r.RequestedBy, *@
-@*                         Amount: r.TotalCost, *@
-@*                         Description: `Replenishment: ${r.IngredientName} (${r.Quantity} ${r.Unit})`, *@
-@*                         Notes: "Generated via One-Click Approval.", *@
-@*                         isIngredientsRequest: true *@
-@*                     }; *@
-
-@*                     const formData = new FormData(); *@
-@*                     for (const key in stockExpenseData) { *@
-@*                         formData.append(key, stockExpenseData[key]); *@
-@*                     } *@
-
-@*     try { *@
-@*         // FIRST REQUEST — Add Expense *@
-@*         const response1 = await fetch('/Sales_Finance/AddExpense', { *@
-@*             method: 'POST', *@
-@*             body: formData *@
-@*         }); *@
-
-@*         const result1 = await response1.json(); *@
-
-@*         if (result1.success) { *@
-@*             alert("Expense Created:", result1.expenseId); *@
-@*             document.getElementById("approve-expense-id").value = result1.expenseId; *@
-
-@*             // SECOND REQUEST — Update Stock Request Status *@
-@*     const response2 = await fetch(`/Sales_Finance/UpdatedStockRequestStatus?id=${window.selectedStockRequest.Id}&expenseId=${result1.expenseId}`, { *@
-@*         method: "POST" *@
-@*     }); *@
-
-
-@*             const result2 = await response2.json(); *@
-
-@*             if (result2.success) { *@
-@*                 alert("Stock Request status updated!"); *@
-@*             } else { *@
-@*                 alert("Failed to update stock request status."); *@
-@*             } *@
-
-@*         } else { *@
-@*             alert("Failed to submit stock request."); *@
-@*         } *@
-
-@*     } catch (error) { *@
-@*         console.error("Network Error:", error); *@
-@*         alert("A network error occurred."); *@
-@*     } *@
-
-@*                 } *@
-
-@*                 // Reset warning and submit button *@
-@*                 warningDiv.classList.add("hidden"); *@
-@*                 submitBtn.disabled = false; *@
-@*                 submitBtn.classList.remove("opacity-50", "cursor-not-allowed"); *@
-
-@*                 // Update balance after color *@
-@*                 if (balanceAfter < 20000) { *@
-@*                     document.getElementById("balance-after-transfer").classList.add("text-yellow-600"); *@
-@*                     document.getElementById("balance-after-transfer").classList.remove("text-green-900"); *@
-@*                 } else { *@
-@*                     document.getElementById("balance-after-transfer").classList.add("text-green-900"); *@
-@*                     document.getElementById("balance-after-transfer").classList.remove("text-yellow-600"); *@
-@*                 } *@
-@*                 // Show modal *@
-@*                 document.getElementById("transferFundModal").classList.remove("hidden"); *@
-@*                 document.getElementById("transferFundModal").classList.add("flex"); *@
-@*             } *@
-@*         }); *@
-@*     }); *@
-
-@*         // Transfer Fund Modal - Cancel *@
-@*     document.getElementById("cancelTransferBtn").addEventListener("click", function () { *@
-@*         document.getElementById("transferFundModal").classList.add("hidden"); *@
-@*         document.getElementById("transferFundModal").classList.remove("flex"); *@
-
-@*         // Clear form *@
-@*         document.getElementById("approveForm").reset(); *@
-@*     }); *@
-
-@*     // Decline Button - Show Decline Reason Modal *@
-@*     document.getElementById("declineBtn").addEventListener("click", function () { *@
-@*         // Close preview modal *@
-@*         document.getElementById("previewModal").classList.add("hidden"); *@
-@*         document.getElementById("previewModal").classList.remove("flex"); *@
-
-@*         // Set expense ID *@
-@*         document.getElementById("decline-expense-id").value = currentExpenseId; *@
-@*         document.getElementById("is-stock-request").value = false; *@
-
-@*         // Show decline reason modal *@
-@*         document.getElementById("declineReasonModal").classList.remove("hidden"); *@
-@*         document.getElementById("declineReasonModal").classList.add("flex"); *@
-@*     }); *@
-
-@*     // Decline Reason Modal - Cancel *@
-@*     document.getElementById("cancelDeclineBtn").addEventListener("click", function () { *@
-@*         document.getElementById("declineReasonModal").classList.add("hidden"); *@
-@*         document.getElementById("declineReasonModal").classList.remove("flex"); *@
-
-@*         // Clear form *@
-@*         document.getElementById("declineForm").reset(); *@
-@*     }); *@
-
-
-
-@*     // Decline Button FROM INGRIDIENTS STOCK REQUEST *@
-@*     document.getElementById("declineRequestBtn").addEventListener("click", function () { *@
-@*         // Close preview modal *@
-@*         document.getElementById("ingredientRequestModal").classList.add("hidden"); *@
-@*         document.getElementById("ingredientRequestModal").classList.remove("flex"); *@
-
-@*         // Set expense ID *@
-@*         document.getElementById("decline-expense-id").value = window.selectedStockRequest.Id; *@
-@*         document.getElementById("is-stock-request").value = true; *@
-
-@*         // Show decline reason modal *@
-@*         document.getElementById("declineReasonModal").classList.remove("hidden"); *@
-@*         document.getElementById("declineReasonModal").classList.add("flex"); *@
-@*     }); *@
-
-@*     // Decline Reason Modal - Cancel *@
-@*     document.getElementById("cancelDeclineBtn").addEventListener("click", function () { *@
-@*         document.getElementById("declineReasonModal").classList.add("hidden"); *@
-@*         document.getElementById("declineReasonModal").classList.remove("flex"); *@
-
-@*         // Clear form *@
-@*         document.getElementById("declineForm").reset(); *@
-@*     }); *@
-
-@* </script> *@
 
     <script>
         let currentExpenseId = null;
@@ -2216,13 +2279,30 @@
             document.getElementById('details-content').innerHTML = '<p class="text-gray-500 text-sm">Select a payroll run to see details.</p>';
         }
     </script>
-
+ 
 
     <script>
-        async function releasePayroll(id) {
-            if (!confirm("Release payroll?")) return;
+        async function releasePayroll(id, status) {
+            // Instead of confirm(), show the appropriate modal
+            if (status === "Approved") {
+                document.getElementById("approveModal").classList.remove("hidden");
+                // attach confirm action
+                document.getElementById("approveConfirmBtn").onclick = async () => {
+                    await sendPayrollRequest(id, status);
+                    closeApproveModal();
+                };
+            } else {
+                document.getElementById("declineModal").classList.remove("hidden");
+                // attach confirm action
+                document.getElementById("declineConfirmBtn").onclick = async () => {
+                    await sendPayrollRequest(id, status);
+                    closeDeclineModal();
+                };
+            }
+        }
 
-            const response = await fetch(`/Sales_Finance/ReleasePayroll?id=${id}`, {
+        async function sendPayrollRequest(id, status) {
+            const response = await fetch(`/Sales_Finance/ReleasePayroll?id=${id}&status=${status}`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json"
@@ -2232,25 +2312,30 @@
             const result = await response.json();
 
             if (result.success) {
-                alert("Payroll released successfully!");
                 location.reload();
             } else {
                 alert("Failed to release payroll.");
             }
         }
-    </script>
 
+        function closeApproveModal() {
+            document.getElementById("approveModal").classList.add("hidden");
+        }
+
+        function closeDeclineModal() {
+            document.getElementById("declineModal").classList.add("hidden");
+        }
+    </script>
 
     <script>
         document.addEventListener("DOMContentLoaded", function () {
-        const button = document.getElementById("filterButtonPayroll");
-        const dropdown = document.getElementById("filterDropdownPayroll");
-
+            const button = document.getElementById("filterButtonPayroll");
+            const dropdown = document.getElementById("filterDropdownPayroll");
 
             if (!button || !dropdown) return;
 
             button.addEventListener("click", function (e) {
-                e.stopPropagation();
+                e.stopPropagation(); // <-- FIX
                 dropdown.classList.toggle("hidden");
             });
 
@@ -2261,11 +2346,13 @@
             });
         });
     </script>
+
     <script>
         document.querySelectorAll(".review-btn").forEach(btn => {
             btn.addEventListener("click", () => {
                 const status = btn.dataset.status;
                 const respondedDate = btn.dataset.respondedDate;
+                alert(respondedDate)
 
                 document.getElementById("modal-title").textContent =
                     status === "Approved" ? "Approved Expense Details" :
@@ -2309,3 +2396,94 @@
             document.getElementById("expenseModal").classList.add("hidden");
         }
     </script>
+
+    <script>
+        /**
+         * Resets the filter form and reapplies filters to show all payroll runs.
+         */
+        function resetPayrollFilters() {
+            document.getElementById("filterFormPayroll").reset();
+            applyPayrollFilters();
+        }
+
+        /**
+         * Filters and sorts the payroll table rows based on selected criteria.
+         */
+        function applyPayrollFilters() {
+            const tbody = document.querySelector("#payrollTableBody");
+
+            // CRITICAL SAFETY CHECK: Ensure the tbody element is found.
+            if (!tbody) {
+                console.error("Error: The table body with ID '#payrollTableBody' was not found. Please ensure the <tbody> tag has this ID.");
+                return;
+            }
+
+            const rows = Array.from(tbody.querySelectorAll("tr"));
+
+            // CATEGORY FILTER (Status)
+            const selectedCategories = Array.from(document.querySelectorAll("input[name='category']:checked"))
+                .map(cb => cb.value);
+
+            let filteredRows = rows;
+
+            if (selectedCategories.length > 0) {
+                filteredRows = filteredRows.filter(row => {
+                    const status = row.dataset.status;
+                    return selectedCategories.includes(status);
+                });
+            }
+
+            // SORTING
+            const sortBy = document.getElementById("sortBy").value;
+
+            filteredRows.sort((a, b) => {
+                const getValue = (row, type) => {
+                    switch (type) {
+                        case "date":
+                            // Use .getTime() for reliable numeric date comparison
+                            const dateValue = new Date(row.dataset.date);
+                            return isNaN(dateValue.getTime()) ? 0 : dateValue.getTime();
+                        case "gross":
+                            // FIX: Remove commas (',') before parsing to handle localized currency strings
+                            const grossValue = row.dataset.gross ? row.dataset.gross.replace(/,/g, '') : '0';
+                            return parseFloat(grossValue) || 0;
+                        case "count":
+                            return parseInt(row.dataset.count) || 0;
+                        default: return 0;
+                    }
+                };
+
+                // Implement sorting logic based on selected option
+                switch (sortBy) {
+                    case "date-desc": return getValue(b, "date") - getValue(a, "date");
+                    case "date-asc": return getValue(a, "date") - getValue(b, "date");
+
+                    case "gross-desc": return getValue(b, "gross") - getValue(a, "gross");
+                    case "gross-asc": return getValue(a, "gross") - getValue(b, "gross");
+
+                    case "count-desc": return getValue(b, "count") - getValue(a, "count");
+                    case "count-asc": return getValue(a, "count") - getValue(b, "count");
+
+                    default: return 0; // No sorting applied
+                }
+            });
+
+            // RENDER BACK (Re-insert the filtered and sorted rows)
+            tbody.innerHTML = "";
+            filteredRows.forEach(r => tbody.appendChild(r));
+        }
+
+        // UI FUNCTIONALITY: Toggle the visibility of the filter dropdown
+        // document.addEventListener('DOMContentLoaded', () => {
+        //     const filterButton = document.getElementById('filterButtonPayroll');
+        //     const filterDropdown = document.getElementById('filterDropdownPayroll');
+
+        //     if (filterButton && filterDropdown) {
+        //         filterButton.addEventListener('click', () => {
+        //             filterDropdown.classList.toggle('hidden');
+        //         });
+        //     }
+        // });
+    </script>
+
+

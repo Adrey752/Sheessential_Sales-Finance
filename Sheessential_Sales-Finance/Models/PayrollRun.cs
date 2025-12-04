@@ -267,9 +267,6 @@
         [BsonElement("isManuallyAdjusted")]
         public bool IsManuallyAdjusted { get; set; }
 
-        // Note: 'adjustmentHistory' and 'netSalary' were often null/object/decimal in the source.
-        // We handle 'adjustmentHistory' as a nullable list of strings/objects if needed, 
-        // but for simplicity, we map it as a nullable object reference.
         [BsonElement("adjustmentHistory")]
         public object? AdjustmentHistory { get; set; }
     }
