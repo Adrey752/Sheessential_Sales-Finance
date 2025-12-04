@@ -750,14 +750,14 @@ namespace Sheessential_Sales_Finance.Controllers
 
             return $"INV-{nextNumber:D5}";
         }
-
+        
         [HttpGet]
         public IActionResult GetProductSales(string productId, string period = "month")
         {
             if (string.IsNullOrEmpty(productId))
                 return Json(new { message = "Missing product ID" });
 
-            var productSales = _mongo.ProductSalesInventory.Find(product => product.Id == productId).ToList();
+            var productSales = _mongo.ProductSalesInventory.Find(product => product.VariantId == productId).ToList();
 
             if (!productSales.Any())
                 return Json(new { message = "No sales data found" });
@@ -1168,7 +1168,8 @@ namespace Sheessential_Sales_Finance.Controllers
 
                 var update = Builders<Expenses>.Update
                     .Set(e => e.Status, "Declined")
-                    .Set(e => e.Notes, DeclineReason);
+                    .Set(e => e.Notes, DeclineReason)
+                    .Set(e => e.DateApproved, DateTime.UtcNow);
 
                 var result = _mongo.Expenses.UpdateOne(filter, update);
 
@@ -2384,7 +2385,7 @@ namespace Sheessential_Sales_Finance.Controllers
 
             // 3. Update payroll run status
             var update = Builders<PayrollRun>.Update
-                .Set(r => r.Status, "Released")
+                .Set(r => r.Status, "Approved")
                 .Set(r => r.IsFinalized, true)
                 .Set(r => r.IsSentToFinance, true)
                 .Set(r => r.IsPayslipsGenerated, true)

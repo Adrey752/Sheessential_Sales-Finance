@@ -30,13 +30,23 @@
         public string PayPeriodType { get; set; } // e.g., "Semi-Monthly", "Monthly"
 
         [BsonElement("payRunNumber")]
-        public string PayRunNumber { get; set; }
+        public string PayRunNumber { get; set; }        
+        
+        [BsonElement("paidBy")]
+        public string PaidBy { get; set; }        
+        
+        
+        [BsonElement("paidAt")]
+        public string PaidAt { get; set; }
 
         [BsonElement("description")]
         public string Description { get; set; }
 
         [BsonElement("totalEmployees")]
-        public int TotalEmployees { get; set; }
+        public int TotalEmployees { get; set; }    
+        
+        [BsonElement("isPaid")]
+        public bool IsPaid { get; set; }
 
         // Summary Totals
         [BsonElement("totalGrossSalary")]
