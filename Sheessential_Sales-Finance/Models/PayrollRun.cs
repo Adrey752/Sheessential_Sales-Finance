@@ -12,6 +12,12 @@
         [BsonRepresentation(BsonType.ObjectId)]
         public string Id { get; set; }
 
+        [BsonElement("payslipsGeneratedAt")]
+        public DateTime? PayrollDate { get; set; }        
+        
+        [BsonElement("payslipsGeneratedBy")]
+        public string? Paygeneratedby { get; set; }
+
         // Period & Dates
         [BsonElement("payPeriodStart")]
         public DateTime PayPeriodStart { get; set; }
@@ -146,7 +152,9 @@
         public int TotalWorkingDays { get; set; }
 
         [BsonElement("daysPresent")]
-        public int DaysPresent { get; set; }
+        public int DaysPresent { get; set; }        
+        
+
 
         [BsonElement("daysAbsent")]
         public int DaysAbsent { get; set; }

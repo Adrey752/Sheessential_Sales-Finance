@@ -1,212 +1,4 @@
-﻿@* @model Sheessential_Sales_Finance.Models.InvoiceListViewModel *@
-@* @using Sheessential_Sales_Finance.Models *@
-@* @{ *@
-@*     ViewData["Title"] = "Invoices"; *@
-@* } *@
-
-@* <div class="p-6 space-y-6"> *@
-@*     <h1 class="text-3xl font-bold mb-6" style="color:#A36A66;"> *@
-@*         Payment Management *@
-@*     </h1> *@
-@*     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"> *@
-
-@*         <div class="bg-white rounded-2xl shadow-sm p-5 flex items-center gap-4 border border-gray-100"> *@
-@*             <i class="fa-solid fa-hourglass-half text-[#A36A66] text-3xl"></i> *@
-@*             <div> *@
-@*                 <p class="text-sm text-gray-500">Overdue Amount</p> *@
-@*                 <h2 class="text-xl font-semibold text-gray-800">₱@Model.OverdueAmount.ToString("N2")</h2> *@
-@*             </div> *@
-@*         </div> *@
-
-@*         <div class="bg-white rounded-2xl shadow-sm p-5 flex items-center gap-4 border border-gray-100"> *@
-@*             <i class="fa-solid fa-cart-shopping text-[#A36A66] text-3xl"></i> *@
-@*             <div> *@
-@*                 <p class="text-sm text-gray-500">Open Amount</p> *@
-@*                 <h2 class="text-xl font-semibold text-gray-800">₱@Model.OpenAmount.ToString("N2")</h2> *@
-@*             </div> *@
-@*         </div> *@
-
-@*         <div class="bg-white rounded-2xl shadow-sm p-5 flex items-center gap-4 border border-gray-100"> *@
-@*             <i class="fa-solid fa-pen-to-square text-[#A36A66] text-3xl"></i> *@
-@*             <div> *@
-@*                 <p class="text-sm text-gray-500">Drafted Amount</p> *@
-@*                 <h2 class="text-xl font-semibold text-gray-800">₱@Model.DraftedAmount.ToString("N2")</h2> *@
-@*             </div> *@
-@*         </div> *@
-
-@*         <div class="bg-white rounded-2xl shadow-sm p-5 flex items-center gap-4 border border-gray-100"> *@
-@*             <i class="fa-solid fa-user-group text-[#A36A66] text-3xl"></i> *@
-@*             <div> *@
-@*                 <p class="text-sm text-gray-500">Active Customer</p> *@
-@*                 <h2 class="text-xl font-semibold text-gray-800">@ViewBag.ActiveUsers</h2> @* STATIC VALUE *@ 
-@*             </div> *@
-@*         </div> *@
-@*     </div> *@
-
-@*     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6"> *@
-
-@*         <div class="col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 p-5"> *@
-@*             <div class="flex justify-between items-center mb-4"> *@
-@*                 <h2 class="text-lg font-semibold text-gray-700">All Invoices</h2> *@
-
-@*                 <div class="flex items-center gap-3"> *@
-@*                     <a class="bg-[#A36A66] hover:bg-[#935F5B] text-white text-sm font-medium px-4 py-2 rounded-xl shadow-md transition cursor-pointer" *@
-@*                        data-modal-target="newInvoiceModal"> *@
-@*                         <i class="fa-solid fa-plus mr-1"></i> New Invoice *@
-@*                     </a> *@
-
-
-@*                     <div class="relative"> *@
-@*                         <input type="text" *@
-@*                                id="searchBox" *@
-@*                                placeholder="Search here..." *@
-@*                                autocomplete="off" *@
-@*                                class="pl-10 pr-4 py-2.5 w-56 rounded-xl bg-gray-50 focus:bg-white focus:ring-2 focus:ring-pink-300 outline-none text-gray-600 text-sm transition" /> *@
-@*                         <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-gray-400"></i> *@
-
-@*                         <div id="searchSuggestions" *@
-@*                              class="absolute left-0 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg hidden z-50 overflow-hidden"></div> *@
-@*                     </div> *@
-@*                     <a href="/Sales_Finance/InvoiceArchieves" *@
-@*                        class="text-gray-500 hover:text-gray-700 border border-gray-300 hover:border-gray-400 *@
-@*              px-3 py-2 rounded-xl text-sm flex items-center gap-1 transition" *@
-@*                        title="View archived invoices"> *@
-@*                         <i class="fa-solid fa-box-archive"></i> *@
-@*                     </a> *@
-@*                 </div> *@
-@*             </div> *@
-
-@*             <div class="overflow-x-auto"> *@
-@*                 <table id="invoiceTable" class="min-w-full text-sm text-left border-t border-gray-100"> *@
-@*                     <thead class="bg-gray-50 text-gray-600 font-medium"> *@
-@*                         <tr> *@
-@*                             <th class="py-3 px-4">Status</th> *@
-@*                             <th class="py-3 px-4">Invoice #</th> *@
-@*                             <th class="py-3 px-4">Due Date</th> *@
-@*                             <th class="py-3 px-4">Customer</th> *@
-@*                             <th class="py-3 px-4 text-right">Amount</th> *@
-@*                             <th class="py-3 px-4 text-center">Actions</th> *@
-@*                         </tr> *@
-@*                     </thead> *@
-@*                     <tbody> *@
-@*                         @foreach (var invoice in Model.Invoices) *@
-@*                         { *@
-@*                             var statusColor = invoice.Status switch *@
-@*                             { *@
-@*                                 "Paid" => "bg-[#763F62] text-white", *@
-@*                                 "Unpaid" => "bg-[#A36A66] text-white", *@
-@*                                 "Overdue" => "bg-yellow-100 text-yellow-600", *@
-@*                                 "Partial" => "bg-blue-100 text-blue-600", *@
-@*                                 "Draft" => "bg-gray-100 text-gray-600", *@
-@*                                 "Cancelled" => "bg-red-100 text-red-600", *@
-@*                                 _ => "bg-gray-100 text-gray-600" *@
-@*                             }; *@
-
-@*                             <tr class="border-t transition cursor-pointer hover:bg-pink-50" *@
-@*                                 data-id="@invoice.Id" *@
-@*                                 data-invoice-number="@invoice.InvoiceNumber.ToLower()" *@
-@*                                 data-billed-to="@invoice.BilledTo.ToLower()" *@
-@*                                 data-due-date="@((invoice.DueDate?.ToString("dd MMM yyyy").ToLower()) ?? "")" *@
-@*                                 onclick="selectInvoice('@invoice.Id')"> *@
-@*                                 <td class="py-3 px-4"> *@
-@*                                     <span class="@statusColor text-xs px-3 py-1 rounded-full font-medium">@invoice.Status</span> *@
-@*                                 </td> *@
-@*                                 <td class="py-3 px-4 font-medium text-gray-700">@invoice.InvoiceNumber</td> *@
-@*                                 <td class="py-3 px-4 text-gray-600">@((invoice.DueDate?.ToString("dd MMM yyyy")) ?? "—")</td> *@
-@*                                 <td class="py-3 px-4 text-gray-700">@invoice.BilledTo</td> *@
-@*                                 <td class="py-3 px-4 text-right font-semibold text-gray-800">₱@invoice.Total.ToString("N2")</td> *@
-@*                                 <td class="py-3 px-4 text-center space-x-2"> *@
-@*                                     <button class="text-blue-500 hover:text-blue-700" *@
-@*                                             onclick="openUpdateModal('@invoice.Id', '@invoice.InvoiceNumber', '@invoice.Status')"> *@
-@*                                         <i class="fa-solid fa-pen-to-square"></i> *@
-@*                                     </button> *@
-@*                                     <button class="text-red-500 hover:text-red-700" *@
-@*                                             onclick="openDeleteModal('@invoice.Id', '@invoice.InvoiceNumber')"> *@
-@*                                         <i class="fa-solid fa-box-archive"></i> *@
-@*                                     </button> *@
-@*                                 </td> *@
-
-@*                             </tr> *@
-@*                         } *@
-@*                     </tbody> *@
-@*                 </table> *@
-@*             </div> *@
-@*         </div> *@
-
-
-@*         <div id="invoiceDetailContainer" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 text-sm text-gray-700"> *@
-@*             <p class="text-gray-500 text-center py-10">Select an invoice to view details</p> *@
-@*         </div> *@
-@*     </div> *@
-@* </div> *@
-
-
-@* 
-
-@* <div id="updateModal" class="fixed inset-0 bg-black bg-opacity-40 hidden items-center justify-center z-50"> *@
-@*     <div class="bg-white rounded-2xl shadow-lg w-[400px] p-6 relative"> *@
-@*         <button type="button" class="absolute top-3 right-4 text-gray-500 hover:text-gray-800 text-xl font-bold" onclick="closeModal('updateModal')">&times;</button> *@
-
-@*         <h2 class="text-lg font-semibold mb-4">Update Invoice Status</h2> *@
-
-@*         <form id="updateForm" asp-controller="Sales_Finance" asp-action="UpdateStatus"> *@
-@*             <input type="hidden" id="updateInvoiceId" /> *@
-@*             <p class="text-sm text-gray-600 mb-3">Invoice: <span id="updateInvoiceNumber" class="font-medium"></span></p> *@
-
-@*             <label for="updateStatus" class="text-sm font-medium text-gray-700">Select new status:</label> *@
-@*             <select id="updateStatus" class="w-full border border-gray-300 rounded-xl p-2 mt-1 text-sm focus:ring-1 focus:ring-pink-400"> *@
-@*                 <option value="Paid">Paid</option> *@
-@*                 <option value="Unpaid">Unpaid</option> *@
-@*             </select> *@
-
-@*             <div class="flex justify-end gap-3 mt-6"> *@
-@*                 <button type="button" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-xl" onclick="closeModal('updateModal')">Cancel</button> *@
-@*                 <button type="submit" class="px-4 py-2 bg-[#A36A66] hover:bg-pink-600 text-white rounded-xl">Update</button> *@
-@*             </div> *@
-@*         </form> *@
-@*     </div> *@
-@* </div> *@
-
-@* <div id="deleteModal" class="fixed inset-0 bg-black bg-opacity-40 hidden items-center justify-center z-50"> *@
-@*     <div class="bg-white rounded-2xl shadow-lg w-[400px] p-6 relative"> *@
-@*         <button type="button" class="absolute top-3 right-4 text-gray-500 hover:text-gray-800 text-xl font-bold" onclick="closeModal('deleteModal')">&times;</button> *@
-
-@*         <h2 class="text-lg font-semibold mb-4 text-red-600">Delete Invoice</h2> *@
-@*         <p class="text-sm text-gray-600 mb-2">To confirm deletion, type:</p> *@
-@*         <p class="text-sm font-semibold mb-4 text-gray-800">delete_<span id="deleteInvoiceNumber"></span></p> *@
-
-@*         <input type="hidden" id="deleteInvoiceId" /> *@
-@*         <input id="deleteConfirmInput" type="text" class="w-full border border-gray-300 rounded-xl p-2 text-sm mb-4 focus:ring-1 focus:ring-pink-400" placeholder="Type confirmation..." /> *@
-
-@*         <div class="flex justify-end gap-3"> *@
-@*             <button type="button" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-xl" onclick="closeModal('deleteModal')">Cancel</button> *@
-@*             <button id="confirmDeleteBtn" type="submit" disabled class="px-4 py-2 bg-red-400 text-white rounded-xl opacity-70 cursor-not-allowed">Delete</button> *@
-@*         </div> *@
-@*     </div> *@
-@* </div> *@
-
-
-@* @{ *@
-@*     var invoicesJson = System.Text.Json.JsonSerializer.Serialize(Model.Invoices); *@
-@*     var customersJson = System.Text.Json.JsonSerializer.Serialize(Model.Customers); *@
-@*     var productsJson = System.Text.Json.JsonSerializer.Serialize(Model.AvailableProducts); *@
-@* } *@
-
-@* <script> *@
-@*     window.appData = { *@
-@*         invoices: @Html.Raw(invoicesJson), *@
-@*         customers: @Html.Raw(customersJson), *@
-@*         availableProducts: @Html.Raw(productsJson) *@
-@*     }; *@
-@* </script> *@
-@* <script> *@
-@*     window.logoPath = '@Url.Content("~/images/Logo.jpg")'; *@
-@* </script>    *@
-
-@* <script src="~/js/Invoice.js"></script> *@
-
-
-@model Sheessential_Sales_Finance.Models.InvoiceListViewModel
+﻿@model Sheessential_Sales_Finance.Models.InvoiceListViewModel
 @using Sheessential_Sales_Finance.Models
 @{
     ViewData["Title"] = "Invoices";
@@ -327,6 +119,89 @@
                     </tbody>
                 </table>
             </div>
+
+            <!-- Pagination Controls -->
+            <div class="flex justify-between items-center mt-6 border-t border-gray-100 pt-4">
+                <div class="text-sm text-gray-600">
+                    Showing <span class="font-medium">@(((ViewBag.CurrentPage - 1) * ViewBag.PageSize) + 1)</span>
+                    to <span class="font-medium">@Math.Min(ViewBag.CurrentPage * ViewBag.PageSize, ViewBag.TotalOrders)</span>
+                    of <span class="font-medium">@ViewBag.TotalOrders</span> orders
+                </div>
+
+                <div class="flex space-x-2">
+                    @if (ViewBag.CurrentPage > 1)
+                    {
+                        <a href="@Url.Action("Invoices", new { page = ViewBag.CurrentPage - 1 })"
+                           class="px-4 py-2 bg-gray-200 rounded-lg text-gray-700 hover:bg-gray-300 text-sm transition">
+                            Previous
+                        </a>
+                    }
+
+                    @{
+                        int currentPage = ViewBag.CurrentPage;
+                        int totalPages = ViewBag.TotalPages;
+                        int maxVisiblePages = 5;
+                        int startPage = Math.Max(1, currentPage - (maxVisiblePages / 2));
+                        int endPage = Math.Min(totalPages, startPage + maxVisiblePages - 1);
+
+                        // Adjust start if we're near the end
+                        if (endPage - startPage < maxVisiblePages - 1)
+                        {
+                            startPage = Math.Max(1, endPage - maxVisiblePages + 1);
+                        }
+                    }
+
+                    @* First page + ellipsis *@
+                    @if (startPage > 1)
+                    {
+                        <a href="@Url.Action("Invoices", new { page = 1 })"
+                           class="px-4 py-2 bg-gray-200 rounded-lg text-gray-700 hover:bg-gray-300 text-sm transition">
+                            1
+                        </a>
+                        if (startPage > 2)
+                        {
+                            <span class="px-2 py-2 text-gray-500">...</span>
+                        }
+                    }
+
+                    @* Page numbers *@
+                    @for (int i = startPage; i <= endPage; i++)
+                    {
+                        if (i == currentPage)
+                        {
+                            <span class="px-4 py-2 bg-[#A36A66] text-white rounded-lg text-sm font-semibold">@i</span>
+                        }
+                        else
+                        {
+                            <a href="@Url.Action("Invoices", new { page = i })"
+                               class="px-4 py-2 bg-gray-200 rounded-lg text-gray-700 hover:bg-gray-300 text-sm transition">
+                                @i
+                            </a>
+                        }
+                    }
+
+                    @* Last page + ellipsis *@
+                    @if (endPage < totalPages)
+                    {
+                        if (endPage < totalPages - 1)
+                        {
+                            <span class="px-2 py-2 text-gray-500">...</span>
+                        }
+                        <a href="@Url.Action("Invoices", new { page = totalPages })"
+                           class="px-4 py-2 bg-gray-200 rounded-lg text-gray-700 hover:bg-gray-300 text-sm transition">
+                            @totalPages
+                        </a>
+                    }
+
+                    @if (ViewBag.CurrentPage < ViewBag.TotalPages)
+                    {
+                        <a href="@Url.Action("Invoices", new { page = ViewBag.CurrentPage + 1 })"
+                           class="px-4 py-2 bg-gray-200 rounded-lg text-gray-700 hover:bg-gray-300 text-sm transition">
+                            Next
+                        </a>
+                    }
+                </div>
+            </div>
         </div>
 
         <!-- Right: Invoice detail -->
@@ -334,10 +209,16 @@
             <div id="invoiceDetailContainer"
                  class="w-full bg-white rounded-2xl shadow-sm border border-gray-100 p-5 text-sm text-gray-700
                     min-h-[300px] max-h-[600px] overflow-y-auto sticky top-24">
-                <!-- Invoice details here -->
+                <p class="text-gray-500 text-center py-10">Select an order to view details</p>
             </div>
         </div>
     </div>
+
+    <!-- NEW Invoice MODAL (rest of your modal code remains the same) -->
+    @* ... keep all your existing modal code ... *@
+</div>
+
+@* ... rest of your existing code for modals and scripts ... *@
 
 
                     @* NEW Invoice MODAL *@

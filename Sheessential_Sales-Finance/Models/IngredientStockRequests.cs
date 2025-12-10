@@ -30,7 +30,7 @@ public class IngredientStockRequests
     [BsonRepresentation(BsonType.ObjectId)]
 
     [BsonElement("processedByUserId")]
-    public ObjectId ProcessedByUserId { get; set; }
+    public ObjectId? ProcessedByUserId { get; set; }
 
     // Quantity and Unit (Stored as string in the provided JSON)
     [BsonElement("quantityRequested")]
@@ -75,7 +75,7 @@ public class IngredientStockRequests
     public string ProcessedBy { get; set; }
 
     [BsonElement("rejectionReason")]
-    public string RejectionReason { get; set; }
+    public string? RejectionReason { get; set; }
 
     [BsonElement("priority")]
     public string Priority { get; set; }
@@ -98,7 +98,8 @@ public class IngredientStockRequests
 
     // Boolean Flags
     [BsonElement("emailSent")]
-    public bool EmailSent { get; set; }
+    public bool EmailSent { get; set; }    
+    
 
     [BsonElement("isActive")]
     public bool IsActive { get; set; }

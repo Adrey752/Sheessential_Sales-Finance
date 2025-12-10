@@ -1,4 +1,4 @@
-﻿@using MongoDB.Driver.Linq
+﻿﻿@using MongoDB.Driver.Linq
 @model Sheessential_Sales_Finance.Models.ExpensesWithBalanceViewModel
 
 @{
@@ -27,7 +27,7 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"></path>
                     </svg>
                 </div>
-                
+
                 <p class="text-[#A36A66] text-sm font-medium">Available Balance</p>
             </div>
 
@@ -113,7 +113,7 @@
     </div>
     <!-- BALANCE ALERT ondragend=" -->
     <!-- EXPENSE HEADER -->
-    <div class="bg-white rounded-2xl shadow-md overflow-hidden w-[1200px] mx-auto mb-4">
+    <div id="expenseRequestsSection" class="bg-white rounded-2xl shadow-md overflow-hidden w-[1200px] mx-auto mb-4">
         <div class="p-6 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
             <div class="flex justify-between items-center">
                 <div>
@@ -287,14 +287,14 @@
                             <td class="px-6 py-4 min-w-[125px] text-center">
                                 <span class="px-3 py-1 inline-flex text-xs leading-5 font-medium rounded-full bg-gray-100 text-gray-800 break-words">
                                     @expense.Department
-                                </span>  
+                                </span>
                             </td>
 
                             <td class="px-6 py-4 text-sm text-gray-700 break-words w-[145px] text-center">@expense.ExpenseType</td>
 
                             <td class="px-6 py-4 min-w-[138px] text-center">
                                 <span class="text-sm font-semibold text-gray-900 break-words">₱@expense.Amount.ToString("N2")</span>
-                            </td>                         
+                            </td>
 
                             <td class="px-6 py-4 max-w-[300px] break-words text-sm text-gray-700 min-w-[148px] text-center">
                                 @(expense.RequestedAt == null ? "not yet" : expense.RequestedAt.ToString("MMM dd, yyyy"))
@@ -401,12 +401,49 @@
             </tbody>
         </table>
     </div>
-   
 
+        @if (ViewBag.ExpenseTotalPages > 1)
+        {
+            <div class="flex justify-between items-center mt-4 w-[1200px] mx-auto px-4">
+                <div class="text-sm text-gray-600">
+                    Showing <span class="font-semibold">@((ViewBag.ExpenseCurrentPage - 1) * ViewBag.ExpensePageSize + 1)</span>
+                    to <span class="font-semibold">@Math.Min(ViewBag.ExpenseCurrentPage * ViewBag.ExpensePageSize, ViewBag.ExpenseTotalItems)</span>
+                    of <span class="font-semibold">@ViewBag.ExpenseTotalItems</span> expenses
+                </div>
+
+                <nav class="flex items-center gap-2">
+                    @if (ViewBag.ExpenseCurrentPage > 1)
+                    {
+                        <a href="?expensePage=@(ViewBag.ExpenseCurrentPage - 1)"
+                           class="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                            ← Previous
+                        </a>
+                    }
+
+                    @for (int i = Math.Max(1, ViewBag.ExpenseCurrentPage - 2); i <= Math.Min(ViewBag.ExpenseTotalPages, ViewBag.ExpenseCurrentPage + 2); i++)
+                    {
+                        <a href="?expensePage=@i"
+                           class="px-3 py-2 border @(i == ViewBag.ExpenseCurrentPage ? "bg-blue-600 text-white border-blue-600" : "border-gray-300 hover:bg-gray-50") rounded-lg transition-colors">
+                            @i
+                        </a>
+                    }
+
+                    @if (ViewBag.ExpenseCurrentPage < ViewBag.ExpenseTotalPages)
+                    {
+                        <a href="?expensePage=@(ViewBag.ExpenseCurrentPage + 1)"
+                           class="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                            Next →
+                        </a>
+                    }
+                </nav>
+            </div>
+        }
+
+        </div>
 
     <!-- EXPENSE TABLE END -->
     <!-- INGREDIENT REQUEST HEADER  -->
-    <div class="bg-white rounded-2xl shadow-md overflow-hidden w-[1200px] mx-auto h-[450px]">
+    <div id="ingredientRequestsSection" class="bg-white rounded-2xl shadow-md overflow-hidden w-[1200px] mx-auto h-[450px]">
         <div class="p-6 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
             <div class="flex justify-between items-center">
                 <div>
@@ -545,6 +582,44 @@
                 </tbody>
             </table>
         </div>
+
+            @if (ViewBag.IngredientTotalPages > 1)
+            {
+                <div class="flex justify-between items-center mt-4 px-6 pb-4">
+                    <div class="text-sm text-gray-600">
+                        Showing <span class="font-semibold">@((ViewBag.IngredientCurrentPage - 1) * ViewBag.IngredientPageSize + 1)</span>
+                        to <span class="font-semibold">@Math.Min(ViewBag.IngredientCurrentPage * ViewBag.IngredientPageSize, ViewBag.IngredientTotalItems)</span>
+                        of <span class="font-semibold">@ViewBag.IngredientTotalItems</span> requests
+                    </div>
+
+                    <nav class="flex items-center gap-2">
+                        @if (ViewBag.IngredientCurrentPage > 1)
+                        {
+                            <a href="?ingredientPage=@(ViewBag.IngredientCurrentPage - 1)"
+                               class="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                                ← Previous
+                            </a>
+                        }
+
+                        @for (int i = Math.Max(1, ViewBag.IngredientCurrentPage - 2); i <= Math.Min(ViewBag.IngredientTotalPages, ViewBag.IngredientCurrentPage + 2); i++)
+                        {
+                            <a href="?ingredientPage=@i"
+                               class="px-3 py-2 border @(i == ViewBag.IngredientCurrentPage ? "bg-blue-600 text-white border-blue-600" : "border-gray-300 hover:bg-gray-50") rounded-lg transition-colors">
+                                @i
+                            </a>
+                        }
+
+                        @if (ViewBag.IngredientCurrentPage < ViewBag.IngredientTotalPages)
+                        {
+                            <a href="?ingredientPage=@(ViewBag.IngredientCurrentPage + 1)"
+                               class="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                                Next →
+                            </a>
+                        }
+                    </nav>
+                </div>
+            }
+
     </div>
 
 
@@ -621,31 +696,13 @@
         </div>
     </div>
 
-    <script>
-        document.addEventListener("DOMContentLoaded", function () {
-            const button = document.getElementById("filterButtonIngredient");
-            const dropdown = document.getElementById("filterDropdownIngredient");
 
-            button.addEventListener("click", function (e) {
-                e.stopPropagation();
-                dropdown.classList.toggle("hidden");
-            });
 
-            document.addEventListener("click", function (e) {
-                if (!dropdown.contains(e.target) && !button.contains(e.target)) {
-                    dropdown.classList.add("hidden");
-                }
-            });
-        });
-    </script>
-
- 
-
-    @* start of new *@
-    @using Newtonsoft.Json
+@* start of new *@
+@using Newtonsoft.Json
 
     <!-- PAYROLL MANAGEMENT SECTION WITH SIDE PANEL -->
-    <div class="mt-3 p-4 grid my-10 grid-cols-1 lg:grid-cols-5 gap-6 min-h-[500px]">
+    <div id="payrollSection" class="mt-3 p-4 grid my-10 grid-cols-1 lg:grid-cols-5 gap-6 min-h-[500px]">
 
         <!-- LEFT: Payroll Runs Table (60% width) -->
         <div class="lg:col-span-3 bg-white rounded-2xl shadow-md overflow-hidden">
@@ -752,15 +809,15 @@
                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">₱@run.TotalNetSalary.ToString("N2")</td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <span class="px-3 py-1 inline-flex items-center text-xs leading-5 font-semibold rounded-full
-                                    @(run.Status == "Calculated" ? "bg-blue-100 text-blue-800" :
-                                      run.Status == "Approved" ? "bg-green-100 text-green-800" :
-                                      run.Status == "Declined" ? "bg-red-100 text-red-800" :
-                                      "bg-gray-100 text-gray-800")">
-                                        @run.Status
-                                    </span>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap space-x-2">
-                                    @if (run.Status == "Approved" || run.Status == "Declined")
+                                        @(run.Status == "Calculated" ? "bg-blue-100 text-blue-800" :
+                                                                                run.Status == "Approved" ? "bg-green-100 text-green-800" :
+                                                                                run.Status == "Declined" ? "bg-red-100 text-red-800" :
+                                                                                "bg-gray-100 text-gray-800")">
+                                    @run.Status
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap space-x-2">
+                                @if (run.Status == "Approved" || run.Status == "Declined")
                                     {
                                         <button disabled
                                                 class="px-3 py-1.5 bg-gray-100 text-gray-400 text-xs font-medium rounded cursor-not-allowed">
@@ -788,6 +845,43 @@
                     </tbody>
                 </table>
             </div>
+
+                @if (ViewBag.PayrollTotalPages > 1)
+                {
+                    <div class="flex justify-between items-center mt-4 px-6 pb-4 border-t border-gray-200 pt-4">
+                        <div class="text-sm text-gray-600">
+                            Showing <span class="font-semibold">@((ViewBag.PayrollCurrentPage - 1) * ViewBag.PayrollPageSize + 1)</span>
+                            to <span class="font-semibold">@Math.Min(ViewBag.PayrollCurrentPage * ViewBag.PayrollPageSize, ViewBag.PayrollTotalItems)</span>
+                            of <span class="font-semibold">@ViewBag.PayrollTotalItems</span> payroll runs
+                        </div>
+
+                        <nav class="flex items-center gap-2">
+                            @if (ViewBag.PayrollCurrentPage > 1)
+                            {
+                                <a href="?payrollPage=@(ViewBag.PayrollCurrentPage - 1)"
+                                   class="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                                    ← Previous
+                                </a>
+                            }
+
+                            @for (int i = Math.Max(1, ViewBag.PayrollCurrentPage - 2); i <= Math.Min(ViewBag.PayrollTotalPages, ViewBag.PayrollCurrentPage + 2); i++)
+                            {
+                                <a href="?payrollPage=@i"
+                                   class="px-3 py-2 border @(i == ViewBag.PayrollCurrentPage ? "bg-blue-600 text-white border-blue-600" : "border-gray-300 hover:bg-gray-50") rounded-lg transition-colors">
+                                    @i
+                                </a>
+                            }
+
+                            @if (ViewBag.PayrollCurrentPage < ViewBag.PayrollTotalPages)
+                            {
+                                <a href="?payrollPage=@(ViewBag.PayrollCurrentPage + 1)"
+                                   class="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                                    Next →
+                                </a>
+                            }
+                        </nav>
+                    </div>
+                }
         </div>
         <!-- End left -->
         <!-- RIGHT: Payslip Details Panel (40% width) -->
@@ -815,213 +909,7 @@
         </div>
     </div>
 
-    <!-- JavaScript for row selection and payslip display -->
-    <script>
-        // Add this to your existing JavaScript code
-
-        // Global variable to track selected row
-        let selectedRowId = null;
-
-        function selectPayrollRow(row) {
-            // Remove highlight from all rows
-            document.querySelectorAll('.payroll-row').forEach(r => {
-                r.classList.remove('bg-blue-50', 'border-l-4', 'border-l-blue-500', 'shadow-sm');
-                r.classList.add('hover:bg-gray-50');
-            });
-
-            // Add highlight to clicked row
-            row.classList.remove('hover:bg-gray-50');
-            row.classList.add('bg-blue-50', 'border-l-4', 'border-l-blue-500', 'shadow-sm');
-
-            // Update selected row ID
-            selectedRowId = row.dataset.id;
-
-            try {
-                // Parse the payslips data
-                const payslipsData = JSON.parse(row.dataset.payslips);
-
-                // Get payrun details from the row
-                const payrunNumber = row.cells[0].textContent;
-                const payPeriod = row.cells[1].textContent;
-                const payDate = row.cells[2].textContent;
-                const payType = row.cells[3].textContent;
-                const employeeCount = row.cells[4].textContent;
-                const grossTotal = row.cells[5].textContent;
-                const netTotal = row.cells[6].textContent;
-
-                // Update the right panel info
-                document.getElementById('selectedPayrunInfo').innerHTML =
-                    `<span class="font-semibold">${payrunNumber}</span> • ${payDate} • ${payType}<br>
-                     <span class="text-xs">${employeeCount} employees • Gross: ${grossTotal} • Net: ${netTotal}</span>`;
-
-                // Display payslips table
-                displayPayslipsTable(payslipsData, payrunNumber);
-            } catch (error) {
-                console.error('Error parsing payslips data:', error);
-                document.getElementById('payslipTableContainer').innerHTML =
-                    '<div class="text-center py-10 text-red-500">Error loading payslip data</div>';
-            }
-        }
-
-        function displayPayslipsTable(payslips, payrunNumber) {
-            const container = document.getElementById('payslipTableContainer');
-
-            if (!payslips || payslips.length === 0) {
-                container.innerHTML = `
-                    <div class="h-full flex flex-col items-center justify-center text-gray-400">
-                        <div class="text-center">
-                            <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-yellow-50 flex items-center justify-center">
-                                <svg class="w-8 h-8 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                                          d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.464 0L4.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                                </svg>
-                            </div>
-                            <h3 class="text-lg font-medium text-gray-600 mb-2">No Payslips Found</h3>
-                            <p class="text-sm text-gray-500">No payslip data available for this pay run</p>
-                        </div>
-                    </div>
-                `;
-                return;
-            }
-
-            // Create the table HTML
-            const tableHtml = `
-                <div class="mb-4">
-                    <div class="flex justify-between items-center mb-3">
-                        <h3 class="font-semibold text-gray-700">Employee Payslips</h3>
-                        <span class="text-sm text-gray-500">${payslips.length} records</span>
-                    </div>
-
-                    <div class="overflow-x-auto rounded-lg border border-gray-200">
-                        <table class="min-w-full divide-y divide-gray-200">
-                            <thead class="bg-gray-50">
-                                <tr>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Employee</th>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Position</th>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Days</th>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Gross</th>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Net</th>
-                                </tr>
-                            </thead>
-                            <tbody class="bg-white divide-y divide-gray-200">
-                                ${payslips.map((payslip, index) => `
-                                    <tr class="${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-gray-100 transition-colors">
-                                        <td class="px-4 py-3 whitespace-nowrap">
-                                            <div class="flex items-center">
-                                                <div class="flex-shrink-0 h-8 w-8 bg-blue-100 rounded-full flex items-center justify-center mr-3">
-                                                    <span class="text-xs font-medium text-blue-600">
-                                                        ${(payslip.EmployeeName || 'N/A').charAt(0)}
-                                                    </span>
-                                                </div>
-                                                <div>
-                                                    <div class="text-sm font-medium text-gray-900">${escapeHtml(payslip.EmployeeName || 'N/A')}</div>
-                                                    <div class="text-xs text-gray-500">${escapeHtml(payslip.Department || '')}</div>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">${escapeHtml(payslip.Position || 'N/A')}</td>
-                                        <td class="px-4 py-3 whitespace-nowrap text-center">
-                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                                ${payslip.TotalWorkingDays || 0}
-                                            </span>
-                                        </td>
-                                        <td class="px-4 py-3 whitespace-nowrap text-sm font-semibold text-gray-900">${formatCurrency(payslip.GrossSalary || 0)}</td>
-                                        <td class="px-4 py-3 whitespace-nowrap text-sm font-semibold text-green-600">${formatCurrency(payslip.NetSalary || 0)}</td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                            <tfoot class="bg-gray-50 border-t border-gray-200">
-                                <tr>
-                                    <td colspan="3" class="px-4 py-3 text-sm font-semibold text-gray-700 text-right">Totals:</td>
-                                    <td class="px-4 py-3 text-sm font-bold text-gray-900 border-l border-gray-200">
-                                        ${formatCurrency(payslips.reduce((sum, p) => sum + (p.GrossSalary || 0), 0))}
-                                    </td>
-                                    <td class="px-4 py-3 text-sm font-bold text-green-600 border-l border-gray-200">
-                                        ${formatCurrency(payslips.reduce((sum, p) => sum + (p.NetSalary || 0), 0))}
-                                    </td>
-                                </tr>
-                            </tfoot>
-                        </table>
-                    </div>
-
-                    <div class="mt-4 grid grid-cols-2 gap-3">
-                        <div class="bg-blue-50 p-3 rounded-lg">
-                            <p class="text-xs text-blue-600 font-medium">Average Gross</p>
-                            <p class="text-lg font-bold text-blue-700">
-                                ${formatCurrency(payslips.reduce((sum, p) => sum + (p.GrossSalary || 0), 0) / payslips.length)}
-                            </p>
-                        </div>
-                        <div class="bg-green-50 p-3 rounded-lg">
-                            <p class="text-xs text-green-600 font-medium">Average Net</p>
-                            <p class="text-lg font-bold text-green-700">
-                                ${formatCurrency(payslips.reduce((sum, p) => sum + (p.NetSalary || 0), 0) / payslips.length)}
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            `;
-
-            container.innerHTML = tableHtml;
-        }
-
-        // Helper function to format currency
-        function formatCurrency(amount) {
-            return Number(amount).toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
-        }
-
-        // Helper function to escape HTML (prevent XSS)
-        function escapeHtml(text) {
-            if (!text) return '';
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
-
-        // Initialize by selecting the first row if exists
-        document.addEventListener('DOMContentLoaded', function() {
-            const firstRow = document.querySelector('.payroll-row');
-            if (firstRow) {
-                // Add a small delay to ensure DOM is ready
-                setTimeout(() => selectPayrollRow(firstRow), 100);
-            }
-
-            // Add click event to filter button toggle
-            const filterButton = document.getElementById('filterButtonPayroll');
-            const filterDropdown = document.getElementById('filterDropdownPayroll');
-
-            if (filterButton && filterDropdown) {
-                filterButton.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    filterDropdown.classList.toggle('hidden');
-                });
-
-                // Close dropdown when clicking outside
-                document.addEventListener('click', function() {
-                    filterDropdown.classList.add('hidden');
-                });
-
-                filterDropdown.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                });
-            }
-        });
-
-        // Optional: Add keyboard navigation
-        document.addEventListener('keydown', function(e) {
-            if (!selectedRowId) return;
-
-            const rows = Array.from(document.querySelectorAll('.payroll-row'));
-            const currentIndex = rows.findIndex(row => row.dataset.id === selectedRowId);
-
-            if (e.key === 'ArrowDown' && currentIndex < rows.length - 1) {
-                selectPayrollRow(rows[currentIndex + 1]);
-                e.preventDefault();
-            } else if (e.key === 'ArrowUp' && currentIndex > 0) {
-                selectPayrollRow(rows[currentIndex - 1]);
-                e.preventDefault();
-            }
-        });
-    </script>
+   
 
     <!-- Add this CSS for better styling -->
     <style>
@@ -1054,252 +942,252 @@
             }
 
     </style>
-    @* end of new *@
+@* end of new *@
 
 
 
-<!-- PREVIEW/DETAILS MODAL -->
-<div id="previewModal" class="fixed inset-0 bg-white bg-opacity-60 hidden items-center justify-center z-50 backdrop-blur-sm">
-    <div class="bg-white w-full max-w-3xl rounded-3xl shadow-2xl p-8 max-h-[90vh] overflow-y-auto m-4 transform transition-all">
-        <div class="flex justify-between items-center mb-6 pb-4 border-b border-gray-200">
-            <div class="flex items-center gap-3">
-                <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
-                    <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                    </svg>
-                </div>
-                <div>
-                    <h2 class="text-2xl font-bold text-gray-900">Expense Request Details</h2>
-                    <p class="text-gray-500 text-sm">Review and take action</p>
-                </div>
-            </div>
-            <button id="closePreviewBtn" class="text-gray-400 hover:text-gray-600 transition-colors">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                </svg>
-            </button>
-        </div>
-
-        <div class="space-y-5">
-            <!-- Expense ID -->
-            <div class="bg-gradient-to-br from-blue-50 to-blue-100 p-5 rounded-xl border border-blue-200">
-                <p class="text-sm text-blue-700 font-medium mb-1">Expense ID</p>
-                <p class="text-xl font-bold text-blue-900" id="preview-expense-id">EXP-001</p>
-            </div>
-
-            <!-- Requester Info -->
-            <div class="grid grid-cols-2 gap-4">
-                <div class="bg-gray-50 p-5 rounded-xl border border-gray-200">
-                    <p class="text-sm text-gray-600 font-medium mb-1">Requested By</p>
-                    <div class="flex items-center gap-2">
-                        <div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white text-xs font-medium">
-                            <span id="preview-requester-initial">J</span>
-                        </div>
-                        <p class="text-lg font-semibold text-gray-900" id="preview-requester">John Doe</p>
+    <!-- PREVIEW/DETAILS MODAL -->
+    <div id="previewModal" class="fixed inset-0 bg-white bg-opacity-60 hidden items-center justify-center z-50 backdrop-blur-sm">
+        <div class="bg-white w-full max-w-3xl rounded-3xl shadow-2xl p-8 max-h-[90vh] overflow-y-auto m-4 transform transition-all">
+            <div class="flex justify-between items-center mb-6 pb-4 border-b border-gray-200">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                        <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-900">Expense Request Details</h2>
+                        <p class="text-gray-500 text-sm">Review and take action</p>
                     </div>
                 </div>
-                <div class="bg-gray-50 p-5 rounded-xl border border-gray-200">
-                    <p class="text-sm text-gray-600 font-medium mb-1">Department</p>
-                    <p class="text-lg font-semibold text-gray-900" id="preview-department">Marketing</p>
-                </div>
-            </div>
-
-            <!-- Expense Type & Amount -->
-            <div class="grid grid-cols-2 gap-4">
-                <div class="bg-gray-50 p-5 rounded-xl border border-gray-200">
-                    <p class="text-sm text-gray-600 font-medium mb-1">Expense Type</p>
-                    <p class="text-lg font-semibold text-gray-900" id="preview-type">Office Supplies</p>
-                </div>
-                <div class="bg-gradient-to-br from-green-50 to-emerald-50 p-5 rounded-xl border border-green-200">
-                    <p class="text-sm text-green-700 font-medium mb-1">Amount Requested</p>
-                    <p class="text-2xl font-bold text-green-700" id="preview-amount">₱5,000.00</p>
-                </div>
-            </div>
-
-            <!-- Description -->
-            <div class="bg-gray-50 p-5 rounded-xl border border-gray-200">
-                <p class="text-sm text-gray-600 font-medium mb-2">Description</p>
-                <p class="text-gray-900 leading-relaxed line-clamp-3" id="preview-description">
-                    Purchase of office supplies for Q4
-                </p>
-            </div>
-
-            <!-- Notes -->
-            <div class="bg-gray-50 p-5 rounded-xl border border-gray-200">
-                <p class="text-sm text-gray-600 font-medium mb-2">Additional Notes</p>
-                <p class="text-gray-700 leading-relaxed line-clamp-3" id="preview-notes">
-                    Urgent request for marketing campaign materials
-                </p>
-            </div>
-
-            <!-- Status -->
-            <div class="bg-yellow-50 p-5 rounded-xl border-l-4 border-yellow-500">
-                <div class="flex items-center gap-2 mb-1">
-                    <svg class="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                <button id="closePreviewBtn" class="text-gray-400 hover:text-gray-600 transition-colors">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                     </svg>
-                    <p class="text-sm text-yellow-700 font-medium">Current Status</p>
-                </div>
-                <p class="text-lg font-bold text-yellow-700" id="preview-status">Pending Review</p>
+                </button>
             </div>
 
-            <!-- Balance Check Info -->
-            <div id="balanceCheckInfo" class="bg-blue-50 p-5 rounded-xl border border-blue-200">
-                <div class="flex items-start gap-3">
-                    <svg class="w-5 h-5 text-blue-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                    <div class="flex-1">
-                        <p class="text-sm text-blue-800 font-medium mb-2">Balance Information</p>
-                        <div class="space-y-1 text-sm text-blue-700">
-                            <p>Current Available Balance: <span class="font-semibold">@Model.Balance.CurrentBalance.ToString("C")</span></p>
-                            <p>After Approval: <span class="font-semibold" id="balance-after-approval">balance</span></p>
+            <div class="space-y-5">
+                <!-- Expense ID -->
+                <div class="bg-gradient-to-br from-blue-50 to-blue-100 p-5 rounded-xl border border-blue-200">
+                    <p class="text-sm text-blue-700 font-medium mb-1">Expense ID</p>
+                    <p class="text-xl font-bold text-blue-900" id="preview-expense-id">EXP-001</p>
+                </div>
+
+                <!-- Requester Info -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-gray-50 p-5 rounded-xl border border-gray-200">
+                        <p class="text-sm text-gray-600 font-medium mb-1">Requested By</p>
+                        <div class="flex items-center gap-2">
+                            <div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white text-xs font-medium">
+                                <span id="preview-requester-initial">J</span>
+                            </div>
+                            <p class="text-lg font-semibold text-gray-900" id="preview-requester">John Doe</p>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 p-5 rounded-xl border border-gray-200">
+                        <p class="text-sm text-gray-600 font-medium mb-1">Department</p>
+                        <p class="text-lg font-semibold text-gray-900" id="preview-department">Marketing</p>
+                    </div>
+                </div>
+
+                <!-- Expense Type & Amount -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-gray-50 p-5 rounded-xl border border-gray-200">
+                        <p class="text-sm text-gray-600 font-medium mb-1">Expense Type</p>
+                        <p class="text-lg font-semibold text-gray-900" id="preview-type">Office Supplies</p>
+                    </div>
+                    <div class="bg-gradient-to-br from-green-50 to-emerald-50 p-5 rounded-xl border border-green-200">
+                        <p class="text-sm text-green-700 font-medium mb-1">Amount Requested</p>
+                        <p class="text-2xl font-bold text-green-700" id="preview-amount">₱5,000.00</p>
+                    </div>
+                </div>
+
+                <!-- Description -->
+                <div class="bg-gray-50 p-5 rounded-xl border border-gray-200">
+                    <p class="text-sm text-gray-600 font-medium mb-2">Description</p>
+                    <p class="text-gray-900 leading-relaxed line-clamp-3" id="preview-description">
+                        Purchase of office supplies for Q4
+                    </p>
+                </div>
+
+                <!-- Notes -->
+                <div class="bg-gray-50 p-5 rounded-xl border border-gray-200">
+                    <p class="text-sm text-gray-600 font-medium mb-2">Additional Notes</p>
+                    <p class="text-gray-700 leading-relaxed line-clamp-3" id="preview-notes">
+                        Urgent request for marketing campaign materials
+                    </p>
+                </div>
+
+                <!-- Status -->
+                <div class="bg-yellow-50 p-5 rounded-xl border-l-4 border-yellow-500">
+                    <div class="flex items-center gap-2 mb-1">
+                        <svg class="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <p class="text-sm text-yellow-700 font-medium">Current Status</p>
+                    </div>
+                    <p class="text-lg font-bold text-yellow-700" id="preview-status">Pending Review</p>
+                </div>
+
+                <!-- Balance Check Info -->
+                <div id="balanceCheckInfo" class="bg-blue-50 p-5 rounded-xl border border-blue-200">
+                    <div class="flex items-start gap-3">
+                        <svg class="w-5 h-5 text-blue-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <div class="flex-1">
+                            <p class="text-sm text-blue-800 font-medium mb-2">Balance Information</p>
+                            <div class="space-y-1 text-sm text-blue-700">
+                                <p>Current Available Balance: <span class="font-semibold">@Model.Balance.CurrentBalance.ToString("C")</span></p>
+                                <p>After Approval: <span class="font-semibold" id="balance-after-approval">balance</span></p>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
 
-        <!-- Action Buttons -->
-        <div class="flex justify-end gap-3 mt-8 pt-6 border-t border-gray-200">
-            <button type="button" id="cancelPreviewBtn" class="px-6 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium">
-                Cancel
-            </button>
+            <!-- Action Buttons -->
+            <div class="flex justify-end gap-3 mt-8 pt-6 border-t border-gray-200">
+                <button type="button" id="cancelPreviewBtn" class="px-6 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium">
+                    Cancel
+                </button>
 
-            <button type="button" id="declineBtn" class="px-6 py-2.5 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl hover:from-red-600 hover:to-red-700 transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5 font-medium flex items-center gap-2">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                </svg>
-                Decline Request
-            </button>
+                <button type="button" id="declineBtn" class="px-6 py-2.5 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl hover:from-red-600 hover:to-red-700 transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5 font-medium flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                    Decline Request
+                </button>
 
-            <button type="button" class="approveBtn px-6 py-2.5 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl hover:from-green-600 hover:to-green-700 transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5 font-medium flex items-center gap-2"
-                    data-request-type="general_expense">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                </svg>
-                Approve & Transfer
-            </button>
+                <button type="button" class="approveBtn px-6 py-2.5 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl hover:from-green-600 hover:to-green-700 transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5 font-medium flex items-center gap-2"
+                        data-request-type="general_expense">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                    Approve & Transfer
+                </button>
+            </div>
         </div>
     </div>
-</div>
 
 
-<!-- Ingridients Expense/DETAILS MODAL -->
-<div id="ingredientRequestModal" class="fixed inset-0 bg-white bg-opacity-60 hidden items-center justify-center z-50 backdrop-blur-sm">
-    <div class="bg-white w-full max-w-3xl rounded-3xl shadow-2xl p-8 max-h-[90vh] overflow-y-auto m-4 transform transition-all">
-        <div class="flex justify-between items-center mb-6 pb-4 border-b border-gray-200">
-            <div class="flex items-center gap-3">
-                <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
-                    <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                    </svg>
-                </div>
-                <div>
-                    <h2 class="text-2xl font-bold text-gray-900">Stock Request Details</h2>
-                    <p class="text-gray-500 text-sm">Review and take action</p>
-                </div>
-            </div>
-            <button id="closeIngredientRequestBtn" class="text-gray-400 hover:text-gray-600 transition-colors">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                </svg>
-            </button>
-        </div>
-
-        <div class="space-y-5">
-            <div class="bg-gradient-to-br from-blue-50 to-blue-100 p-5 rounded-xl border border-blue-200">
-                <p class="text-sm text-blue-700 font-medium mb-1">Stock Request ID</p>
-                <p class="text-xl font-bold text-blue-900" id="preview-request-id">SRQ-001</p>
-            </div>
-
-            <div class="grid grid-cols-2 gap-4">
-
-                <div class="bg-gray-50 p-5 rounded-xl border border-gray-200">
-                    <p class="text-sm text-gray-600 font-medium mb-1">Requested By</p>
-                    <div class="flex items-center gap-2">
-                        <div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white text-xs font-medium">
-                            <span id="preview-requester-initial">J</span>
-                        </div>
-                        <p class="text-lg font-semibold text-gray-900" id="preview-requester-name">John Doe</p>
+    <!-- Ingridients Expense/DETAILS MODAL -->
+    <div id="ingredientRequestModal" class="fixed inset-0 bg-white bg-opacity-60 hidden items-center justify-center z-50 backdrop-blur-sm">
+        <div class="bg-white w-full max-w-3xl rounded-3xl shadow-2xl p-8 max-h-[90vh] overflow-y-auto m-4 transform transition-all">
+            <div class="flex justify-between items-center mb-6 pb-4 border-b border-gray-200">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                        <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-900">Stock Request Details</h2>
+                        <p class="text-gray-500 text-sm">Review and take action</p>
                     </div>
                 </div>
-                <div class="bg-gray-50 p-5 rounded-xl border border-gray-200">
-                    <p class="text-sm text-gray-600 font-medium mb-1">Supplier</p>
-                    <p class="text-lg font-semibold text-gray-900" id="preview-supplier-name">Supplier Name</p>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-2 gap-4">
-                <div class="bg-gray-50 p-5 rounded-xl border border-gray-200">
-                    <p class="text-sm text-gray-600 font-medium mb-1">Ingredient Name</p>
-                    <p class="text-lg font-semibold text-gray-900" id="preview-ingredient-name">Ingredient Name</p>
-                </div>
-                <div class="bg-gradient-to-br from-green-50 to-emerald-50 p-5 rounded-xl border border-green-200">
-                    <p class="text-sm text-green-700 font-medium mb-1">Quantity Requested</p>
-                    <p class="text-2xl font-bold text-green-700" id="preview-quantity">50 pcs</p>
-                </div>
-            </div>
-
-            @* working on  *@
-            <div class="grid grid-cols-2 gap-4">
-
-            <div class="bg-yellow-50 p-5 rounded-xl border-l-4 border-yellow-500">
-                <div class="flex items-center gap-2 mb-1">
-                    <svg class="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                <button id="closeIngredientRequestBtn" class="text-gray-400 hover:text-gray-600 transition-colors">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                     </svg>
-                    <p class="text-sm text-yellow-700 font-medium">Current Status</p>
-                </div>
-                <p class="text-lg font-bold text-yellow-700" id="preview-request-status">Pending Review</p>
+                </button>
             </div>
 
-                <div class="bg-gray-50 p-5 rounded-xl border border-gray-200">
-                    <p class="text-sm text-gray-600 font-medium mb-1">Total Cost</p>
-                    <p class="text-lg font-semibold text-gray-900" id="preview-total_cost">Cost</p>
+            <div class="space-y-5">
+                <div class="bg-gradient-to-br from-blue-50 to-blue-100 p-5 rounded-xl border border-blue-200">
+                    <p class="text-sm text-blue-700 font-medium mb-1">Stock Request ID</p>
+                    <p class="text-xl font-bold text-blue-900" id="preview-request-id">SRQ-001</p>
                 </div>
 
+                <div class="grid grid-cols-2 gap-4">
 
-          
-        </div>
-            <div id="stockInfo" class="bg-blue-50 p-5 rounded-xl border border-blue-200">
-                <div class="flex items-start gap-3">
-                    <svg class="w-5 h-5 text-blue-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                    <div class="flex-1">
-                        <p class="text-sm text-blue-800 font-medium mb-2">Stock Information</p>
-                        <div class="space-y-1 text-sm text-blue-700">
-                            <p>Current Available Balance: <span class="font-semibold" id="current-stock">@Model.Balance.CurrentBalance.ToString("C")</span></p>
-                            <p>After Approval : <span class="font-semibold" id="stock-after-fulfillment">Balance</span></p>
+                    <div class="bg-gray-50 p-5 rounded-xl border border-gray-200">
+                        <p class="text-sm text-gray-600 font-medium mb-1">Requested By</p>
+                        <div class="flex items-center gap-2">
+                            <div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white text-xs font-medium">
+                                <span id="preview-requester-initial">J</span>
+                            </div>
+                            <p class="text-lg font-semibold text-gray-900" id="preview-requester-name">John Doe</p>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 p-5 rounded-xl border border-gray-200">
+                        <p class="text-sm text-gray-600 font-medium mb-1">Supplier</p>
+                        <p class="text-lg font-semibold text-gray-900" id="preview-supplier-name">Supplier Name</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-gray-50 p-5 rounded-xl border border-gray-200">
+                        <p class="text-sm text-gray-600 font-medium mb-1">Ingredient Name</p>
+                        <p class="text-lg font-semibold text-gray-900" id="preview-ingredient-name">Ingredient Name</p>
+                    </div>
+                    <div class="bg-gradient-to-br from-green-50 to-emerald-50 p-5 rounded-xl border border-green-200">
+                        <p class="text-sm text-green-700 font-medium mb-1">Quantity Requested</p>
+                        <p class="text-2xl font-bold text-green-700" id="preview-quantity">50 pcs</p>
+                    </div>
+                </div>
+
+                @* working on  *@
+                <div class="grid grid-cols-2 gap-4">
+
+                    <div class="bg-yellow-50 p-5 rounded-xl border-l-4 border-yellow-500">
+                        <div class="flex items-center gap-2 mb-1">
+                            <svg class="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <p class="text-sm text-yellow-700 font-medium">Current Status</p>
+                        </div>
+                        <p class="text-lg font-bold text-yellow-700" id="preview-request-status">Pending Review</p>
+                    </div>
+
+                    <div class="bg-gray-50 p-5 rounded-xl border border-gray-200">
+                        <p class="text-sm text-gray-600 font-medium mb-1">Total Cost</p>
+                        <p class="text-lg font-semibold text-gray-900" id="preview-total_cost">Cost</p>
+                    </div>
+
+
+
+                </div>
+                <div id="stockInfo" class="bg-blue-50 p-5 rounded-xl border border-blue-200">
+                    <div class="flex items-start gap-3">
+                        <svg class="w-5 h-5 text-blue-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <div class="flex-1">
+                            <p class="text-sm text-blue-800 font-medium mb-2">Stock Information</p>
+                            <div class="space-y-1 text-sm text-blue-700">
+                                <p>Current Available Balance: <span class="font-semibold" id="current-stock">@Model.Balance.CurrentBalance.ToString("C")</span></p>
+                                <p>After Approval : <span class="font-semibold" id="stock-after-fulfillment">Balance</span></p>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
 
-        <div class="flex justify-end gap-3 mt-8 pt-6 border-t border-gray-200">
-            <button type="button" id="cancelRequestBtn" class="px-6 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium">
-                Cancel
-            </button>
+            <div class="flex justify-end gap-3 mt-8 pt-6 border-t border-gray-200">
+                <button type="button" id="cancelRequestBtn" class="px-6 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium">
+                    Cancel
+                </button>
 
-            <button type="button" id="declineRequestBtn" class="px-6 py-2.5 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl hover:from-red-600 hover:to-red-700 transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5 font-medium flex items-center gap-2">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                </svg>
-                Decline Request
-            </button>
+                <button type="button" id="declineRequestBtn" class="px-6 py-2.5 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl hover:from-red-600 hover:to-red-700 transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5 font-medium flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                    Decline Request
+                </button>
 
-            <button type="button"  class="approveBtn px-6 py-2.5 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl hover:from-green-600 hover:to-green-700 transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5 font-medium flex items-center gap-2"
-                    data-request-type="stock_expense">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                </svg>
-                Approve & Fulfill
-            </button>
+                <button type="button" class="approveBtn px-6 py-2.5 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl hover:from-green-600 hover:to-green-700 transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5 font-medium flex items-center gap-2"
+                        data-request-type="stock_expense">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                    Approve & Fulfill
+                </button>
+            </div>
         </div>
     </div>
-</div>
     <!-- EXPENSE DETAILS MODAL -->
     <div id="expenseModal"
          class="fixed inset-0 bg-white/60 hidden flex items-center justify-center z-50 backdrop-blur-sm">
@@ -1397,280 +1285,280 @@
     </div>
 
 
-<!-- DECLINE REASON MODAL -->
-<div id="declineReasonModal" class="fixed inset-0 bg-white bg-opacity-60 hidden items-center justify-center z-50 backdrop-blur-sm">
-    <div class="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-8 m-4 transform transition-all">
-        <div class="flex items-center gap-3 mb-6">
-            <div class="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
-                <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
-                </svg>
-            </div>
-            <div>
-                <h2 class="text-2xl font-bold text-gray-900">Decline Request</h2>
-                <p class="text-gray-600 text-sm">Provide a reason for declining</p>
-            </div>
-        </div>
-
-        <form id="declineForm" asp-action="DeclineExpense" asp-controller="Sales_Finance" method="post">
-            <input type="hidden" name="id" id="decline-expense-id" value="" />
-            <input type="hidden" name="isStockRequest" id="is-stock-request" value="" />
-            
-            <div class="mb-6">
-                <label class="block text-gray-700 font-medium mb-2">
-                    Reason for Decline <span class="text-red-500">*</span>
-                </label>
-                <textarea name="DeclineReason" 
-                          id="decline-reason-textarea" 
-                          class="w-full border border-gray-300 rounded-xl p-4 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all" 
-                          rows="4" 
-                          required 
-                          placeholder="Please provide a clear reason for declining this expense request..."></textarea>
-                <p class="text-gray-500 text-xs mt-2">This reason will be sent to the requester</p>
-            </div>
-
-            <div class="flex justify-end gap-3 pt-4 border-t border-gray-200">
-                <button type="button" id="cancelDeclineBtn" class="px-6 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium">
-                    Cancel
-                </button>
-                <button type="submit" class="px-6 py-2.5 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl hover:from-red-600 hover:to-red-700 transition-all shadow-md hover:shadow-lg font-medium flex items-center gap-2">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+    <!-- DECLINE REASON MODAL -->
+    <div id="declineReasonModal" class="fixed inset-0 bg-white bg-opacity-60 hidden items-center justify-center z-50 backdrop-blur-sm">
+        <div class="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-8 m-4 transform transition-all">
+            <div class="flex items-center gap-3 mb-6">
+                <div class="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
+                    <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
                     </svg>
-                    Confirm Decline
-                </button>
+                </div>
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-900">Decline Request</h2>
+                    <p class="text-gray-600 text-sm">Provide a reason for declining</p>
+                </div>
             </div>
-        </form>
+
+            <form id="declineForm" asp-action="DeclineExpense" asp-controller="Sales_Finance" method="post">
+                <input type="hidden" name="id" id="decline-expense-id" value="" />
+                <input type="hidden" name="isStockRequest" id="is-stock-request" value="" />
+
+                <div class="mb-6">
+                    <label class="block text-gray-700 font-medium mb-2">
+                        Reason for Decline <span class="text-red-500">*</span>
+                    </label>
+                    <textarea name="DeclineReason"
+                              id="decline-reason-textarea"
+                              class="w-full border border-gray-300 rounded-xl p-4 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
+                              rows="4"
+                              required
+                              placeholder="Please provide a clear reason for declining this expense request..."></textarea>
+                    <p class="text-gray-500 text-xs mt-2">This reason will be sent to the requester</p>
+                </div>
+
+                <div class="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                    <button type="button" id="cancelDeclineBtn" class="px-6 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium">
+                        Cancel
+                    </button>
+                    <button type="submit" class="px-6 py-2.5 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl hover:from-red-600 hover:to-red-700 transition-all shadow-md hover:shadow-lg font-medium flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                        Confirm Decline
+                    </button>
+                </div>
+            </form>
+        </div>
     </div>
-</div>
 
 
-<!-- TRANSFER FUND MODAL -->
-<div id="transferFundModal" class="fixed inset-0 bg-white bg-opacity-60 hidden items-center justify-center z-50 backdrop-blur-sm">
-    <div class="bg-white w-full max-w-2xl rounded-3xl shadow-2xl p-8 m-4 max-h-[90vh] overflow-y-auto transform transition-all">
-        <div class="flex items-center gap-3 mb-6 pb-4 border-b border-gray-200">
-            <div class="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
-                <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-            </div>
-            <div>
-                <h2 class="text-2xl font-bold text-gray-900">Approve & Transfer Funds</h2>
-                <p class="text-gray-600 text-sm">Complete transfer details to approve this expense</p>
-            </div>
-        </div>
-
-        <!-- Balance Warning -->
-        <div id="insufficientBalanceWarning" class="bg-red-50 border-l-4 border-red-500 p-4 mb-6 rounded-lg hidden">
-            <div class="flex items-start gap-3">
-                <svg class="w-5 h-5 text-red-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
-                </svg>
-                <div>
-                    <p class="text-red-800 font-semibold">Insufficient Balance</p>
-                    <p class="text-red-700 text-sm mt-1">Available balance is not sufficient for this transfer. Please add funds before approving.</p>
-                </div>
-            </div>
-        </div>
-
-        <form id="approveForm" asp-action="ApproveExpense" asp-controller="Sales_Finance" method="post">
-            <input type="hidden" name="id" id="approve-expense-id" value="" />
-            <input type="hidden" name="requestId" id="request-id" value="" />
-            <input type="hidden" name="IsStockRequest" id="isStockReqInput" value="false" />            <!-- Balance Summary -->
-            <div class="grid grid-cols-3 gap-4 mb-6">
-                <div class="bg-blue-50 p-4 rounded-xl border border-blue-200">
-                    <p class="text-xs text-blue-700 font-medium mb-1">Current Balance</p>
-                    <p class="text-lg font-bold text-blue-900">@Model.Balance.CurrentBalance</p>
-                </div>
-                <div class="bg-orange-50 p-4 rounded-xl border border-orange-200">
-                    <p class="text-xs text-orange-700 font-medium mb-1">Transfer Amount</p>
-                    <p class="text-lg font-bold text-orange-900" id="transfer-amount-display-main">₱0.00</p>
-                </div>
-                <div class="bg-green-50 p-4 rounded-xl border border-green-200">
-                    <p class="text-xs text-green-700 font-medium mb-1">Balance After</p>
-                    <p class="text-lg font-bold text-green-900" id="balance-after-transfer">₱50,000.00</p>
-                </div>
-            </div>
-
-            <div class="space-y-5">
-                <div>
-                    <label class="block text-gray-700 font-medium mb-2">
-                        Transfer Amount
-                    </label>
-                    <input type="text" 
-                           id="transfer-amount-display" 
-                           class="w-full border border-gray-300 rounded-xl p-4 bg-gray-50 text-gray-700 font-semibold text-lg" 
-                           readonly />
-                </div>
-
-                <div>
-                    <label class="block text-gray-700 font-medium mb-2">
-                        Transfer To (Account/Person) <span class="text-red-500">*</span>
-                    </label>
-                    <input type="text" 
-                           name="TransferTo" 
-                           class="w-full border border-gray-300 rounded-xl p-4 focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all" 
-                           required 
-                           placeholder="Enter recipient name or account number" />
-                </div>
-
-                <div>
-                    <label class="block text-gray-700 font-medium mb-2">
-                        Payment Method <span class="text-red-500">*</span>
-                    </label>
-                    <select name="PaymentMethod" 
-                            class="w-full border border-gray-300 rounded-xl p-4 focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all" 
-                            required>
-                        <option value="">Select payment method</option>
-                        <option value="Bank Transfer">Bank Transfer</option>
-                        <option value="Cash">Cash</option>
-                        <option value="Check">Check</option>
-                        <option value="Online Payment">Online Payment</option>
-                        <option value="Credit Card">Credit Card</option>
-                    </select>
-                </div>
-
-                <div>
-                    <label class="block text-gray-700 font-medium mb-2">
-                        Reference Number
-                    </label>
-                    <input type="text" 
-                           name="ReferenceNumber" 
-                           class="w-full border border-gray-300 rounded-xl p-4 focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all" 
-                           placeholder="Enter reference or transaction number (optional)" />
-                </div>
-
-                <div>
-                    <label class="block text-gray-700 font-medium mb-2">
-                        Transfer Notes
-                    </label>
-                    <textarea name="TransferNotes" 
-                              class="w-full border border-gray-300 rounded-xl p-4 focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all" 
-                              rows="3" 
-                              placeholder="Add any additional notes about the transfer (optional)"></textarea>
-                </div>
-            </div>
-
-            <div class="flex justify-end gap-3 mt-8 pt-6 border-t border-gray-200">
-                <button type="button" id="cancelTransferBtn" class="px-6 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium">
-                    Cancel
-                </button>
-                <button type="submit" id="confirmApproveBtn" class="px-6 py-2.5 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl hover:from-green-600 hover:to-green-700 transition-all shadow-md hover:shadow-lg font-medium flex items-center gap-2">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+    <!-- TRANSFER FUND MODAL -->
+    <div id="transferFundModal" class="fixed inset-0 bg-white bg-opacity-60 hidden items-center justify-center z-50 backdrop-blur-sm">
+        <div class="bg-white w-full max-w-2xl rounded-3xl shadow-2xl p-8 m-4 max-h-[90vh] overflow-y-auto transform transition-all">
+            <div class="flex items-center gap-3 mb-6 pb-4 border-b border-gray-200">
+                <div class="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
+                    <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                     </svg>
-                    Confirm & Approve
-                </button>
+                </div>
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-900">Approve & Transfer Funds</h2>
+                    <p class="text-gray-600 text-sm">Complete transfer details to approve this expense</p>
+                </div>
             </div>
-        </form>
-    </div>
-</div>
 
-
-<!-- ADD EXPENSE MODAL -->
-<div id="expenseModal" class="fixed inset-0 bg-white bg-opacity-60 hidden items-center justify-center z-50 backdrop-blur-sm">
-    <div class="bg-white w-full max-w-2xl rounded-3xl shadow-2xl p-8 m-4 max-h-[90vh] overflow-y-auto transform transition-all">
-        <div class="flex items-center gap-3 mb-6 pb-4 border-b border-gray-200">
-            <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
-                <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                </svg>
+            <!-- Balance Warning -->
+            <div id="insufficientBalanceWarning" class="bg-red-50 border-l-4 border-red-500 p-4 mb-6 rounded-lg hidden">
+                <div class="flex items-start gap-3">
+                    <svg class="w-5 h-5 text-red-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                    </svg>
+                    <div>
+                        <p class="text-red-800 font-semibold">Insufficient Balance</p>
+                        <p class="text-red-700 text-sm mt-1">Available balance is not sufficient for this transfer. Please add funds before approving.</p>
+                    </div>
+                </div>
             </div>
-            <div>
-                <h2 class="text-2xl font-bold text-gray-900">Create New Expense</h2>
-                <p class="text-gray-600 text-sm">Submit a new expense request</p>
-            </div>
-        </div>
 
-        <form id="expenseForm">
-            <div class="space-y-5">
-                <div class="grid grid-cols-2 gap-4">
+            <form id="approveForm" asp-action="ApproveExpense" asp-controller="Sales_Finance" method="post">
+                <input type="hidden" name="id" id="approve-expense-id" value="" />
+                <input type="hidden" name="requestId" id="request-id" value="" />
+                <input type="hidden" name="IsStockRequest" id="isStockReqInput" value="false" />            <!-- Balance Summary -->
+                <div class="grid grid-cols-3 gap-4 mb-6">
+                    <div class="bg-blue-50 p-4 rounded-xl border border-blue-200">
+                        <p class="text-xs text-blue-700 font-medium mb-1">Current Balance</p>
+                        <p class="text-lg font-bold text-blue-900">@Model.Balance.CurrentBalance</p>
+                    </div>
+                    <div class="bg-orange-50 p-4 rounded-xl border border-orange-200">
+                        <p class="text-xs text-orange-700 font-medium mb-1">Transfer Amount</p>
+                        <p class="text-lg font-bold text-orange-900" id="transfer-amount-display-main">₱0.00</p>
+                    </div>
+                    <div class="bg-green-50 p-4 rounded-xl border border-green-200">
+                        <p class="text-xs text-green-700 font-medium mb-1">Balance After</p>
+                        <p class="text-lg font-bold text-green-900" id="balance-after-transfer">₱50,000.00</p>
+                    </div>
+                </div>
+
+                <div class="space-y-5">
                     <div>
                         <label class="block text-gray-700 font-medium mb-2">
-                            Department <span class="text-red-500">*</span>
+                            Transfer Amount
                         </label>
-                        <select name="Department" 
-                                class="w-full border border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" 
+                        <input type="text"
+                               id="transfer-amount-display"
+                               class="w-full border border-gray-300 rounded-xl p-4 bg-gray-50 text-gray-700 font-semibold text-lg"
+                               readonly />
+                    </div>
+
+                    <div>
+                        <label class="block text-gray-700 font-medium mb-2">
+                            Transfer To (Account/Person) <span class="text-red-500">*</span>
+                        </label>
+                        <input type="text"
+                               name="TransferTo"
+                               class="w-full border border-gray-300 rounded-xl p-4 focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                               required
+                               placeholder="Enter recipient name or account number" />
+                    </div>
+
+                    <div>
+                        <label class="block text-gray-700 font-medium mb-2">
+                            Payment Method <span class="text-red-500">*</span>
+                        </label>
+                        <select name="PaymentMethod"
+                                class="w-full border border-gray-300 rounded-xl p-4 focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
                                 required>
-                            <option value="">Select department</option>
-                            <option value="HR">HR</option>
-                            <option value="Accounting">Accounting</option>
-                            <option value="Website">Website</option>
-                            <option value="Marketing">Marketing</option>
-                            <option value="Inventory">Inventory</option>
+                            <option value="">Select payment method</option>
+                            <option value="Bank Transfer">Bank Transfer</option>
+                            <option value="Cash">Cash</option>
+                            <option value="Check">Check</option>
+                            <option value="Online Payment">Online Payment</option>
+                            <option value="Credit Card">Credit Card</option>
                         </select>
                     </div>
+
                     <div>
                         <label class="block text-gray-700 font-medium mb-2">
-                            Expense Type <span class="text-red-500">*</span>
+                            Reference Number
                         </label>
-                        <input name="ExpenseType" 
-                               class="w-full border border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" 
-                               required 
-                               placeholder="e.g., Office Supplies" />
+                        <input type="text"
+                               name="ReferenceNumber"
+                               class="w-full border border-gray-300 rounded-xl p-4 focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                               placeholder="Enter reference or transaction number (optional)" />
+                    </div>
+
+                    <div>
+                        <label class="block text-gray-700 font-medium mb-2">
+                            Transfer Notes
+                        </label>
+                        <textarea name="TransferNotes"
+                                  class="w-full border border-gray-300 rounded-xl p-4 focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                                  rows="3"
+                                  placeholder="Add any additional notes about the transfer (optional)"></textarea>
                     </div>
                 </div>
 
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-gray-700 font-medium mb-2">
-                            Requested By <span class="text-red-500">*</span>
-                        </label>
-                        <input name="RequestedBy" 
-                               class="w-full border border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" 
-                               required 
-                               placeholder="Your name" />
-                    </div>
-                    <div>
-                        <label class="block text-gray-700 font-medium mb-2">
-                            Amount (₱) <span class="text-red-500">*</span>
-                        </label>
-                        <input type="number" 
-                               name="Amount" 
-                               step="0.01" 
-                               class="w-full border border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" 
-                               required 
-                               placeholder="0.00" />
-                    </div>
+                <div class="flex justify-end gap-3 mt-8 pt-6 border-t border-gray-200">
+                    <button type="button" id="cancelTransferBtn" class="px-6 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium">
+                        Cancel
+                    </button>
+                    <button type="submit" id="confirmApproveBtn" class="px-6 py-2.5 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl hover:from-green-600 hover:to-green-700 transition-all shadow-md hover:shadow-lg font-medium flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                        Confirm & Approve
+                    </button>
                 </div>
-
-                <div>
-                    <label class="block text-gray-700 font-medium mb-2">
-                        Description <span class="text-red-500">*</span>
-                    </label>
-                    <textarea name="Description" 
-                              class="w-full border border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" 
-                              rows="3" 
-                              required 
-                              placeholder="Describe the purpose of this expense..."></textarea>
-                </div>
-
-                <div>
-                    <label class="block text-gray-700 font-medium mb-2">
-                        Additional Notes
-                    </label>
-                    <textarea name="Notes" 
-                              class="w-full border border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" 
-                              rows="2" 
-                              placeholder="Any additional information (optional)"></textarea>
-                </div>
-            </div>
-
-            <div class="flex justify-end gap-3 mt-8 pt-6 border-t border-gray-200">
-                <button type="button" id="closeModalBtn" class="px-6 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium">
-                    Cancel
-                </button>
-                <button type="submit" class="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all shadow-md hover:shadow-lg font-medium flex items-center gap-2">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                    </svg>
-                    Submit Request
-                </button>
-            </div>
-        </form>
+            </form>
+        </div>
     </div>
 
-</div>
+
+    <!-- ADD EXPENSE MODAL -->
+    <div id="expenseModal" class="fixed inset-0 bg-white bg-opacity-60 hidden items-center justify-center z-50 backdrop-blur-sm">
+        <div class="bg-white w-full max-w-2xl rounded-3xl shadow-2xl p-8 m-4 max-h-[90vh] overflow-y-auto transform transition-all">
+            <div class="flex items-center gap-3 mb-6 pb-4 border-b border-gray-200">
+                <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                    <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-900">Create New Expense</h2>
+                    <p class="text-gray-600 text-sm">Submit a new expense request</p>
+                </div>
+            </div>
+
+            <form id="expenseForm">
+                <div class="space-y-5">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-gray-700 font-medium mb-2">
+                                Department <span class="text-red-500">*</span>
+                            </label>
+                            <select name="Department"
+                                    class="w-full border border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                    required>
+                                <option value="">Select department</option>
+                                <option value="HR">HR</option>
+                                <option value="Accounting">Accounting</option>
+                                <option value="Website">Website</option>
+                                <option value="Marketing">Marketing</option>
+                                <option value="Inventory">Inventory</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 font-medium mb-2">
+                                Expense Type <span class="text-red-500">*</span>
+                            </label>
+                            <input name="ExpenseType"
+                                   class="w-full border border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                   required
+                                   placeholder="e.g., Office Supplies" />
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-gray-700 font-medium mb-2">
+                                Requested By <span class="text-red-500">*</span>
+                            </label>
+                            <input name="RequestedBy"
+                                   class="w-full border border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                   required
+                                   placeholder="Your name" />
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 font-medium mb-2">
+                                Amount (₱) <span class="text-red-500">*</span>
+                            </label>
+                            <input type="number"
+                                   name="Amount"
+                                   step="0.01"
+                                   class="w-full border border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                   required
+                                   placeholder="0.00" />
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-gray-700 font-medium mb-2">
+                            Description <span class="text-red-500">*</span>
+                        </label>
+                        <textarea name="Description"
+                                  class="w-full border border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                  rows="3"
+                                  required
+                                  placeholder="Describe the purpose of this expense..."></textarea>
+                    </div>
+
+                    <div>
+                        <label class="block text-gray-700 font-medium mb-2">
+                            Additional Notes
+                        </label>
+                        <textarea name="Notes"
+                                  class="w-full border border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                  rows="2"
+                                  placeholder="Any additional information (optional)"></textarea>
+                    </div>
+                </div>
+
+                <div class="flex justify-end gap-3 mt-8 pt-6 border-t border-gray-200">
+                    <button type="button" id="closeModalBtn" class="px-6 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium">
+                        Cancel
+                    </button>
+                    <button type="submit" class="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all shadow-md hover:shadow-lg font-medium flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                        Submit Request
+                    </button>
+                </div>
+            </form>
+        </div>
+
+    </div>
 
     <div id="transactionDetailsModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 backdrop-blur-sm">
         <div class="bg-gradient-to-br from-white to-gray-50 w-full max-w-3xl rounded-2xl shadow-xl px-6 pb-6 pt-0 max-h-[90vh] overflow-y-auto">
@@ -1775,715 +1663,36 @@
         </div>
     </div>
 
-<!-- APPROVAL CONFIRMATION MODAL -->
-<div id="approveModal" class="fixed inset-0 bg-black/50 hidden flex items-center justify-center z-50 backdrop-blur-sm">
-  <div class="bg-white rounded-xl shadow-lg p-6 w-full max-w-md">
-    <h2 class="text-xl font-bold text-green-700 mb-4">Confirm Approval</h2>
-    <p class="text-gray-700 mb-6">Are you sure you want to approve this payroll?</p>
-    <div class="flex justify-end gap-3">
-      <button onclick="closeApproveModal()" class="px-4 py-2 bg-gray-200 rounded-lg">Cancel</button>
-      <button id="approveConfirmBtn" class="px-4 py-2 bg-green-600 text-white rounded-lg">Confirm</button>
+    <!-- APPROVAL CONFIRMATION MODAL -->
+    <div id="approveModal" class="fixed inset-0 bg-black/50 hidden flex items-center justify-center z-50 backdrop-blur-sm">
+        <div class="bg-white rounded-xl shadow-lg p-6 w-full max-w-md">
+            <h2 class="text-xl font-bold text-green-700 mb-4">Confirm Approval</h2>
+            <p class="text-gray-700 mb-6">Are you sure you want to approve this payroll?</p>
+            <div class="flex justify-end gap-3">
+                <button onclick="closeApproveModal()" class="px-4 py-2 bg-gray-200 rounded-lg">Cancel</button>
+                <button id="approveConfirmBtn" class="px-4 py-2 bg-green-600 text-white rounded-lg">Confirm</button>
+            </div>
+        </div>
     </div>
-  </div>
-</div>
 
-<!-- DECLINE CONFIRMATION MODAL -->
-<div id="declineModal" class="fixed inset-0 bg-black/50 hidden flex items-center justify-center z-50 backdrop-blur-sm">
-  <div class="bg-white rounded-xl shadow-lg p-6 w-full max-w-md">
-    <h2 class="text-xl font-bold text-red-700 mb-4">Confirm Decline</h2>
-    <p class="text-gray-700 mb-6">Are you sure you want to decline this payroll?</p>
-    <div class="flex justify-end gap-3">
-      <button onclick="closeDeclineModal()" class="px-4 py-2 bg-gray-200 rounded-lg">Cancel</button>
-      <button id="declineConfirmBtn" class="px-4 py-2 bg-red-600 text-white rounded-lg">Confirm</button>
+    <!-- DECLINE CONFIRMATION MODAL -->
+    <div id="declineModal" class="fixed inset-0 bg-black/50 hidden flex items-center justify-center z-50 backdrop-blur-sm">
+        <div class="bg-white rounded-xl shadow-lg p-6 w-full max-w-md">
+            <h2 class="text-xl font-bold text-red-700 mb-4">Confirm Decline</h2>
+            <p class="text-gray-700 mb-6">Are you sure you want to decline this payroll?</p>
+            <div class="flex justify-end gap-3">
+                <button onclick="closeDeclineModal()" class="px-4 py-2 bg-gray-200 rounded-lg">Cancel</button>
+                <button id="declineConfirmBtn" class="px-4 py-2 bg-red-600 text-white rounded-lg">Confirm</button>
+            </div>
+        </div>
     </div>
-  </div>
-</div>
-<script>
-    function closeTransactionModal() {
-        const modal = document.getElementById("transactionDetailsModal");
-        modal.classList.add("hidden");
-        modal.classList.remove("flex");
-    }
-</script>
-
-
+    <script src="~/js/Expenses.js"></script>
     <script>
-        let currentExpenseId = null;
-        let currentExpenseAmount = null;
-        const AVAILABLE_BALANCE = @Model.Balance.CurrentBalance;
-
-        function formatCurrency(amount) {
-            return '₱' + parseFloat(amount).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        }
-
-        function calculateBalanceAfter(expenseAmount) {
-            const amount = parseFloat(expenseAmount.toString().replace(/,/g, ''));
-            return AVAILABLE_BALANCE - amount;
-        }
-
-        function checkBalance(expenseAmount) {
-            const amount = parseFloat(expenseAmount.toString().replace(/,/g, ''));
-            return AVAILABLE_BALANCE >= amount;
-        }
-
-        function checkLowBalance() {
-            const alertDiv = document.getElementById('balanceAlert');
-            if (AVAILABLE_BALANCE < 20000) {
-                alertDiv.classList.remove('hidden');
-            }
-        }
-
-        document.addEventListener('DOMContentLoaded', function () {
-            checkLowBalance();
-        });
-
-        // OPEN ADD EXPENSE MODAL
-        document.getElementById("openModalBtn").addEventListener("click", function () {
-            document.getElementById("expenseModal").classList.remove("hidden");
-            document.getElementById("expenseModal").classList.add("flex");
-        });
-
-        // CLOSE ADD EXPENSE MODAL
-        document.getElementById("closeModalBtn").addEventListener("click", function () {
-            document.getElementById("expenseModal").classList.add("hidden");
-            document.getElementById("expenseModal").classList.remove("flex");
-        });
-
-        // OPEN PREVIEW MODAL
-        document.querySelectorAll(".view-details-btn").forEach(button => {
-            button.addEventListener("click", function () {
-
-                const expenseId = this.getAttribute("data-expense-id");
-                const requester = this.getAttribute("data-requester");
-                const department = this.getAttribute("data-department");
-                const type = this.getAttribute("data-type");
-                const amount = this.getAttribute("data-amount");
-                const description = this.getAttribute("data-description");
-                const notes = this.getAttribute("data-notes") || "No additional notes provided";
-                const status = this.getAttribute("data-status");
-                const id = this.getAttribute("data-id");
-
-                currentExpenseId = id;
-                currentExpenseAmount = amount;
-
-                const balanceAfter = calculateBalanceAfter(amount);
-
-                document.getElementById("preview-expense-id").textContent = expenseId;
-                document.getElementById("preview-requester").textContent = requester;
-                document.getElementById("preview-requester-initial").textContent = requester.substring(0, 1).toUpperCase();
-                document.getElementById("preview-department").textContent = department;
-                document.getElementById("preview-type").textContent = type;
-                document.getElementById("preview-amount").textContent = "₱" + amount;
-                document.getElementById("preview-description").textContent = description;
-                document.getElementById("preview-notes").textContent = notes;
-                document.getElementById("preview-status").textContent = status;
-
-                document.getElementById("balance-after-approval").textContent = formatCurrency(balanceAfter);
-
-                document.getElementById("previewModal").classList.remove("hidden");
-                document.getElementById("previewModal").classList.add("flex");
-            });
-        });
-
-        // CLOSE PREVIEW MODAL
-        document.getElementById("closePreviewBtn").addEventListener("click", closePreview);
-        document.getElementById("cancelPreviewBtn").addEventListener("click", closePreview);
-
-        function closePreview() {
-            document.getElementById("previewModal").classList.add("hidden");
-            document.getElementById("previewModal").classList.remove("flex");
-        }
-
-        // APPROVE BUTTONS
-        document.querySelectorAll(".approveBtn").forEach(approveBtn => {
-            approveBtn.addEventListener("click", async function (event) {
-
-                ["previewModal", "ingredientRequestModal"].forEach(id => {
-                    document.getElementById(id).classList.add("hidden");
-                    document.getElementById(id).classList.remove("flex");
-                });
-
-                const r = window.selectedStockRequest;
-                const requestType = event.currentTarget.dataset.requestType;
-
-                let amountToUse = 0;
-
-                if (requestType === "stock_expense") {
-                    document.getElementById("approve-expense-id").value = "No Id yet";
-                    document.getElementById("request-id").value = r.Id;
-                    document.getElementById("transfer-amount-display").value = "₱" + r.TotalCost;
-                    document.getElementById("transfer-amount-display-main").textContent = "₱" + r.TotalCost;
-
-                    amountToUse = r.TotalCost;
-                } else {
-                    document.getElementById("approve-expense-id").value = currentExpenseId;
-
-                    document.getElementById("transfer-amount-display").value = "₱" + currentExpenseAmount;
-                    document.getElementById("transfer-amount-display-main").textContent = "₱" + currentExpenseAmount;
-
-                    amountToUse = currentExpenseAmount;
-                }
-
-                const balanceAfter = calculateBalanceAfter(amountToUse);
-
-                document.getElementById("balance-after-transfer").textContent = formatCurrency(balanceAfter);
-
-                const isSufficient = checkBalance(amountToUse);
-
-                const warningDiv = document.getElementById("insufficientBalanceWarning");
-                const submitBtn = document.getElementById("confirmApproveBtn");
-
-                if (!isSufficient) {
-                    warningDiv.classList.remove("hidden");
-                    submitBtn.disabled = true;
-                    submitBtn.classList.add("opacity-50", "cursor-not-allowed");
-
-                    document.getElementById("balance-after-transfer").classList.add("text-red-600");
-                                        document.getElementById("transferFundModal").classList.remove("hidden");
-                    document.getElementById("transferFundModal").classList.add("flex");
-                } else {
-
-                    // AUTO-CREATE EXPENSE IF STOCK REPLENISHMENT
-                    if (requestType === "stock_expense") {
-                        try {
-                            const stockExpenseData = {
-                                Department: "Inventory",
-                                ExpenseType: "Ingredient Stock Request",
-                                RequestedBy: r.RequestedBy,
-                                Amount: r.TotalCost,
-                                Description: `Replenishment: ${r.IngredientName} (${r.Quantity} ${r.Unit})`,
-                                Notes: "Generated via One-Click Approval.",
-                                isIngredientsRequest: true
-                            };
-
-                            const formData = new FormData();
-                            for (const key in stockExpenseData) {
-                                formData.append(key, stockExpenseData[key]);
-                            }
-
-                            const response1 = await fetch('/Sales_Finance/AddExpense', {
-                                method: 'POST',
-                                body: formData
-                            });
-
-                            const result1 = await response1.json();
-
-                            if (result1.success) {
-                                document.getElementById("approve-expense-id").value = result1.expenseId;
-
-                                const response2 = await fetch(`/Sales_Finance/UpdatedStockRequestStatus?id=${r.Id}&expenseId=${result1.expenseId}`, {
-                                    method: "POST"
-                                });
-
-                                const result2 = await response2.json();
-                                if (!result2.success) alert("Failed to update stock request status.");
-
-                            } else {
-                                alert("Failed to submit stock request.");
-                            }
-
-                        } catch (error) {
-                            console.error("Network Error:", error);
-                        }
-                    }
-                    warningDiv.classList.add("hidden");
-                    submitBtn.disabled = false;
-
-                    document.getElementById("transferFundModal").classList.remove("hidden");
-                    document.getElementById("transferFundModal").classList.add("flex");
-                }
-            });
-        });
-
-        // CANCEL TRANSFER
-        document.getElementById("cancelTransferBtn").addEventListener("click", function () {
-            document.getElementById("transferFundModal").classList.add("hidden");
-            document.getElementById("transferFundModal").classList.remove("flex");
-            document.getElementById("approveForm").reset();
-        });
-
-        // DECLINE BUTTON
-        document.getElementById("declineBtn").addEventListener("click", function () {
-
-            closePreview();
-
-            document.getElementById("decline-expense-id").value = currentExpenseId;
-            document.getElementById("is-stock-request").value = false;
-
-            document.getElementById("declineReasonModal").classList.remove("hidden");
-            document.getElementById("declineReasonModal").classList.add("flex");
-        });
-
-        // DECLINE FROM INGREDIENT REQUEST
-        document.getElementById("declineRequestBtn").addEventListener("click", function () {
-
-            document.getElementById("ingredientRequestModal").classList.add("hidden");
-
-            document.getElementById("decline-expense-id").value = window.selectedStockRequest.Id;
-            document.getElementById("is-stock-request").value = true;
-
-            document.getElementById("declineReasonModal").classList.remove("hidden");
-            document.getElementById("declineReasonModal").classList.add("flex");
-        });
-
-        // CANCEL DECLINE MODAL
-        document.getElementById("cancelDeclineBtn").addEventListener("click", function () {
-            document.getElementById("declineReasonModal").classList.add("hidden");
-            document.getElementById("declineReasonModal").classList.remove("flex");
-            document.getElementById("declineForm").reset();
-        });
-
-    </script>
-
-
-<!-- Script -->
-<script>
-    document.addEventListener("DOMContentLoaded", function () {
-        const button = document.getElementById("filterButton");
-        const dropdown = document.getElementById("filterDropdown");
-
-
-        // Toggle dropdown visibility
-        button.addEventListener("click", function (e) {
-            e.stopPropagation();
-            dropdown.classList.toggle("hidden");
-        });
-
-        // Close dropdown when clicking outside
-        document.addEventListener("click", function (e) {
-            if (!dropdown.contains(e.target) && !button.contains(e.target)) {
-                dropdown.classList.add("hidden");
-            }
-        });
-    });
-</script>
-
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // 1. DOM Elements
-            const modal = document.getElementById('ingredientRequestModal');
-            const closeBtn = document.getElementById('closeIngredientRequestBtn');
-            const cancelBtn = document.getElementById('cancelRequestBtn');
-            const approveBtn = document.getElementById('approveRequestBtn');
-            const declineBtn = document.getElementById('declineRequestBtn');
-
-            // Preview Elements
-            const els = {
-                id: document.getElementById('preview-request-id'),
-                requesterName: document.getElementById('preview-requester-name'),
-                requesterInitial: document.getElementById('preview-requester-initial'),
-                supplier: document.getElementById('preview-supplier-name'),
-                ingredient: document.getElementById('preview-ingredient-name'),
-                quantity: document.getElementById('preview-quantity'),
-                status: document.getElementById('preview-request-status'),
-                cost: document.getElementById('preview-total_cost'),
-
-                currentStock: document.getElementById('current-stock'),
-                stockAfter: document.getElementById('stock-after-fulfillment')
-            };
-
-            let activeRequestId = null;
-
-            // 2. Function to Open Modal (Global scope to be accessible by HTML onclick)
-            window.approveRequest = async function (buttonElement) {
-
-            const data = buttonElement.dataset;
-
-            // ------------------------------------------------------
-            // SHOW VIEW-ONLY MODAL IF ALREADY APPROVED BY FINANCE
-            // ------------------------------------------------------
-            if (data.status === "Approved by Finance") {
-
-                // Fetch full expense + payment detail
-                const response = await fetch(`/Sales_Finance/GetExpenseAndPaymentDetails?expenseId=${data.expenseId}`);
-                const result = await response.json();
-
-                if (!result.success) {
-                    alert("Failed to load payment info.");
-                    return;
-                }
-
-                const expense = result.expense;
-                const payment = result.payment;
-
-                // Fill request info
-                document.getElementById("transaction-request-id").textContent = `SRQ-${data.id.substr(data.id.length - 6)}`;
-                document.getElementById("transaction-requester").textContent = expense.requestedBy || data.requester;
-                document.getElementById("transaction-supplier").textContent = expense.supplierName || data.supplier;
-                document.getElementById("transaction-ingredient").textContent = expense.ingredientName || data.ingredient;
-                document.getElementById("transaction-qty").textContent = data.qty;
-                document.getElementById("transaction-total-cost").textContent =
-                    "₱" + parseFloat(payment.amount).toLocaleString("en-PH", {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2
-                    });
-
-                // ----------------------------
-                // PAYMENT SECTION
-                // ----------------------------
-                if (payment) {
-                    document.getElementById("payment-section").classList.remove("hidden");
-
-                    document.getElementById("payment-amount").textContent =
-                        "₱" + parseFloat(payment.amount).toLocaleString("en-PH", {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2
-                        });
-
-                    document.getElementById("payment-date").textContent =
-                        new Date(payment.paymentDate).toLocaleString("en-PH");
-
-                    document.getElementById("payment-method").textContent = payment.paymentMethod;
-                    document.getElementById("payment-transfer-to").textContent = payment.transferTo;
-                    document.getElementById("payment-ref").textContent = payment.referenceNumber || "—";
-                    document.getElementById("payment-notes").textContent = payment.notes || "—";
-
-                } else {
-                    // hide if no payment
-                    document.getElementById("payment-section").classList.add("hidden");
-                }
-
-                // Show modal
-                const transModal = document.getElementById("transactionDetailsModal");
-                transModal.classList.remove("hidden");
-                transModal.classList.add("flex");
-
-                return; // STOP normal flow
-            }
-
-            // ------------------------------------------------------
-            // NORMAL FLOW (pending, etc.) — show approval modal
-            // ------------------------------------------------------
-            window.selectedStockRequest = {
-                Id: data.id,
-                expenseId: data.expenseId,
-                RequestedBy: data.requester,
-                SupplierName: data.supplier,
-                IngredientName: data.ingredient,
-                QuantityRequested: data.qty,
-                Unit: data.unit,
-                CurrentStockAtRequest: data.stock,
-                RequestStatus: data.status,
-                TotalCost: data.cost
-            };
-
-            activeRequestId = data.id;
-
-            els.id.textContent = `SRQ-${data.id.substr(data.id.length - 6)}`;
-            els.requesterName.textContent = data.requester || 'Unknown';
-            els.requesterInitial.textContent = (data.requester || 'U').charAt(0).toUpperCase();
-            els.supplier.textContent = data.supplier;
-            els.ingredient.textContent = data.ingredient;
-            els.quantity.textContent = `${data.qty} ${data.unit}`;
-            els.status.textContent = data.status;
-            els.cost.textContent = '₱' + parseFloat(data.cost).toLocaleString('en-PH', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2
-            });
-
-            const balanceAfter = calculateBalanceAfter(data.cost);
-            els.stockAfter.textContent = formatCurrency(balanceAfter);
-
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
-        };
-
-
-
-            // 3. Function to Close Modal
-            function closeModal() {
-                modal.classList.add('hidden');
-                modal.classList.remove('flex');
-                activeRequestId = null;
-            }
-
-            // 4. Event Listeners for Closing
-            closeBtn.addEventListener('click', closeModal);
-            cancelBtn.addEventListener('click', closeModal);
-
-            // Close on click outside (backdrop)
-            modal.addEventListener('click', (e) => {
-                if (e.target === modal) closeModal();
-            });
-
-            // 5. Action Buttons Logic
-            approveBtn.addEventListener('click', function() {
-                if(!activeRequestId) return;
-
-                // Add your AJAX/Fetch call here to backend
-                console.log(`Approving request: ${activeRequestId}`);
-                alert(`Request ${activeRequestId} Approved!`);
-
-                closeModal();
-                // Optional: reload page or remove row
-                // window.location.reload();
-            });
-
-            declineBtn.addEventListener('click', function() {
-                if(!activeRequestId) return;
-
-                // Add your AJAX/Fetch call here to backend
-                if(confirm('Are you sure you want to decline this request?')) {
-                    console.log(`Declining request: ${activeRequestId}`);
-                    closeModal();
-                }
-            });
-        });
-    </script>
-
-<script>
-    document.getElementById("expenseForm").addEventListener("submit", async function (e) {
-        e.preventDefault(); // stop normal form submission
-
-        const formData = new FormData(this);
-
-        const response = await fetch('/Sales_Finance/AddExpense', {
-            method: 'POST',
-            body: formData
-        });
-
-        const result = await response.json();
-
-        if (result.success) {
-            // Move to the Expenses view
-            window.location.href = "/Sales_Finance/Expenses";
-        } else {
-            alert("Something went wrong.");
-        }
-    });
-</script>
-    <script>
-        
-
-        document.querySelectorAll('.payroll-row').forEach(row => {
-            row.addEventListener('click', () => {
-                // alert(@Model.PayrollRuns.Count)
-                const details = document.getElementById('details-content');
-                details.innerHTML = `
-                    <div class="space-y-2">
-                        <p><strong>Pay Run #:</strong> ${row.dataset.payrunnumber}</p>
-                        <p><strong>Pay Period:</strong> ${row.dataset.payperiod}</p>
-                        <p><strong>Pay Date:</strong> ${row.dataset.paydate}</p>
-                        <p><strong>Pay Type:</strong> ${row.dataset.paytype}</p>
-                        <p><strong>Total Employees:</strong> ${row.dataset.employees}</p>
-                        <p><strong>Gross Total:</strong> ${row.dataset.grosstotal}</p>
-                        <p><strong>Status:</strong> ${row.dataset.status}</p>
-                        <p><strong>Description:</strong> ${row.dataset.description || 'N/A'}</p>
-                        <p><strong>Approved By:</strong> ${row.dataset.approvedby || 'N/A'}</p>
-                    </div>
-                `;
-            });
-        });
-
-        function clearDetails() {
-            document.getElementById('details-content').innerHTML = '<p class="text-gray-500 text-sm">Select a payroll run to see details.</p>';
+        // Initialize available balance for the JS module
+        @if (Model.Balance != null)
+        {
+                <text>
+                window.setAvailableBalance(@Model.Balance.CurrentBalance);
+                </text>
         }
     </script>
- 
-
-    <script>
-        async function releasePayroll(id, status) {
-            // Instead of confirm(), show the appropriate modal
-            if (status === "Approved") {
-                document.getElementById("approveModal").classList.remove("hidden");
-                // attach confirm action
-                document.getElementById("approveConfirmBtn").onclick = async () => {
-                    await sendPayrollRequest(id, status);
-                    closeApproveModal();
-                };
-            } else {
-                document.getElementById("declineModal").classList.remove("hidden");
-                // attach confirm action
-                document.getElementById("declineConfirmBtn").onclick = async () => {
-                    await sendPayrollRequest(id, status);
-                    closeDeclineModal();
-                };
-            }
-        }
-
-        async function sendPayrollRequest(id, status) {
-            const response = await fetch(`/Sales_Finance/ReleasePayroll?id=${id}&status=${status}`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                }
-            });
-
-            const result = await response.json();
-
-            if (result.success) {
-                location.reload();
-            } else {
-                alert("Failed to release payroll.");
-            }
-        }
-
-        function closeApproveModal() {
-            document.getElementById("approveModal").classList.add("hidden");
-        }
-
-        function closeDeclineModal() {
-            document.getElementById("declineModal").classList.add("hidden");
-        }
-    </script>
-
-    <script>
-        document.addEventListener("DOMContentLoaded", function () {
-            const button = document.getElementById("filterButtonPayroll");
-            const dropdown = document.getElementById("filterDropdownPayroll");
-
-            if (!button || !dropdown) return;
-
-            button.addEventListener("click", function (e) {
-                e.stopPropagation(); // <-- FIX
-                dropdown.classList.toggle("hidden");
-            });
-
-            document.addEventListener("click", function (e) {
-                if (!dropdown.contains(e.target) && !button.contains(e.target)) {
-                    dropdown.classList.add("hidden");
-                }
-            });
-        });
-    </script>
-
-    <script>
-        document.querySelectorAll(".review-btn").forEach(btn => {
-            btn.addEventListener("click", () => {
-                const status = btn.dataset.status;
-                const respondedDate = btn.dataset.respondedDate;
-                alert(respondedDate)
-
-                document.getElementById("modal-title").textContent =
-                    status === "Approved" ? "Approved Expense Details" :
-                    status === "Declined" ? "Declined Expense Details" :
-                    "Expense Details";
-
-                document.getElementById("modal-status-text").textContent = status;
-
-                document.getElementById("modal-expense-id").textContent = btn.dataset.expenseId;
-                document.getElementById("modal-requester").textContent = btn.dataset.requester;
-                document.getElementById("modal-department").textContent = btn.dataset.department;
-                document.getElementById("modal-type").textContent = btn.dataset.type;
-                document.getElementById("modal-description").textContent = btn.dataset.description;
-                document.getElementById("modal-amount").textContent = "₱" + btn.dataset.amount;
-
-                // Show notes ONLY for declined
-                if (status === "Declined") {
-                    document.getElementById("modal-notes-section").classList.remove("hidden");
-                    document.getElementById("modal-notes").textContent = btn.dataset.notes || "No reason provided.";
-                } else {
-                    document.getElementById("modal-notes-section").classList.add("hidden");
-                }
-
-                // Show responded date
-                if (respondedDate) {
-                    document.getElementById("modal-date-section").classList.remove("hidden");
-                    document.getElementById("modal-date-label").textContent =
-                        status === "Approved" ? "Date Approved" :
-                        status === "Declined" ? "Date Declined" :
-                        "Date Responded";
-                    document.getElementById("modal-date-value").textContent = respondedDate;
-                } else {
-                    document.getElementById("modal-date-section").classList.add("hidden");
-                }
-
-                document.getElementById("expenseModal").classList.remove("hidden");
-            });
-        });
-
-        function closeExpenseModal() {
-            document.getElementById("expenseModal").classList.add("hidden");
-        }
-    </script>
-
-    <script>
-        /**
-         * Resets the filter form and reapplies filters to show all payroll runs.
-         */
-        function resetPayrollFilters() {
-            document.getElementById("filterFormPayroll").reset();
-            applyPayrollFilters();
-        }
-
-        /**
-         * Filters and sorts the payroll table rows based on selected criteria.
-         */
-        function applyPayrollFilters() {
-            const tbody = document.querySelector("#payrollTableBody");
-
-            // CRITICAL SAFETY CHECK: Ensure the tbody element is found.
-            if (!tbody) {
-                console.error("Error: The table body with ID '#payrollTableBody' was not found. Please ensure the <tbody> tag has this ID.");
-                return;
-            }
-
-            const rows = Array.from(tbody.querySelectorAll("tr"));
-
-            // CATEGORY FILTER (Status)
-            const selectedCategories = Array.from(document.querySelectorAll("input[name='category']:checked"))
-                .map(cb => cb.value);
-
-            let filteredRows = rows;
-
-            if (selectedCategories.length > 0) {
-                filteredRows = filteredRows.filter(row => {
-                    const status = row.dataset.status;
-                    return selectedCategories.includes(status);
-                });
-            }
-
-            // SORTING
-            const sortBy = document.getElementById("sortBy").value;
-
-            filteredRows.sort((a, b) => {
-                const getValue = (row, type) => {
-                    switch (type) {
-                        case "date":
-                            // Use .getTime() for reliable numeric date comparison
-                            const dateValue = new Date(row.dataset.date);
-                            return isNaN(dateValue.getTime()) ? 0 : dateValue.getTime();
-                        case "gross":
-                            // FIX: Remove commas (',') before parsing to handle localized currency strings
-                            const grossValue = row.dataset.gross ? row.dataset.gross.replace(/,/g, '') : '0';
-                            return parseFloat(grossValue) || 0;
-                        case "count":
-                            return parseInt(row.dataset.count) || 0;
-                        default: return 0;
-                    }
-                };
-
-                // Implement sorting logic based on selected option
-                switch (sortBy) {
-                    case "date-desc": return getValue(b, "date") - getValue(a, "date");
-                    case "date-asc": return getValue(a, "date") - getValue(b, "date");
-
-                    case "gross-desc": return getValue(b, "gross") - getValue(a, "gross");
-                    case "gross-asc": return getValue(a, "gross") - getValue(b, "gross");
-
-                    case "count-desc": return getValue(b, "count") - getValue(a, "count");
-                    case "count-asc": return getValue(a, "count") - getValue(b, "count");
-
-                    default: return 0; // No sorting applied
-                }
-            });
-
-            // RENDER BACK (Re-insert the filtered and sorted rows)
-            tbody.innerHTML = "";
-            filteredRows.forEach(r => tbody.appendChild(r));
-        }
-
-        // UI FUNCTIONALITY: Toggle the visibility of the filter dropdown
-        // document.addEventListener('DOMContentLoaded', () => {
-        //     const filterButton = document.getElementById('filterButtonPayroll');
-        //     const filterDropdown = document.getElementById('filterDropdownPayroll');
-
-        //     if (filterButton && filterDropdown) {
-        //         filterButton.addEventListener('click', () => {
-        //             filterDropdown.classList.toggle('hidden');
-        //         });
-        //     }
-        // });
-    </script>
-
-
