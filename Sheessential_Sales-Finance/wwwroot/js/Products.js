@@ -1,7 +1,8 @@
-﻿
-const ctx = document.getElementById('productSalesChart');
+﻿const ctx = document.getElementById('productSalesChart');
 let selectedProductId = null;
 let selectedPeriod = "week";
+let customStartDate = null;
+let customEndDate = null;
 
 const productChart = new Chart(ctx, {
     type: "line",
@@ -26,7 +27,6 @@ const productChart = new Chart(ctx, {
 let selectedRow = null;
 
 function selectProduct(name, id, totalOrders, image, rowElement) {
-
     // Remove highlight from previous row
     if (selectedRow) {
         selectedRow.classList.remove("row-selected");
@@ -38,33 +38,173 @@ function selectProduct(name, id, totalOrders, image, rowElement) {
     // Your original logic
     selectedProductId = id;
     document.getElementById("chartProductName").textContent = name;
-    loadProductSales(selectedPeriod);
+    loadProductSales(selectedPeriod, customStartDate, customEndDate);
     UpdateCardDisplay(name, image, totalOrders);
 }
 
-
+/* ============================================================
+    CONSOLIDATED PAGE INITIALIZATION - RUNS ONLY ONCE
+    ============================================================ */
 document.addEventListener("DOMContentLoaded", function () {
+    // 1. Initialize with default period
+    updateSalesSummary("week");
+    updateDateRangeDisplay("week");
+
+    // 2. Load all product sales table
+    loadAllProductSales(1);
+
+    // 3. Load sales report charts
+    loadSalesReport("week");
+
+    // 4. Auto-select first product row
     const firstRow = document.querySelector(".product-row");
     if (firstRow) {
         firstRow.click(); // triggers selectProduct()
     }
-}); 
-document.getElementById("dateRangeSelect").addEventListener("change", (e) => {
-    selectedPeriod = e.target.value;
-    if (selectedProductId) loadProductSales(selectedPeriod);
-    loadAllProductSales(selectedPeriod);
 
+    // 5. Setup custom date range toggle
+    setupCustomDateRange();
 });
 
-// Add this function to your existing Products.js file
+/* ============================================================
+    CUSTOM DATE RANGE SETUP
+    ============================================================ */
+function setupCustomDateRange() {
+    const periodSelect = document.getElementById("dateRangeSelect");
+    const customDateRange = document.getElementById("customDateRange");
+    const applyButton = document.getElementById("applyDateRange");
 
+    periodSelect.addEventListener("change", function () {
+        if (this.value === "custom") {
+            customDateRange.classList.add("active");
+        } else {
+            customDateRange.classList.remove("active");
+            selectedPeriod = this.value;
+            customStartDate = null;
+            customEndDate = null;
+            handlePeriodChange(this.value);
+        }
+    });
+
+    applyButton.addEventListener("click", function () {
+        const startDate = document.getElementById("startDate").value;
+        const endDate = document.getElementById("endDate").value;
+
+        if (!startDate || !endDate) {
+            showToast("Please select both start and end dates", "warning");
+            return;
+        }
+
+        if (new Date(startDate) > new Date(endDate)) {
+            showToast("Start date must be before end date", "error");
+            return;
+        }
+
+        customStartDate = startDate;
+        customEndDate = endDate;
+        selectedPeriod = "custom";
+        handlePeriodChange("custom", startDate, endDate);
+    });
+}
+
+/* ============================================================
+    DATE RANGE CHANGE HANDLER - RUNS ONLY ONCE
+    ============================================================ */
+async function handlePeriodChange(period, startDate = null, endDate = null) {
+    // Update date range display
+    updateDateRangeDisplay(period, startDate, endDate);
+
+    // Update sales summary cards
+    await updateSalesSummary(period, startDate, endDate);
+
+    // Update product chart if a product is selected
+    if (selectedProductId) {
+        loadProductSales(period, startDate, endDate);
+    }
+
+    // Update sales table pagination
+    loadAllProductSales(1, period, startDate, endDate);
+
+    // Update revenue chart and top products
+    loadSalesReport(period, startDate, endDate);
+}
+
+/* ============================================================
+    DATE RANGE DISPLAY
+    ============================================================ */
+function updateDateRangeDisplay(period, startDate = null, endDate = null) {
+    const displayElement = document.getElementById("currentDateRange");
+    const today = new Date();
+    let displayText = "";
+
+    if (period === "custom" && startDate && endDate) {
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        displayText = `${formatDate(start)} - ${formatDate(end)}`;
+    } else {
+        const ranges = getDateRange(period);
+        displayText = `${formatDate(ranges.start)} - ${formatDate(ranges.end)}`;
+    }
+
+    displayElement.textContent = displayText;
+}
+
+function getDateRange(period) {
+    const today = new Date();
+    let start, end = today;
+
+    switch (period) {
+        case "week":
+            const dayOfWeek = today.getDay();
+            const daysToMonday = (dayOfWeek === 0 ? 6 : dayOfWeek - 1);
+            start = new Date(today);
+            start.setDate(today.getDate() - daysToMonday);
+            break;
+        case "month":
+            start = new Date(today.getFullYear(), today.getMonth(), 1);
+            break;
+        case "year":
+            start = new Date(today.getFullYear(), 0, 1);
+            break;
+        case "alltime":
+            start = new Date(2020, 0, 1); // Or your earliest data date
+            break;
+        default:
+            start = new Date(today);
+            start.setDate(today.getDate() - 7);
+    }
+
+    return { start, end };
+}
+
+function formatDate(date) {
+    return date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+    });
+}
+
+/* ============================================================
+    SALES TABLE LOADING WITH PAGINATION
+    ============================================================ */
 let currentSalesPage = 1;
 let totalSalesPages = 1;
 const salesPageSize = 10;
 
-async function loadAllProductSales(page = 1) {
+async function loadAllProductSales(page = 1, period = "week", startDate = null, endDate = null) {
     try {
-        const response = await fetch(`/Sales_Finance/GetAllProductSalesDataPaginated?page=${page}&pageSize=${salesPageSize}`);
+        let url = `/Sales_Finance/GetAllProductSalesDataPaginated?page=${page}&pageSize=${salesPageSize}`;
+
+        // Add period and custom date params if applicable
+        if (period) {
+            url += `&period=${period}`;
+        }
+        if (startDate && endDate) {
+            url += `&startDate=${startDate}&endDate=${endDate}`;
+        }
+
+        const response = await fetch(url);
         const result = await response.json();
 
         if (!result.success) {
@@ -111,7 +251,10 @@ async function loadAllProductSales(page = 1) {
         // Render pagination controls
         renderSalesPagination(result.currentPage, result.totalPages);
 
-        showToast("Sales summary loaded! ✅", "success");
+        // ✅ ONLY show toast on initial load (page 1)
+        if (page === 1) {
+            showToast("Sales summary loaded! ✅", "success");
+        }
 
     } catch (err) {
         console.error("Error loading sales data:", err);
@@ -140,7 +283,7 @@ function renderSalesPagination(currentPage, totalPages) {
     // Previous button
     if (currentPage > 1) {
         paginationHTML += `
-            <button onclick="loadAllProductSales(${currentPage - 1})" 
+            <button onclick="loadAllProductSales(${currentPage - 1}, '${selectedPeriod}', ${customStartDate ? `'${customStartDate}'` : null}, ${customEndDate ? `'${customEndDate}'` : null})" 
                     class="px-4 py-2 bg-gray-200 rounded-lg text-gray-700 hover:bg-gray-300 text-sm transition">
                 Previous
             </button>
@@ -160,7 +303,7 @@ function renderSalesPagination(currentPage, totalPages) {
     // First page + ellipsis
     if (startPage > 1) {
         paginationHTML += `
-            <button onclick="loadAllProductSales(1)" 
+            <button onclick="loadAllProductSales(1, '${selectedPeriod}', ${customStartDate ? `'${customStartDate}'` : null}, ${customEndDate ? `'${customEndDate}'` : null})" 
                     class="px-4 py-2 bg-gray-200 rounded-lg text-gray-700 hover:bg-gray-300 text-sm transition">
                 1
             </button>
@@ -180,7 +323,7 @@ function renderSalesPagination(currentPage, totalPages) {
             `;
         } else {
             paginationHTML += `
-                <button onclick="loadAllProductSales(${i})" 
+                <button onclick="loadAllProductSales(${i}, '${selectedPeriod}', ${customStartDate ? `'${customStartDate}'` : null}, ${customEndDate ? `'${customEndDate}'` : null})" 
                         class="px-4 py-2 bg-gray-200 rounded-lg text-gray-700 hover:bg-gray-300 text-sm transition">
                     ${i}
                 </button>
@@ -194,7 +337,7 @@ function renderSalesPagination(currentPage, totalPages) {
             paginationHTML += `<span class="px-2 py-2 text-gray-500">...</span>`;
         }
         paginationHTML += `
-            <button onclick="loadAllProductSales(${totalPages})" 
+            <button onclick="loadAllProductSales(${totalPages}, '${selectedPeriod}', ${customStartDate ? `'${customStartDate}'` : null}, ${customEndDate ? `'${customEndDate}'` : null})" 
                     class="px-4 py-2 bg-gray-200 rounded-lg text-gray-700 hover:bg-gray-300 text-sm transition">
                 ${totalPages}
             </button>
@@ -204,7 +347,7 @@ function renderSalesPagination(currentPage, totalPages) {
     // Next button
     if (currentPage < totalPages) {
         paginationHTML += `
-            <button onclick="loadAllProductSales(${currentPage + 1})" 
+            <button onclick="loadAllProductSales(${currentPage + 1}, '${selectedPeriod}', ${customStartDate ? `'${customStartDate}'` : null}, ${customEndDate ? `'${customEndDate}'` : null})" 
                     class="px-4 py-2 bg-gray-200 rounded-lg text-gray-700 hover:bg-gray-300 text-sm transition">
                 Next
             </button>
@@ -214,10 +357,18 @@ function renderSalesPagination(currentPage, totalPages) {
     paginationControls.innerHTML = paginationHTML;
 }
 
-// Add this new function
-async function updateSalesSummary(period) {
+/* ============================================================
+    SALES SUMMARY UPDATE
+    ============================================================ */
+async function updateSalesSummary(period, startDate = null, endDate = null) {
     try {
-        const response = await fetch(`/Sales_Finance/GetSalesSummaryByPeriod?period=${period}`);
+        let url = `/Sales_Finance/GetSalesSummaryByPeriod?period=${period}`;
+
+        if (startDate && endDate) {
+            url += `&startDate=${startDate}&endDate=${endDate}`;
+        }
+
+        const response = await fetch(url);
         const result = await response.json();
 
         if (result.success) {
@@ -238,56 +389,18 @@ async function updateSalesSummary(period) {
     }
 }
 
-// Update the dateRangeSelect change handler
-
-
-// Initialize with default period on page load
-document.addEventListener("DOMContentLoaded", function () {
-    // Load initial summary
-    updateSalesSummary("week");
-
-    loadAllProductSales(1);
-
-    const firstRow = document.querySelector(".product-row");
-    if (firstRow) {
-        firstRow.click();
-    }
-});
-
-
-// Keep the existing dateRangeSelect change handler but remove the loadAllProductSales call
-// since it doesn't filter by period
-
-// Call this function when the page loads
-document.addEventListener("DOMContentLoaded", function () {
-    loadAllProductSales();
-
-    const firstRow = document.querySelector(".product-row");
-    if (firstRow) {
-        firstRow.click();
-    }
-});
-
-// Also update when period changes
-document.getElementById("dateRangeSelect").addEventListener("change", async (e) => {
-    selectedPeriod = e.target.value;
-
-    // Update sales summary cards
-    await updateSalesSummary(selectedPeriod);
-
-    // Update product chart if a product is selected
-    if (selectedProductId) loadProductSales(selectedPeriod);
-
-    // Update sales table pagination
-    loadAllProductSales(1);
-
-    // Update revenue chart and top products
-    loadSalesReport(selectedPeriod);
-});
-
-async function loadProductSales(period) {
+/* ============================================================
+    PRODUCT SALES CHART LOADING
+    ============================================================ */
+async function loadProductSales(period, startDate = null, endDate = null) {
     try {
-        const response = await fetch(`/Sales_Finance/GetProductSales?productId=${selectedProductId}&period=${period}`);
+        let url = `/Sales_Finance/GetProductSales?productId=${selectedProductId}&period=${period}`;
+
+        if (startDate && endDate) {
+            url += `&startDate=${startDate}&endDate=${endDate}`;
+        }
+
+        const response = await fetch(url);
         const data = await response.json();
 
         if (!Array.isArray(data)) {
@@ -302,19 +415,15 @@ async function loadProductSales(period) {
         productChart.data.datasets[0].data = data.map(x => x.total ?? x.Total);
         productChart.update();
 
-        showToast("Sales data loaded successfully! ✅", "success");
-
     } catch (err) {
-        alert(err.message)
+        console.error("Error loading product sales:", err);
         showToast("Error loading sales 😭", "error");
     }
 }
- 
 
 /* ============================================================
-    2. SEARCH + TOAST UTILITIES
+    SEARCH + TOAST UTILITIES
     ============================================================ */
-
 function showToast(message, type = "info") {
     const toast = document.createElement("div");
     const colors = {
@@ -343,51 +452,54 @@ document.getElementById("productSearch").addEventListener("keyup", function () {
 });
 
 /* ============================================================
-    3. PDF GENERATION PIPELINE
+    PDF GENERATION PIPELINE
     ============================================================ */
-
 const reportBtn = document.getElementById("generateReportBtn");
-const dateRangeSelect = document.getElementById("dateRangeSelect");
 const loadingOverlay = document.getElementById("loadingOverlay");
 
 reportBtn.addEventListener("click", generatePdfReport);
-
 async function generatePdfReport() {
     showLoader();
 
     try {
-        const period = dateRangeSelect.value;
-        const periodText = dateRangeSelect.options[dateRangeSelect.selectedIndex].text;
+        const period = selectedPeriod;
+        const dateRangeSelect = document.getElementById("dateRangeSelect");
+        let periodText = dateRangeSelect.options[dateRangeSelect.selectedIndex].text;
+
+        // ✅ If custom range is selected, use the actual date range instead of "Custom Range"
+        if (period === "custom" && customStartDate && customEndDate) {
+            const startDate = new Date(customStartDate);
+            const endDate = new Date(customEndDate);
+            periodText = `${formatDate(startDate)} - ${formatDate(endDate)}`;
+        }
 
         // 1. Fetch full dataset
-        const response = await fetch(`/Sales_Finance/GetSalesReportDatatry?period=${period}`);
+        let url = `/Sales_Finance/GetSalesReportDatatry?period=${period}`;
+        if (customStartDate && customEndDate) {
+            url += `&startDate=${customStartDate}&endDate=${customEndDate}`;
+        }
+
+        const response = await fetch(url);
         if (!response.ok) throw new Error("Server error loading report data.");
 
         const data = await response.json();
 
         // 2. Generate Base64 charts for PDF
-        // Use Promise.all to generate both charts concurrently
-        // const [salesTrendBase64, topProductsBase64] = await Promise.all([
-        //     createHiddenChart(pdfTrendChartConfig(data.salesTrend), 600, 300),
-        //     createHiddenChart(pdfTopProductsConfig(data.topProductsChart), 400, 400)
-        // ]);
-
-
-        // 3. Match your EXACT C# payload structure
         const revenueCard = document.getElementById("revenueCard");
+        const topProductsCard = document.getElementById("topProductsCard");
 
         const revenueImg = await htmlToImage(revenueCard);
         const topProductsImg = await htmlToImage(topProductsCard);
+
         const payload = {
-            ReportPeriod: periodText,
+            ReportPeriod: periodText, // ✅ Now contains actual date range for custom periods
             Summary: data.summary,
             SalesTrendChartBase64: revenueImg,
             TopProductsChartBase64: topProductsImg,
             TopProductsTable: data.topProductsTable
         };
 
-
-        // 4. Send to PDF generator
+        // 3. Send to PDF generator
         const pdfResponse = await fetch("/Sales_Finance/ExportProductSalesPdf", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -396,7 +508,7 @@ async function generatePdfReport() {
 
         if (!pdfResponse.ok) throw new Error("PDF creation failed.");
 
-        // 5. Download PDF
+        // 4. Download PDF
         const blob = await pdfResponse.blob();
         const link = URL.createObjectURL(blob);
         window.open(link, "_blank");
@@ -408,25 +520,18 @@ async function generatePdfReport() {
         console.error("PDF Generation Error:", err);
         showToast("Failed to generate PDF 😭", "error");
     } finally {
-        // Hides loader even if an error occurs!
         hideLoader();
     }
 }
+
 async function htmlToImage(element) {
     const canvas = await html2canvas(element, { scale: 2, backgroundColor: "#fff" });
     return canvas.toDataURL("image/png");
 }
 
 /* ============================================================
-    4. OFFSCREEN CHART CREATION FOR PDF (CORRECTED)
+    PDF CHART CONFIGS
     ============================================================ */
-
-
-/* ... (rest of your script) ... */
-/* ============================================================
-    5. PDF CHART CONFIGS (MATCHES YOUR PINK THEME)
-    ============================================================ */
-
 function pdfTrendChartConfig(data) {
     return {
         type: "line",
@@ -471,9 +576,8 @@ function pdfTopProductsConfig(data) {
 }
 
 /* ============================================================
-    6. LOADER
+    LOADER
     ============================================================ */
-
 function showLoader() {
     loadingOverlay.classList.remove("hidden");
 }
@@ -483,37 +587,26 @@ function hideLoader() {
 }
 
 /* ============================================================
-    7. MODAL UTILITIES (Missing in your code, added for completeness)
+    MODAL UTILITIES
     ============================================================ */
 function openModal(name, category, sellingPrice, imageUrl, description, totalOrders) {
-    // Set the text content for existing elements
     document.getElementById("modalName").textContent = name;
     document.getElementById("modalCategory").textContent = category;
     document.getElementById("modalSelling").textContent = sellingPrice;
     document.getElementById("modalDescription").textContent = description;
 
-    // Set the image source (assuming you add id="modalImage" to your <img> tag)
     const imageElement = document.getElementById("modalImage");
     if (imageElement) {
-        // Since the image URL from the database is a string, set it as the src.
         imageElement.src = imageUrl;
-
-        // Optional: Set alt text for accessibility, using the product name
         imageElement.alt = name + " Image";
     }
 
-    // Show the modal
     document.getElementById("productModal").classList.remove("hidden");
 }
 
 function UpdateCardDisplay(name, image, totalOrders) {
-    // 1. Update Product Name
     document.getElementById("productCardName").textContent = name;
-
-    // 2. FIX: Use .src to change the image source on the <img> element
     document.getElementById("productCardImg").src = image;
-
-    // 3. Update Total Orders
     document.getElementById("productCardTotalOrder").textContent = totalOrders;
 }
 
@@ -521,20 +614,22 @@ function closeModal() {
     document.getElementById("productModal").classList.add("hidden");
 }
 
+/* ============================================================
+    SALES REPORT CHARTS (REVENUE & TOP PRODUCTS)
+    ============================================================ */
 let revenueChart = null;
 let topProductsChart = null;
 
-document.getElementById("dateRangeSelect").addEventListener("change", function () {
-    loadSalesReport(this.value);
-});
+async function loadSalesReport(period, startDate = null, endDate = null) {
+    let url = `/Sales_Finance/SalesReportData?period=${period}`;
 
-loadSalesReport("week");
+    if (startDate && endDate) {
+        url += `&startDate=${startDate}&endDate=${endDate}`;
+    }
 
-async function loadSalesReport(period) {
-    const resp = await fetch(`/Sales_Finance/SalesReportData?period=${period}`);
+    const resp = await fetch(url);
     const data = await resp.json();
     window.currentPeriodText = data.periodText;
-
 
     updateRevenueChart(data.chartLabels, data.chartValues);
     updateTopProductsChart(data.topProducts);
@@ -549,7 +644,6 @@ function updateTopProductsChart(topProducts) {
 
     if (topProductsChart !== null) topProductsChart.destroy();
 
-    // 🎨 Draw donut chart
     const ctx = document.getElementById("topProductsChart");
     topProductsChart = new Chart(ctx, {
         type: "doughnut",
@@ -579,33 +673,27 @@ function updateTopProductsChart(topProducts) {
         }
     });
 
-    // 🧾 Generate product list
-    // 🧾 Generate product list
     const listContainer = document.getElementById("topProductsList");
     listContainer.innerHTML = `
         <h3 class="font-semibold mb-4 text-gray-800">Top ${topProducts.length}</h3>
-        <div class="space-y-3"> ${topProducts.map((p, i) => {
+        <div class="space-y-3">
+            ${topProducts.map((p, i) => {
         const percent = ((p.totalAmount / total) * 100).toFixed(1);
         return `
-                <div class="flex items-center w-full">
-                    <div class="w-3 h-3 rounded-full shrink-0 mr-3" style="background:${colors[i % colors.length]}"></div>
-
-                    <span class="text-sm text-gray-700 truncate min-w-0 flex-1" title="${p.productName}">
-                        ${p.productName}
-                    </span>
-
-                    <span class="ml-3 font-medium text-gray-500 text-sm whitespace-nowrap">
-                        ${percent}%
-                    </span>
-                </div>
-            `;
+                    <div class="flex items-center w-full">
+                        <div class="w-3 h-3 rounded-full shrink-0 mr-3" style="background:${colors[i % colors.length]}"></div>
+                        <span class="text-sm text-gray-700 truncate min-w-0 flex-1" title="${p.productName}">
+                            ${p.productName}
+                        </span>
+                        <span class="ml-3 font-medium text-gray-500 text-sm whitespace-nowrap">
+                            ${percent}%
+                        </span>
+                    </div>
+                `;
     }).join("")}
         </div>
     `;
 }
-
-
-
 
 function updateRevenueChart(labels, values) {
     if (revenueChart !== null) revenueChart.destroy();
