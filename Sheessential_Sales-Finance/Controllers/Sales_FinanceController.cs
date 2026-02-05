@@ -1005,7 +1005,7 @@ namespace Sheessential_Sales_Finance.Controllers
 
             _logger.LogInformation("\n\n\n\\n\n\n\nI'm here inserting log n\n\n");
             // 4. Log Action...
-            return View("Invoices");
+            return RedirectToAction("Invoices");
         } // Correct JSON response        }
         //delete
 

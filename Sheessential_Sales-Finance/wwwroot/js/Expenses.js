@@ -528,3 +528,9 @@ function initializePayrollFilters() {
         });
     }
 }
+
+// Call this in your main DOMContentLoaded
+document.addEventListener('DOMContentLoaded', function() {
+    // ... existing initialization code ...
+    initializePayrollFilters();
+});
