@@ -1,4 +1,4 @@
-﻿﻿@using MongoDB.Driver.Linq
+﻿@using MongoDB.Driver.Linq
 @model Sheessential_Sales_Finance.Models.ExpensesWithBalanceViewModel
 
 @{
@@ -113,7 +113,7 @@
     </div>
     <!-- BALANCE ALERT ondragend=" -->
     <!-- EXPENSE HEADER -->
-    <div id="expenseRequestsSection" class="bg-white rounded-2xl shadow-md overflow-hidden w-[1200px] mx-auto mb-4">
+    <div id="expenseRequestsSection" class="bg-white rounded-2xl shadow-md overflow-hidden w-full max-w-full mx-auto mb-4">
         <div class="p-6 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
             <div class="flex justify-between items-center">
                 <div>
@@ -253,197 +253,181 @@
     </div>
     <!-- EXPENSE HEADER END -->
     <!-- EXPENSE TABLE -->
-    <div class="overflow-x-auto mb-5 w-[1200px] mx-auto h-[450px]">
-        <table class="min-w-full divide-y divide-gray-200 table-auto">
-            <thead class="bg-gray-50">
-                <tr>
-                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider min-w[140px] text-center">Expense ID</th>
-                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider min-w[180px] text-center">Requester</th>
-                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider min-w[160px] text-center">Department</th>
-                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider min-w[140px] text-center">Type</th>
-                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider min-w[150px] text-center">Amount</th>
-                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider min-w[350px] text-center">Date Requested</th>
-                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider min-w[350px] text-center">Date Approved</th>
-                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider min-w[350px] text-center">Status</th>
-                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider min-w[140px] text-center">Actions</th>
-                </tr>
-            </thead>
-
-            <tbody class="bg-white divide-y divide-gray-200">
-                @if (Model != null && Model.Expenses != null && Model.Expenses.Any())
-                {
-                    @foreach (var expense in Model.Expenses)
-                    {
-                        <tr class="hover:bg-gray-50 transition-colors">
-
-                            <td class="px-6 py-4 break-words min-w-[138px] text-center">@expense.ExpenseId</td>
-
-                            <td class="px-6 py-4 break-words min-w-[148px] text-center">
-                                <div class="flex items-center">
-                                    <span class="text-sm text-gray-900 break-words">@expense.RequestedBy</span>
-                                </div>
-                            </td>
-
-                            <td class="px-6 py-4 min-w-[125px] text-center">
-                                <span class="px-3 py-1 inline-flex text-xs leading-5 font-medium rounded-full bg-gray-100 text-gray-800 break-words">
-                                    @expense.Department
-                                </span>
-                            </td>
-
-                            <td class="px-6 py-4 text-sm text-gray-700 break-words w-[145px] text-center">@expense.ExpenseType</td>
-
-                            <td class="px-6 py-4 min-w-[138px] text-center">
-                                <span class="text-sm font-semibold text-gray-900 break-words">₱@expense.Amount.ToString("N2")</span>
-                            </td>
-
-                            <td class="px-6 py-4 max-w-[300px] break-words text-sm text-gray-700 min-w-[148px] text-center">
-                                @(expense.RequestedAt == null ? "not yet" : expense.RequestedAt.ToString("MMM dd, yyyy"))
-                            </td>
-
-                            <td class="px-6 py-4 max-w-[300px] break-words text-sm text-gray-700 min-w-[148px] text-center">
-                                @(expense.DateApproved == null ? "not yet" : expense.DateApproved.Value.ToString("MMM dd, yyyy"))
-                            </td>
-
-                            <td class="px-6 py-4 break-words min-w-[145px]">
-                                <!-- Status badge preserved -->
-                                @if (expense.Status == "Pending")
-                                {
-                                    <span class="px-3 py-1 inline-flex items-center text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
-                                        <span class="w-2 h-2 bg-yellow-500 rounded-full mr-2 animate-pulse"></span>
-                                        Pending
-                                    </span>
-                                }
-                                else if (expense.Status == "Approved")
-                                {
-                                    <span class="px-3 py-1 inline-flex items-center text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                                        ✓ Approved
-                                    </span>
-                                }
-                                else if (expense.Status == "Declined")
-                                {
-                                    <span class="px-3 py-1 inline-flex items-center text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
-                                        ✕ Declined
-                                    </span>
-                                }
-                            </td>
-
-                            <td class="px-6 py-4 w-[140px]">
-                                @if (expense.Status == "Pending")
-                                {
-                                    <button type="button"
-                                            class="view-details-btn px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white text-sm font-medium rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all shadow-sm hover:shadow-md transform hover:-translate-y-0.5"
-                                            data-expense-id="@expense.Id"
-                                            data-requester="@expense.RequestedBy"
-                                            data-department="@expense.Department"
-                                            data-type="@expense.ExpenseType"
-                                            data-amount="@expense.Amount"
-                                            data-description="@expense.Description"
-                                            data-notes="@expense.Notes"
-                                            data-status="@expense.Status"
-                                            data-id="@expense.Id">
-                                        Review
-                                    </button>
-                                }
-                                else if (expense.Status == "Approved")
-                                {
-                                    <button type="button"
-                                            class="review-btn bg-gradient-to-r from-green-600 to-green-700 text-white"
-                                            data-mode="approved"
-                                            data-responded-date="@(expense.DateApproved.HasValue ? expense.DateApproved.Value.ToString("MMM dd, yyyy") : "")"
-                                            data-expense-id="@expense.Id"
-                                            data-requester="@expense.RequestedBy"
-                                            data-department="@expense.Department"
-                                            data-type="@expense.ExpenseType"
-                                            data-amount="@expense.Amount"
-                                            data-description="@expense.Description"
-                                            data-notes="@expense.Notes"
-                                            data-status="@expense.Status">
-                                        View
-                                    </button>
-                                }
-                                else if (expense.Status == "Declined")
-                                {
-                                    <button type="button"
-                                            class="review-btn bg-gradient-to-r from-red-600 to-red-700 text-white"
-                                            data-mode="declined"
-                                            data-responded-date="@(expense.DateApproved.HasValue ? expense.DateApproved.Value.ToString("MMM dd, yyyy") : "")"
-                                            data-expense-id="@expense.Id"
-                                            data-requester="@expense.RequestedBy"
-                                            data-department="@expense.Department"
-                                            data-type="@expense.ExpenseType"
-                                            data-amount="@expense.Amount"
-                                            data-description="@expense.Description"
-                                            data-notes="@expense.Notes"
-                                            data-status="@expense.Status">
-                                        View
-                                    </button>
-                                }
-
-                            </td>
-
+    <div class="w-full mb-5">
+        <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+            <div class="overflow-x-auto" style="max-height: 600px; overflow-y: auto;">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50 sticky top-0 z-10">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Expense ID</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Requester</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Department</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Type</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Amount</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Date Requested</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Date Approved</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Status</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Actions</th>
                         </tr>
-                    }
-                }
-                else
-                {
-                    <tr>
-                        <td colspan="8" class="px-6 py-12 text-center">
-                            <div class="flex flex-col items-center">
-                                <svg class="w-16 h-16 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                                </svg>
-                                <p class="text-gray-500 text-lg font-medium">No expense requests found</p>
-                                <p class="text-gray-400 text-sm mt-1">Create a new expense request to get started</p>
-                            </div>
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-    </div>
+                    </thead>
 
-        @if (ViewBag.ExpenseTotalPages > 1)
-        {
-            <div class="flex justify-between items-center mt-4 w-[1200px] mx-auto px-4">
-                <div class="text-sm text-gray-600">
-                    Showing <span class="font-semibold">@((ViewBag.ExpenseCurrentPage - 1) * ViewBag.ExpensePageSize + 1)</span>
-                    to <span class="font-semibold">@Math.Min(ViewBag.ExpenseCurrentPage * ViewBag.ExpensePageSize, ViewBag.ExpenseTotalItems)</span>
-                    of <span class="font-semibold">@ViewBag.ExpenseTotalItems</span> expenses
-                </div>
-
-                <nav class="flex items-center gap-2">
-                    @if (ViewBag.ExpenseCurrentPage > 1)
-                    {
-                        <a href="?expensePage=@(ViewBag.ExpenseCurrentPage - 1)"
-                           class="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-                            ← Previous
-                        </a>
-                    }
-
-                    @for (int i = Math.Max(1, ViewBag.ExpenseCurrentPage - 2); i <= Math.Min(ViewBag.ExpenseTotalPages, ViewBag.ExpenseCurrentPage + 2); i++)
-                    {
-                        <a href="?expensePage=@i"
-                           class="px-3 py-2 border @(i == ViewBag.ExpenseCurrentPage ? "bg-blue-600 text-white border-blue-600" : "border-gray-300 hover:bg-gray-50") rounded-lg transition-colors">
-                            @i
-                        </a>
-                    }
-
-                    @if (ViewBag.ExpenseCurrentPage < ViewBag.ExpenseTotalPages)
-                    {
-                        <a href="?expensePage=@(ViewBag.ExpenseCurrentPage + 1)"
-                           class="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-                            Next →
-                        </a>
-                    }
-                </nav>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        @if (Model != null && Model.Expenses != null && Model.Expenses.Any())
+                        {
+                            @foreach (var expense in Model.Expenses)
+                            {
+                                <tr class="hover:bg-gray-50 transition-colors">
+                                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">@expense.ExpenseId</td>
+                                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">@expense.RequestedBy</td>
+                                    <td class="px-4 py-3 whitespace-nowrap">
+                                        <span class="px-2 py-1 inline-flex text-xs leading-5 font-medium rounded-full bg-gray-100 text-gray-800">
+                                            @expense.Department
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">@expense.ExpenseType</td>
+                                    <td class="px-4 py-3 whitespace-nowrap text-sm font-semibold text-gray-900">₱@expense.Amount.ToString("N2")</td>
+                                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                                        @(expense.RequestedAt == null ? "not yet" : expense.RequestedAt.ToString("MMM dd, yyyy"))
+                                    </td>
+                                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                                        @(expense.DateApproved == null ? "not yet" : expense.DateApproved.Value.ToString("MMM dd, yyyy"))
+                                    </td>
+                                    <td class="px-4 py-3 whitespace-nowrap">
+                                        @if (expense.Status == "Pending")
+                                        {
+                                            <span class="px-3 py-1 inline-flex items-center text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                                                <span class="w-2 h-2 bg-yellow-500 rounded-full mr-2 animate-pulse"></span>
+                                                Pending
+                                            </span>
+                                        }
+                                        else if (expense.Status == "Approved")
+                                        {
+                                            <span class="px-3 py-1 inline-flex items-center text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                                ✓ Approved
+                                            </span>
+                                        }
+                                        else if (expense.Status == "Declined")
+                                        {
+                                            <span class="px-3 py-1 inline-flex items-center text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                                                ✕ Declined
+                                            </span>
+                                        }
+                                    </td>
+                                    <td class="px-4 py-3 whitespace-nowrap">
+                                        @if (expense.Status == "Pending")
+                                        {
+                                            <button type="button"
+                                                    class="view-details-btn px-3 py-1.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white text-xs font-medium rounded-lg hover:shadow-md transition-all"
+                                                    data-expense-id="@expense.ExpenseId"
+                                                    data-requester="@expense.RequestedBy"
+                                                    data-department="@expense.Department"
+                                                    data-type="@expense.ExpenseType"
+                                                    data-amount="@expense.Amount"
+                                                    data-description="@expense.Description"
+                                                    data-notes="@expense.Notes"
+                                                    data-status="@expense.Status"
+                                                    data-id="@expense.Id">
+                                                Review
+                                            </button>
+                                        }
+                                        else if (expense.Status == "Approved")
+                                        {
+                                            <button type="button"
+                                                    class="review-btn px-3 py-1.5 bg-gradient-to-r from-green-600 to-green-700 text-white text-xs font-medium rounded-lg hover:shadow-md"
+                                                    data-mode="approved"
+                                                    data-responded-date="@(expense.DateApproved.HasValue ? expense.DateApproved.Value.ToString("MMM dd, yyyy") : "")"
+                                                    data-expense-id="@expense.ExpenseId"
+                                                    data-requester="@expense.RequestedBy"
+                                                    data-department="@expense.Department"
+                                                    data-type="@expense.ExpenseType"
+                                                    data-amount="@expense.Amount"
+                                                    data-description="@expense.Description"
+                                                    data-notes="@expense.Notes"
+                                                    data-status="@expense.Status">
+                                                View
+                                            </button>
+                                        }
+                                        else if (expense.Status == "Declined")
+                                        {
+                                            <button type="button"
+                                                    class="review-btn px-3 py-1.5 bg-gradient-to-r from-red-600 to-red-700 text-white text-xs font-medium rounded-lg hover:shadow-md"
+                                                    data-mode="declined"
+                                                    data-responded-date="@(expense.DateApproved.HasValue ? expense.DateApproved.Value.ToString("MMM dd, yyyy") : "")"
+                                                    data-expense-id="@expense.ExpenseId"
+                                                    data-requester="@expense.RequestedBy"
+                                                    data-department="@expense.Department"
+                                                    data-type="@expense.ExpenseType"
+                                                    data-amount="@expense.Amount"
+                                                    data-description="@expense.Description"
+                                                    data-notes="@expense.Notes"
+                                                    data-status="@expense.Status">
+                                                View
+                                            </button>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="9" class="px-6 py-12 text-center">
+                                    <div class="flex flex-col items-center">
+                                        <svg class="w-16 h-16 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                        </svg>
+                                        <p class="text-gray-500 text-lg font-medium">No expense requests found</p>
+                                        <p class="text-gray-400 text-sm mt-1">Create a new expense request to get started</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
             </div>
-        }
 
+            <!-- Pagination section -->
+            @if (ViewBag.ExpenseTotalPages > 1)
+            {
+                <div class="flex justify-between items-center mt-4 px-4 pb-4 border-t border-gray-200 pt-4">
+                    <div class="text-sm text-gray-600">
+                        Showing <span class="font-semibold">@((ViewBag.ExpenseCurrentPage - 1) * ViewBag.ExpensePageSize + 1)</span>
+                        to <span class="font-semibold">@Math.Min(ViewBag.ExpenseCurrentPage * ViewBag.ExpensePageSize, ViewBag.ExpenseTotalItems)</span>
+                        of <span class="font-semibold">@ViewBag.ExpenseTotalItems</span> expenses
+                    </div>
+
+                    <nav class="flex items-center gap-2">
+                        @if (ViewBag.ExpenseCurrentPage > 1)
+                        {
+                            <a href="?expensePage=@(ViewBag.ExpenseCurrentPage - 1)"
+                               class="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                                ← Previous
+                            </a>
+                        }
+
+                        @for (int i = Math.Max(1, ViewBag.ExpenseCurrentPage - 2); i <= Math.Min(ViewBag.ExpenseTotalPages, ViewBag.ExpenseCurrentPage + 2); i++)
+                        {
+                            <a href="?expensePage=@i"
+                               class="px-3 py-2 border @(i == ViewBag.ExpenseCurrentPage ? "bg-blue-600 text-white border-blue-600" : "border-gray-300 hover:bg-gray-50") rounded-lg transition-colors">
+                                @i
+                            </a>
+                        }
+
+                        @if (ViewBag.ExpenseCurrentPage < ViewBag.ExpenseTotalPages)
+                        {
+                            <a href="?expensePage=@(ViewBag.ExpenseCurrentPage + 1)"
+                               class="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                                Next →
+                            </a>
+                        }
+                    </nav>
+                </div>
+            }
         </div>
-
+    </div>
     <!-- EXPENSE TABLE END -->
     <!-- INGREDIENT REQUEST HEADER  -->
-    <div id="ingredientRequestsSection" class="bg-white rounded-2xl shadow-md overflow-hidden w-[1200px] mx-auto h-[450px]">
+    <div id="ingredientRequestsSection" class="bg-white rounded-2xl shadow-md overflow-hidden w-full max-w-full mx-auto mb-6">
         <div class="p-6 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
             <div class="flex justify-between items-center">
                 <div>
@@ -462,23 +446,22 @@
                         Filter
                     </button>
                 </div>
-
             </div>
         </div>
 
-        <div class="overflow-x-auto">
+        <div class="overflow-x-auto" style="max-height: 600px; overflow-y: auto;">
             <table class="min-w-full divide-y divide-gray-200">
-                <thead class="bg-gray-50">
+                <thead class="bg-gray-50 sticky top-0 z-10">
                     <tr>
-                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">ID</th>
-                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Request Date</th>
-                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Ingredient</th>
-                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Supplier</th>
-                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Qty</th>
-                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Total Cost</th>
-                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Current Stock</th>
-                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
-                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Action</th>
+                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">ID</th>
+                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Request Date</th>
+                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Ingredient</th>
+                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Supplier</th>
+                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Qty</th>
+                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Total Cost</th>
+                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Current Stock</th>
+                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Status</th>
+                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Action</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
@@ -558,7 +541,8 @@
                                             data-stock="@request.CurrentStockAtRequest"
                                             data-status="@request.RequestStatus"
                                             data-cost="@request.TotalCost"
-                                            class="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white text-sm font-medium rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all shadow-sm hover:shadow-md transform hover:-translate-y-0.5">
+                                            class="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white text-sm font-medium rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all"
+                                            type="button">
                                         Review
                                     </button>
                                 </td>
@@ -585,7 +569,7 @@
 
             @if (ViewBag.IngredientTotalPages > 1)
             {
-                <div class="flex justify-between items-center mt-4 px-6 pb-4">
+                <div class="flex justify-between items-center mt-4 px-4 pb-4 border-t border-gray-200">
                     <div class="text-sm text-gray-600">
                         Showing <span class="font-semibold">@((ViewBag.IngredientCurrentPage - 1) * ViewBag.IngredientPageSize + 1)</span>
                         to <span class="font-semibold">@Math.Min(ViewBag.IngredientCurrentPage * ViewBag.IngredientPageSize, ViewBag.IngredientTotalItems)</span>
@@ -899,7 +883,6 @@
                             <svg class="w-10 h-10 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
                                       d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                            </svg>
                         </div>
                         <h3 class="text-lg font-medium text-gray-500 mb-2">No Pay Run Selected</h3>
                         <p class="text-sm text-gray-400 max-w-xs">Click on any pay run from the left table to view individual payslips</p>
@@ -908,8 +891,6 @@
             </div>
         </div>
     </div>
-
-   
 
     <!-- Add this CSS for better styling -->
     <style>
@@ -1024,9 +1005,9 @@
                 <div class="bg-yellow-50 p-5 rounded-xl border-l-4 border-yellow-500">
                     <div class="flex items-center gap-2 mb-1">
                         <svg class="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
                         </svg>
-                        <p class="text-sm text-yellow-700 font-medium">Current Status</p>
+                        <p class="text-sm text-yellow-800 font-medium">Current Status</p>
                     </div>
                     <p class="text-lg font-bold text-yellow-700" id="preview-status">Pending Review</p>
                 </div>
@@ -1143,7 +1124,7 @@
                     </div>
 
                     <div class="bg-gray-50 p-5 rounded-xl border border-gray-200">
-                        <p class="text-sm text-gray-600 font-medium mb-1">Total Cost</p>
+                        <p class="text-sm text-gray-500 font-medium mb-1">Total Cost</p>
                         <p class="text-lg font-semibold text-gray-900" id="preview-total_cost">Cost</p>
                     </div>
 
@@ -1321,10 +1302,7 @@
                     <button type="button" id="cancelDeclineBtn" class="px-6 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium">
                         Cancel
                     </button>
-                    <button type="submit" class="px-6 py-2.5 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl hover:from-red-600 hover:to-red-700 transition-all shadow-md hover:shadow-lg font-medium flex items-center gap-2">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
+                    <button type="submit" class="px-6 py-2.5 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl hover:from-red-600 hover:to-red-700 transition-all shadow-md hover:shadow-lg">
                         Confirm Decline
                     </button>
                 </div>
@@ -1443,7 +1421,7 @@
                     <button type="button" id="cancelTransferBtn" class="px-6 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium">
                         Cancel
                     </button>
-                    <button type="submit" id="confirmApproveBtn" class="px-6 py-2.5 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl hover:from-green-600 hover:to-green-700 transition-all shadow-md hover:shadow-lg font-medium flex items-center gap-2">
+                    <button type="submit" id="confirmApproveBtn" class="px-6 py-2.5 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl hover:from-green-600 hover:to-green-700 transition-all shadow-md hover:shadow-lg flex items-center gap-2">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                         </svg>
@@ -1456,7 +1434,7 @@
 
 
     <!-- ADD EXPENSE MODAL -->
-    <div id="expenseModal" class="fixed inset-0 bg-white bg-opacity-60 hidden items-center justify-center z-50 backdrop-blur-sm">
+    <div id="addExpenseModal" class="fixed inset-0 bg-white bg-opacity-60 hidden items-center justify-center z-50 backdrop-blur-sm">
         <div class="bg-white w-full max-w-2xl rounded-3xl shadow-2xl p-8 m-4 max-h-[90vh] overflow-y-auto transform transition-all">
             <div class="flex items-center gap-3 mb-6 pb-4 border-b border-gray-200">
                 <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
@@ -1545,7 +1523,7 @@
                 </div>
 
                 <div class="flex justify-end gap-3 mt-8 pt-6 border-t border-gray-200">
-                    <button type="button" id="closeModalBtn" class="px-6 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium">
+                    <button type="button" id="closeAddExpenseModalBtn" class="px-6 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium">
                         Cancel
                     </button>
                     <button type="submit" class="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all shadow-md hover:shadow-lg font-medium flex items-center gap-2">
@@ -1557,7 +1535,6 @@
                 </div>
             </form>
         </div>
-
     </div>
 
     <div id="transactionDetailsModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 backdrop-blur-sm">
@@ -1580,39 +1557,39 @@
             </div>
 
             <!-- Request Details -->
-            <h3 class="text-xl font-medium text-gray-800 mb-4">Request Details</h3>
-            <div class="space-y-4">
-                <div class="bg-blue-100 p-4 rounded-xl shadow-sm">
-                    <p class="text-sm text-blue-700 font-medium">Request ID</p>
-                    <p id="transaction-request-id" class="text-xl font-bold text-blue-900"></p>
+            <h3 class="text-xl font-medium text-gray-800 mb-4">
+                Request ID: <span class="text-blue-600" id="transaction-request-id"></span>
+            </h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+                    <p class="text-sm text-gray-500">Requested By</p>
+                    <p class="text-lg font-semibold text-gray-800" id="transaction-requester"></p>
                 </div>
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+                    <p class="text-sm text-gray-500">Department</p>
+                    <p class="text-lg font-semibold text-gray-800" id="transaction-department"></p>
+                </div>
+            </div>
 
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-                        <p class="text-sm text-gray-500">Requested By</p>
-                        <p id="transaction-requester" class="text-lg font-semibold text-gray-800"></p>
-                    </div>
-                    <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-                        <p class="text-sm text-gray-500">Supplier</p>
-                        <p id="transaction-supplier" class="text-lg font-semibold text-gray-800"></p>
-                    </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+                    <p class="text-sm text-gray-500">Expense Type</p>
+                    <p class="text-lg font-semibold text-gray-800" id="transaction-type"></p>
                 </div>
+                <div class="bg-gradient-to-br from-green-50 to-emerald-50 p-4 rounded-xl shadow-sm border border-green-300">
+                    <p class="text-sm text-green-700">Amount Paid</p>
+                    <p class="text-2xl font-bold text-green-700" id="transaction-amount">₱0.00</p>
+                </div>
+            </div>
 
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-                        <p class="text-sm text-gray-500">Ingredient</p>
-                        <p id="transaction-ingredient" class="text-lg font-semibold text-gray-800"></p>
-                    </div>
-                    <div class="bg-green-100 p-4 rounded-xl shadow-sm border border-green-300">
-                        <p class="text-sm text-green-700">Quantity</p>
-                        <p id="transaction-qty" class="text-lg font-bold text-green-800"></p>
-                    </div>
-                </div>
+            <div class="bg-gray-50 p-4 rounded-xl shadow-sm border border-gray-200 mb-6">
+                <p class="text-sm text-gray-600 font-medium mb-2">Description</p>
+                <p class="text-gray-900 leading-relaxed" id="transaction-description"></p>
+            </div>
 
-                <div class="bg-yellow-100 p-4 rounded-xl shadow-sm border-l-4 border-yellow-500">
-                    <p class="text-sm text-yellow-700">Total Cost</p>
-                    <p id="transaction-total-cost" class="text-xl font-bold text-yellow-800"></p>
-                </div>
+            <div class="bg-gray-50 p-4 rounded-xl shadow-sm border border-gray-200 mb-6">
+                <p class="text-sm text-gray-600 font-medium mb-2">Additional Notes</p>
+                <p class="text-gray-700 leading-relaxed" id="transaction-notes"></p>
             </div>
 
             <!-- Payment Section -->
@@ -1686,13 +1663,87 @@
             </div>
         </div>
     </div>
-    <script src="~/js/Expenses.js"></script>
-    <script>
-        // Initialize available balance for the JS module
+<!-- Place this at the very bottom of your Expenses.cshtml, after all modals -->
+<script src="~/js/Expenses.js"></script>
+<script>
+    // Initialize available balance for ALL modals
+    @if (Model.Balance != null)
+    {
+        <text>
+        window.setAvailableBalance(@Model.Balance.CurrentBalance);
+        </text>
+    }
+
+    // ===========================
+    // ADD EXPENSE MODAL (Inline - separate from Expenses.js)
+    // ===========================
+    document.addEventListener('DOMContentLoaded', function() {
+        const openBtn = document.getElementById('openModalBtn');
+        const closeBtn = document.getElementById('closeAddExpenseModalBtn');
+        const modal = document.getElementById('addExpenseModal');
+        const form = document.getElementById('expenseForm');
+
+        // Open modal
+        if (openBtn && modal) {
+            openBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                console.log("🔵 Opening ADD expense modal");
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+                if (form) form.reset();
+            });
+        }
+
+        // Close modal
+        if (closeBtn && modal) {
+            closeBtn.addEventListener('click', function() {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            });
+        }
+
+        // Close on backdrop click
+        if (modal) {
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
+                    modal.classList.add('hidden');
+                    modal.classList.remove('flex');
+                }
+            });
+        }
+
+        // Handle form submission
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const formData = new FormData(form);
+
+                fetch('/Sales_Finance/AddExpense', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('✅ Expense request submitted successfully!');
+                        location.reload();
+                    } else {
+                        alert('❌ Failed to submit expense request.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('❌ An error occurred while submitting the request.');
+                });
+            });
+        }
+
+        // Set available balance (if you need it for validation)
         @if (Model.Balance != null)
         {
-                <text>
-                window.setAvailableBalance(@Model.Balance.CurrentBalance);
-                </text>
+            <text>
+            window.availableBalance = @Model.Balance.CurrentBalance;
+            </text>
         }
-    </script>
+    });
+</script>
