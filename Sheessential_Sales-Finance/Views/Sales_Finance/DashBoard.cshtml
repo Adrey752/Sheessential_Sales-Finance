@@ -1,4 +1,5 @@
-﻿@{
+﻿
+@{
     ViewData["Title"] = "Dashboard";
 }
 
@@ -23,9 +24,9 @@
         align-items: center;
     }
 
-    .date-range-inputs.active {
-        display: flex;
-    }
+        .date-range-inputs.active {
+            display: flex;
+        }
 
     .date-input {
         padding: 0.5rem;
@@ -35,12 +36,12 @@
         font-size: 0.875rem;
     }
 
-    .date-input:focus {
-        outline: none;
-        border-color: #A36A66;
-        ring: 2px;
-        ring-color: rgba(163, 106, 102, 0.2);
-    }
+        .date-input:focus {
+            outline: none;
+            border-color: #A36A66;
+            ring: 2px;
+            ring-color: rgba(163, 106, 102, 0.2);
+        }
 
     .apply-date-btn {
         padding: 0.5rem 1rem;
@@ -53,9 +54,26 @@
         transition: background-color 0.2s;
     }
 
-    .apply-date-btn:hover {
-        background-color: #8a5a57;
+        .apply-date-btn:hover {
+            background-color: #8a5a57;
+        }
+
+    /* Clickable metric cards */
+    .metric-card {
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border: 2px solid transparent;
     }
+
+        .metric-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(163, 106, 102, 0.15);
+        }
+
+        .metric-card.active {
+            border-color: #A36A66;
+            box-shadow: 0 4px 12px rgba(163, 106, 102, 0.25);
+        }
 </style>
 
 <div class="p-8 min-h-screen">
@@ -69,33 +87,36 @@
     </h2>
 
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-        <div class="rounded-2xl shadow-md px-6 py-5 border border-gray-100 flex items-center gap-4">
+        <!-- Total Sales card -->
+        <div class="metric-card active rounded-2xl shadow-md px-6 py-5 border border-gray-100 flex items-center gap-4"
+             id="card-sales">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-10 w-10 text-[#A36A66]">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625C9.75 8.004 10.254 7.5 10.875 7.5h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25A1.125 1.125 0 0 1 9.75 19.875V8.625ZM16.5 4.125C16.5 3.504 17.004 3 17.625 3h2.25c.621 0 1.125.504 1.125 1.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25A1.125 1.125 0 0 1 16.5 19.875V4.125Z" />
             </svg>
-
             <div>
                 <p class="text-md font-semibold" style="color:#A36A66;">Total Sales</p>
                 <p id="totalRevenue" class="text-sm mt-1" style="color:#A36A66;">₱@ViewBag.Revenue.ToString("N2")</p>
             </div>
         </div>
 
-        <div class="rounded-2xl shadow-md px-6 py-5 border border-gray-100 flex items-center gap-4">
+        <!-- Total Expense card -->
+        <div class="metric-card rounded-2xl shadow-md px-6 py-5 border border-gray-100 flex items-center gap-4"
+             id="card-expense">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-10 w-10 text-[#A36A66]">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c.61 0 1.17.255 1.562.686l2.853 3.804A.5.5 0 0 1 21 18.75V19.5a.5.5 0 0 1-.5.5h-15a.5.5 0 0 1-.5-.5v-1.372A.5.5 0 0 1 5.062 17.5l.235-.314M4.5 11.25h15L15 7.5M4.5 11.25l.235-.314m0 0L8.25 5.25M7.5 14.25v-3.75m0 0L8.25 5.25m-3.75 0L4.5 7.5m0 0l3-3m0 0L11.25 7.5" />
             </svg>
-
             <div>
                 <p class="text-md font-semibold" style="color:#A36A66;">Total Expense</p>
                 <p id="totalExpense" class="text-sm mt-1" style="color:#A36A66;">₱@ViewBag.Expense.ToString("N2")</p>
             </div>
         </div>
 
-        <div class="rounded-2xl shadow-md px-6 py-5 border border-gray-100 flex items-center gap-4">
+        <!-- Net Profit card -->
+        <div class="metric-card rounded-2xl shadow-md px-6 py-5 border border-gray-100 flex items-center gap-4"
+             id="card-profit">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-10 w-10 text-[#A36A66]">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0 1 15.375-1.849m-15.375 1.849V5.25A2.25 2.25 0 0 1 4.5 3h15a2.25 2.25 0 0 1 2.25 2.25v10.5A2.25 2.25 0 0 1 19.5 18h-15a2.25 2.25 0 0 1-2.25-2.25m15.375-1.849a2.25 2.25 0 0 0-2.25-2.25H4.5M2.25 18.75h15.375a2.25 2.25 0 0 1-2.25-2.25H4.5a2.25 2.25 0 0 1-2.25-2.25V5.25M2.25 18.75V5.25m18 13.5V5.25m0 13.5a2.25 2.25 0 0 0 2.25-2.25V5.25a2.25 2.25 0 0 0-2.25-2.25H4.5a2.25 2.25 0 0 0-2.25 2.25v10.5a2.25 2.25 0 0 0 2.25 2.25h15.375Z" />
             </svg>
-
             <div>
                 <p class="text-md font-semibold" style="color:#A36A66;">Net Profit</p>
                 <p id="netProfit" class="text-sm mt-1" style="color:#A36A66;">₱@ViewBag.NetProfit.ToString("N2")</p>
@@ -103,14 +124,9 @@
         </div>
     </div>
 
-    @* CHARTS - Updated with date range display and custom date picker *@
+    @* CHARTS *@
     <div class="flex flex-wrap items-center justify-between mb-4 gap-4">
-        <!-- Current Date Range Display -->
-        <h3 id="currentDateRange" class="text-lg font-semibold" style="color:#A36A66;">
-            <!-- Will be populated by JavaScript -->
-        </h3>
-
-        <!-- Period Selection Controls -->
+        <h3 id="currentDateRange" class="text-lg font-semibold" style="color:#A36A66;"></h3>
         <div class="flex items-center gap-3">
             <select id="timePeriodSelect" class="block w-48 rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50" style="color:#A36A66;">
                 <option value="year">This Year</option>
@@ -119,8 +135,6 @@
                 <option value="alltime">All Time</option>
                 <option value="custom">Custom Range</option>
             </select>
-
-            <!-- Custom Date Range Inputs (hidden by default) -->
             <div id="customDateRange" class="date-range-inputs">
                 <input type="date" id="startDate" class="date-input" />
                 <span style="color:#A36A66;">to</span>
@@ -132,14 +146,14 @@
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
         <div class="lg:col-span-2 chart-container">
-            <h2 class="text-lg font-semibold mb-4" style="color:#A36A66;">Profit Trend %</h2>
+            <h2 id="mainChartTitle" class="text-lg font-semibold mb-4" style="color:#A36A66;">Total Sales Trend</h2>
             <div class="w-full h-80">
                 <canvas id="profitTrendChart"></canvas>
             </div>
         </div>
 
         <div class="lg:col-span-1 chart-container">
-            <h2 class="text-lg font-semibold mb-4" style="color:#A36A66;">Expense Breakdown</h2>
+            <h2 id="doughnutChartTitle" class="text-lg font-semibold mb-4" style="color:#A36A66;">Expense Breakdown</h2>
             <div class="w-full h-80 flex items-center justify-center">
                 <canvas id="expenseBreakdownChart"></canvas>
             </div>
@@ -148,7 +162,6 @@
 
     <div class="rounded-2xl shadow-md border border-gray-100 p-6">
         <h2 class="text-xl font-semibold mb-4" style="color:#A36A66;">Recent Activity</h2>
-
         <div class="divide-y divide-gray-100">
             @if (ViewBag.ActionLogs != null && ((IEnumerable<dynamic>)ViewBag.ActionLogs).Any())
             {
@@ -156,17 +169,10 @@
                 {
                     <div class="py-3 flex justify-between items-start">
                         <div class="flex flex-col text-sm w-1/4">
-                            <p class="font-semibold" style="color:#A36A66;">
-                                @log.UserName
-                            </p>
-                            <p class="text-xs text-gray-500">
-                                @log.TimeStamp.ToString("MM/dd/yyyy")
-                            </p>
-                            <p class="text-xs text-gray-500">
-                                @log.TimeStamp.ToString("hh:mm:ss tt")
-                            </p>
+                            <p class="font-semibold" style="color:#A36A66;">@log.UserName</p>
+                            <p class="text-xs text-gray-500">@log.TimeStamp.ToString("MM/dd/yyyy")</p>
+                            <p class="text-xs text-gray-500">@log.TimeStamp.ToString("hh:mm:ss tt")</p>
                         </div>
-
                         <div class="text-sm w-3/4 pl-4" style="color:#A36A66;">
                             <p>
                                 @log.Action.ToLower()d

@@ -2148,6 +2148,7 @@ namespace Sheessential_Sales_Finance.Controllers
             // ✅ Make sure to pass the payroll list to the View
             return View(payroll);
         }
+
         [HttpGet]
         public async Task<IActionResult> GetChartData(string period = "year", string startDate = null, string endDate = null)
         {
@@ -2156,19 +2157,16 @@ namespace Sheessential_Sales_Finance.Controllers
             DateTime utcNow = DateTime.UtcNow;
             string periodLower = period.ToLower();
 
-            // --- Calculate date range based on period ---
             DateTime calculatedStartDate;
             DateTime calculatedEndDate = utcNow;
 
             if (periodLower == "custom" && !string.IsNullOrEmpty(startDate) && !string.IsNullOrEmpty(endDate))
             {
-                // Parse custom date range
                 if (DateTime.TryParse(startDate, out DateTime parsedStart) &&
                     DateTime.TryParse(endDate, out DateTime parsedEnd))
                 {
                     calculatedStartDate = parsedStart.Date;
-                    calculatedEndDate = parsedEnd.Date.AddDays(1).AddTicks(-1); // End of the day
-                    _logger.LogInformation($"📅 Using custom date range: {calculatedStartDate} to {calculatedEndDate}");
+                    calculatedEndDate = parsedEnd.Date.AddDays(1).AddTicks(-1);
                 }
                 else
                 {
@@ -2177,7 +2175,6 @@ namespace Sheessential_Sales_Finance.Controllers
             }
             else
             {
-                // Use predefined periods
                 switch (periodLower)
                 {
                     case "week":
@@ -2199,7 +2196,7 @@ namespace Sheessential_Sales_Finance.Controllers
                 }
             }
 
-            // --- Fetch sales and expenses within period ---
+            // Fetch sales and expenses in parallel
             var salesTask = _mongo.ProductSalesInventory.AsQueryable()
                 .Where(s => s.TransactionDate >= calculatedStartDate && s.TransactionDate <= calculatedEndDate)
                 .ToListAsync();
@@ -2213,98 +2210,103 @@ namespace Sheessential_Sales_Finance.Controllers
             var relevantSales = salesTask.Result;
             var relevantExpenses = expensesTask.Result;
 
-            // --- Calculate totals ---
+            // Totals
             decimal totalRevenue = relevantSales.Sum(s =>
                 decimal.TryParse(s.SalePrice, out var price) ? price * s.Quantity : 0);
-
             decimal totalExpense = relevantExpenses.Sum(e => e.Amount);
             decimal netProfit = totalRevenue - totalExpense;
 
-            // --- Process Expense Breakdown ---
+            // Expense breakdown (for doughnut)
             var expenseBreakdown = relevantExpenses
                 .GroupBy(e => e.ExpenseType)
                 .Select(g => new { Label = g.Key, Data = g.Sum(e => e.Amount) })
                 .ToList();
 
-            // --- Process Revenue Trend ---
+            // Build trend data — Revenue, Expense, Profit per time bucket
             List<string> lineChartLabels;
             List<decimal> revenueData;
+            List<decimal> expenseData;
+            List<decimal> profitData;
 
-            // Determine grouping based on date range span
             var dateSpan = (calculatedEndDate - calculatedStartDate).TotalDays;
 
-            if (periodLower == "custom" || dateSpan > 90) // More than 3 months - group by month
+            if (periodLower == "year" || periodLower == "alltime" || (periodLower == "custom" && dateSpan > 90))
             {
-                var monthlySales = relevantSales
-                    .GroupBy(s => new { s.TransactionDate.Year, s.TransactionDate.Month })
-                    .OrderBy(g => g.Key.Year).ThenBy(g => g.Key.Month)
-                    .ToList();
-
-                lineChartLabels = monthlySales
-                    .Select(g => new DateTime(g.Key.Year, g.Key.Month, 1).ToString("MMM yyyy"))
-                    .ToList();
-
-                revenueData = monthlySales
-                    .Select(g => g.Sum(s => decimal.TryParse(s.SalePrice, out var price) ? price * s.Quantity : 0))
-                    .ToList();
-            }
-            else if (periodLower == "year" || periodLower == "alltime")
-            {
+                // Group by month (Jan–Dec)
                 lineChartLabels = CultureInfo.CurrentCulture.DateTimeFormat.AbbreviatedMonthNames.Take(12).ToList();
+
                 revenueData = Enumerable.Range(1, 12)
-                    .Select(month => relevantSales
-                        .Where(s => s.TransactionDate.Month == month)
-                        .Sum(s => decimal.TryParse(s.SalePrice, out var price) ? price * s.Quantity : 0))
+                    .Select(m => relevantSales.Where(s => s.TransactionDate.Month == m)
+                        .Sum(s => decimal.TryParse(s.SalePrice, out var p) ? p * s.Quantity : 0))
                     .ToList();
+
+                expenseData = Enumerable.Range(1, 12)
+                    .Select(m => relevantExpenses.Where(e => e.RequestedAt.Month == m).Sum(e => e.Amount))
+                    .ToList();
+
+                profitData = revenueData.Select((r, i) => r - expenseData[i]).ToList();
             }
-            else if (periodLower == "month")
+            else if (periodLower == "month" || (periodLower == "custom" && dateSpan <= 90 && dateSpan > 7))
             {
+                // Group by day of month
                 int daysInMonth = DateTime.DaysInMonth(calculatedStartDate.Year, calculatedStartDate.Month);
                 lineChartLabels = Enumerable.Range(1, daysInMonth).Select(d => d.ToString()).ToList();
+
                 revenueData = Enumerable.Range(1, daysInMonth)
-                    .Select(day => relevantSales
-                        .Where(s => s.TransactionDate.Day == day)
-                        .Sum(s => decimal.TryParse(s.SalePrice, out var price) ? price * s.Quantity : 0))
+                    .Select(d => relevantSales.Where(s => s.TransactionDate.Day == d)
+                        .Sum(s => decimal.TryParse(s.SalePrice, out var p) ? p * s.Quantity : 0))
                     .ToList();
+
+                expenseData = Enumerable.Range(1, daysInMonth)
+                    .Select(d => relevantExpenses.Where(e => e.RequestedAt.Day == d).Sum(e => e.Amount))
+                    .ToList();
+
+                profitData = revenueData.Select((r, i) => r - expenseData[i]).ToList();
             }
-            else // "week"
+            else
             {
+                // Group by day of week (Sun–Sat)
                 lineChartLabels = CultureInfo.CurrentCulture.DateTimeFormat.AbbreviatedDayNames.ToList();
+
                 revenueData = Enumerable.Range(0, 7)
-                    .Select(day => relevantSales
-                        .Where(s => (int)s.TransactionDate.DayOfWeek == day)
-                        .Sum(s => decimal.TryParse(s.SalePrice, out var price) ? price * s.Quantity : 0))
+                    .Select(d => relevantSales.Where(s => (int)s.TransactionDate.DayOfWeek == d)
+                        .Sum(s => decimal.TryParse(s.SalePrice, out var p) ? p * s.Quantity : 0))
                     .ToList();
+
+                expenseData = Enumerable.Range(0, 7)
+                    .Select(d => relevantExpenses.Where(e => (int)e.RequestedAt.DayOfWeek == d).Sum(e => e.Amount))
+                    .ToList();
+
+                profitData = revenueData.Select((r, i) => r - expenseData[i]).ToList();
             }
 
             return Json(new
             {
-                // Summary metrics
                 summary = new
                 {
-                    totalRevenue = totalRevenue,
-                    totalExpense = totalExpense,
-                    netProfit = netProfit
+                    totalRevenue,
+                    totalExpense,
+                    netProfit
                 },
-                // Date range info
                 dateRange = new
                 {
                     start = calculatedStartDate.ToString("yyyy-MM-dd"),
                     end = calculatedEndDate.ToString("yyyy-MM-dd")
                 },
-                // Chart data
                 revenueTrend = new
                 {
-                    Labels = lineChartLabels,
-                    Datasets = new[]
+                    labels = lineChartLabels,
+                    datasets = new object[]
                     {
-                new { Label = "Revenue", Data = revenueData }
-            }
+                new { label = "Revenue", data = revenueData },
+                new { label = "Expense", data = expenseData },
+                new { label = "Net Profit", data = profitData }
+                    }
                 },
                 expenseBreakdown = new
                 {
-                    Labels = expenseBreakdown.Select(e => e.Label).ToList(),
-                    Datasets = new[] { new { Data = expenseBreakdown.Select(e => e.Data).ToList() } }
+                    labels = expenseBreakdown.Select(e => e.Label).ToList(),
+                    datasets = new[] { new { data = expenseBreakdown.Select(e => e.Data).ToList() } }
                 }
             });
         }
