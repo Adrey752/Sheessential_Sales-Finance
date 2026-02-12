@@ -5,10 +5,9 @@
 
 <style>
     .row-selected {
-        background-color: #F3D7D5 !important; /* light rose highlight */
+        background-color: #F3D7D5 !important;
     }
 
-    /* Date range input styles */
     .date-range-inputs {
         display: none;
         gap: 0.5rem;
@@ -30,8 +29,6 @@
         .date-input:focus {
             outline: none;
             border-color: #A36A66;
-            ring: 2px;
-            ring-color: rgba(163, 106, 102, 0.2);
         }
 
     .apply-date-btn {
@@ -63,20 +60,16 @@
         </h1>
 
         <div class="flex items-center gap-3">
-            <!-- Date Range Display -->
-            <h3 id="currentDateRange" class="text-sm font-semibold" style="color:#A36A66;">
-                <!-- Will be populated by JavaScript -->
-            </h3>
+            <h3 id="currentDateRange" class="text-sm font-semibold" style="color:#A36A66;"></h3>
 
             <select id="dateRangeSelect" class="border border-gray-300 rounded-lg text-sm px-3 py-1.5 focus:ring-2 focus:ring-pink-400">
                 <option value="week">This Week</option>
                 <option value="month">This Month</option>
                 <option value="year">This Year</option>
-                <option value="alltime">All Time</option>
+                <option value="alltime" selected>All Time</option>
                 <option value="custom">Custom Range</option>
             </select>
 
-            <!-- Custom Date Range Inputs (hidden by default) -->
             <div id="customDateRange" class="date-range-inputs">
                 <input type="date" id="startDate" class="date-input" />
                 <span style="color:#A36A66;">to</span>
@@ -100,7 +93,7 @@
                     </div>
                     <div>
                         <h2 class="text-lg font-semibold" style="color: #A36A66;">Total Sales</h2>
-                        <p class="text-2xl font-bold text-gray-900 mt-0.5">@ViewBag.TotalSales</p>
+                        <p id="summaryTotalSales" class="text-2xl font-bold text-gray-900 mt-0.5">@ViewBag.TotalSales</p>
                     </div>
                 </div>
 
@@ -110,7 +103,7 @@
                     </div>
                     <div>
                         <h2 class="text-lg font-semibold" style="color: #A36A66;">Total Orders</h2>
-                        <p class="text-2xl font-bold text-gray-900 mt-0.5">@ViewBag.TotalOrders</p>
+                        <p id="summaryTotalOrders" class="text-2xl font-bold text-gray-900 mt-0.5">@ViewBag.TotalOrders</p>
                     </div>
                 </div>
             </div>
@@ -121,7 +114,6 @@
                     <span id="chartProductName" class="text-[#A36A66] ml-2"></span>
                 </div>
 
-                <!-- Chart wrapper must grow and stretch -->
                 <div class="flex-grow relative">
                     <canvas id="productSalesChart" class="absolute inset-0 w-full h-full"></canvas>
                 </div>
@@ -129,23 +121,20 @@
         </div>
         <div class="lg:col-span-2 bg-white rounded-2xl shadow-lg p-5 border border-gray-100 flex flex-col justify-between">
             <div class="aspect-square w-full rounded-xl overflow-hidden bg-gray-100 flex items-center justify-center">
-                <img src="~/images/Hand_Sanitizer.jpg"
+                <img src="/images/Hand_Sanitizer.jpg"
                      id="productCardImg"
                      class="object-cover w-full h-full"
-                     alt="Product Image">
+                     alt="Product Image"
+                     onerror="this.src='/images/Hand_Sanitizer.jpg'">
             </div>
 
             <div class="mt-4">
-                <p class="text-center font-bold text-lg text-gray-800" id="productCardName">Hydrating Face Cream</p>
-                <p class="text-center text-gray-500 text-sm mt-1">Total Order</p>
-                <p class="text-center font-bold text-2xl text-[#A36A66] mt-1" id="productCardTotalOrder">47</p>
+                <p class="text-center font-bold text-lg text-gray-800" id="productCardName">Select a product</p>
+                <p class="text-center text-gray-500 text-sm mt-1">Total Units Sold</p>
+                <p class="text-center font-bold text-2xl text-[#A36A66] mt-1" id="productCardTotalOrder">0</p>
             </div>
         </div>
-
-
     </div>
-
-
 
     <div class="bg-white rounded-2xl shadow-sm p-6">
         <div class="flex justify-between items-center mb-4">
@@ -157,10 +146,7 @@
             </div>
         </div>
 
-
-
         <div class="overflow-x-auto">
-
             <table class="min-w-full text-sm text-gray-700 border-t border-gray-100">
                 <thead class="bg-gray-50 text-gray-600 uppercase text-xs tracking-wider">
                     <tr>
@@ -179,21 +165,30 @@
                         var statusColor = p.StockQuantity >= 10 ? "text-sky-500" : (p.StockQuantity < 10 && p.StockQuantity > 0 ? "text-orange-400" : "text-red-500");
                         var categoryColor = p.Category switch
                         {
-                            "Skincare" => "bg-pink-100 text-pink-700", // Retained
-                            "Haircare" => "bg-teal-100 text-teal-700", // Changed from sky-blue to teal
+                            "Skincare" => "bg-pink-100 text-pink-700",
+                            "Haircare" => "bg-teal-100 text-teal-700",
                             "Makeup" => "bg-purple-100 text-purple-700",
                             _ => "bg-gray-100 text-gray-700"
                         };
 
+                        var imgUrl = !string.IsNullOrEmpty(p.VariantImg) ? p.VariantImg : "/images/Hand_Sanitizer.jpg";
+
                         <tr class="product-row hover:bg-[#F0E4E3] transition cursor-pointer"
-                            onclick="selectProduct('@p.VariantName', '@p.Id', '@p.OrdersCount', '@p.VariantImg', this)">
+                            data-name="@p.VariantName"
+                            data-id="@p.Id"
+                            data-orders="@p.OrdersCount"
+                            data-img="@imgUrl"
+                            data-category="@(p.Category ?? "N/A")"
+                            data-price="@p.Price"
+                            data-description="@(p.Description ?? "No description available")"
+                            onclick="selectProduct(this)">
 
                             <td class="px-4 py-3 font-medium text-gray-600">@p.Id</td>
                             <td class="px-4 py-3 text-gray-800">@p.VariantName</td>
                             <td class="px-4 py-3">
                                 <span class="@categoryColor text-xs font-semibold px-3 py-1 rounded-lg">@p.Category</span>
                             </td>
-                            <td class="px-4 py-3">₱@p.Price</td>
+                            <td class="px-4 py-3">₱@p.Price.ToString("N2")</td>
                             <td class="px-4 py-3">@p.StockQuantity</td>
                             <td class="px-4 py-3">
                                 @if (p.StockQuantity >= 10)
@@ -210,7 +205,7 @@
                                 }
                             </td>
                             <td class="px-4 py-3 text-center">
-                                <button onclick="openModal('@p.VariantName', '@p.Category', '@p.Price', '@p.VariantImg', '@p.Description', '@p.OrdersCount')"
+                                <button onclick="event.stopPropagation(); openModal(this.closest('tr'))"
                                         class="text-blue-500 hover:underline text-sm font-medium">
                                     Details
                                 </button>
@@ -256,36 +251,28 @@
     </div>
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-        <!-- Sales Revenue Chart -->
         <div class="bg-white shadow-lg rounded-2xl p-6 flex flex-col h-[460px]" id="revenueCard">
-
             <div class="flex justify-between items-center mb-3">
                 <p class="font-semibold text-sm">Total Revenue</p>
             </div>
-
             <div class="flex-1 relative">
                 <canvas id="salesRevenueChart"></canvas>
             </div>
         </div>
 
-        <!-- Top Products Card -->
         <div id="topProductsCard" class="bg-white shadow-lg rounded-2xl p-6 flex flex-col h-[460px]">
             <h2 class="font-semibold text-sm mb-4">Top Products</h2>
-
             <div class="flex flex-1 items-center justify-center gap-6">
-                <!-- Donut Chart (Left) -->
                 <div class="w-1/2 max-w-[280px] relative aspect-square">
                     <canvas id="topProductsChart"></canvas>
                 </div>
-
-                <div id="topProductsList" class="w-1/2 flex flex-col ...">
-                    <!-- dynamically generated -->
-                </div>
+                <div id="topProductsList" class="w-1/2 flex flex-col"></div>
             </div>
         </div>
     </div>
 </div>
 
+<!-- Product Detail Modal -->
 <div id="productModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
     <div class="bg-white rounded-3xl shadow-xl w-[700px] p-8 relative flex gap-6">
         <button onclick="closeModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
@@ -293,18 +280,21 @@
             <h2 id="modalName" class="text-2xl font-bold text-gray-800 mb-2">Product Name</h2>
             <span id="modalCategory" class="bg-[#A36A66] text-white text-sm font-semibold px-3 py-1 rounded-lg inline-block mb-3">Category</span>
             <p class="text-gray-600 text-sm leading-relaxed mb-4" id="modalDescription">
-                Lorem ipsum dolor sit amet, consectetur adipiscing elit. Etiam sollicitudin ipsum arcu.
+                No description available.
             </p>
             <div class="mt-4">
                 <p class="text-gray-700 font-medium">Selling Price</p>
                 <p class="mt-1 font-semibold text-2xl text-[#A36A66]">
                     ₱<span id="modalSelling">0</span>
                 </p>
-                <p class="text-sm text-gray-500 font-medium mt-1">Purchase Price: ₱<span id="modalPurchase">0</span></p>
             </div>
         </div>
         <div class="w-60">
-            <img src="~/images/Hand_Sanitizer.jpg" alt="Product Image" class="rounded-xl shadow-sm w-full object-cover" id="modalImage">
+            <img src="/images/Hand_Sanitizer.jpg"
+                 alt="Product Image"
+                 class="rounded-xl shadow-sm w-full object-cover"
+                 id="modalImage"
+                 onerror="this.src='/images/Hand_Sanitizer.jpg'">
         </div>
     </div>
 </div>
@@ -327,30 +317,18 @@
                 </tr>
             </thead>
             <tbody id="salesTableBody" class="divide-y divide-gray-100">
-                <!-- Filled by JS -->
             </tbody>
         </table>
     </div>
 
-    <!-- Pagination Controls -->
     <div class="flex justify-between items-center mt-6">
         <div class="text-sm text-gray-600">
             Showing <span id="salesShowingFrom">0</span> to <span id="salesShowingTo">0</span> of <span id="salesTotalItems">0</span> entries
         </div>
-        <div id="salesPaginationControls" class="flex space-x-2">
-            <!-- Pagination buttons will be generated by JS -->
-        </div>
+        <div id="salesPaginationControls" class="flex space-x-2"></div>
     </div>
 </div>
 
-
-
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script>
-    /* ============================================================
-        1. INTERACTIVE PRODUCT SALES CHART (Onscreen Chart)
-        ============================================================ */
-
-</script>
-<script src="~/js/Products.js"></script>
+<script src="~/js/Products.js?v=@DateTime.UtcNow.Ticks"></script>

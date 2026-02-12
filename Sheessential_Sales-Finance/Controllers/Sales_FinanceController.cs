@@ -217,56 +217,145 @@ namespace Sheessential_Sales_Finance.Controllers
         }
 
 
+        // Replace the existing SalesReportData method with this one that handles all periods + custom dates
 
-        [HttpGet] // From Reports Page
-        public IActionResult GetSalesReportData(string period = "monthly")
+        [HttpGet]
+        public async Task<IActionResult> SalesReportData(string period = "week", string startDate = null, string endDate = null)
         {
-            var sales = _mongo.ProductSalesInventory.Find(_ => true).ToList();
+            period = period.ToLowerInvariant();
+            var now = DateTime.UtcNow;
 
-            DateTime today = DateTime.Today;
-            var startOfWeek = today.AddDays(-(int)today.DayOfWeek + (int)DayOfWeek.Monday);
-            var startOfMonth = new DateTime(today.Year, today.Month, 1);
-            var startOfYear = new DateTime(today.Year, 1, 1);
+            DateTime start;
+            DateTime end = now;
 
-            var grouped = period.ToLower() switch
+            // Handle custom date range
+            if (period == "custom" && !string.IsNullOrEmpty(startDate) && !string.IsNullOrEmpty(endDate))
             {
-                // WEEKLY: Monday → today (Group by each day)
-                "weekly" => sales
-                    .Where(s => s.TransactionDate >= startOfWeek)
-                    .GroupBy(s => s.TransactionDate.Date)
-                    .OrderBy(g => g.Key)
-                    .Select(g => new
-                    {
-                        Label = g.Key.ToString("ddd"), // Mon, Tue, Wed...
-                        TotalSales = g.Sum(x => decimal.TryParse(x.SalePrice, out var price) ? price * x.Quantity : 0)
-                    }),
+                if (DateTime.TryParse(startDate, out DateTime parsedStart) &&
+                    DateTime.TryParse(endDate, out DateTime parsedEnd))
+                {
+                    start = parsedStart.Date;
+                    end = parsedEnd.Date.AddDays(1).AddTicks(-1);
+                }
+                else
+                {
+                    return Json(new SalesReportViewModel { PeriodText = "Invalid date range" });
+                }
+            }
+            else
+            {
+                start = period switch
+                {
+                    "week" => now.AddDays(-(int)now.DayOfWeek + (int)DayOfWeek.Monday),
+                    "month" => new DateTime(now.Year, now.Month, 1),
+                    "year" => new DateTime(now.Year, 1, 1),
+                    "alltime" or "all" => DateTime.MinValue,
+                    _ => now.AddDays(-7)
+                };
+            }
 
-                // YEARLY: January → current month (Group by month)
-                "yearly" => sales
-                    .Where(s => s.TransactionDate >= startOfYear)
-                    .GroupBy(s => s.TransactionDate.Month)
-                    .OrderBy(g => g.Key)
-                    .Select(g => new
-                    {
-                        Label = System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetAbbreviatedMonthName(g.Key),
-                        TotalSales = g.Sum(x => decimal.TryParse(x.SalePrice, out var price) ? price * x.Quantity : 0)
-                    }),
+            // Fetch sales data within the period
+            var filterBuilder = Builders<InventoryProductSales>.Filter;
+            var filter = filterBuilder.Gte(i => i.TransactionDate, start) &
+                         filterBuilder.Lte(i => i.TransactionDate, end);
 
-                // MONTHLY (default): 1 → today (Group by day of month)
-                _ => sales
-                    .Where(s => s.TransactionDate >= startOfMonth)
-                    .GroupBy(s => s.TransactionDate.Day)
-                    .OrderBy(g => g.Key)
-                    .Select(g => new
-                    {
-                        Label = g.Key.ToString(), // 1, 2, 3 ...
-                        TotalSales = g.Sum(x => decimal.TryParse(x.SalePrice, out var price) ? price * x.Quantity : 0)
-                    })
+            var productSales = await _mongo.ProductSalesInventory.Find(filter).ToListAsync();
+
+            // Extract variant IDs and fetch variant details
+            var variantIds = productSales
+                .Where(i => !string.IsNullOrEmpty(i.VariantId))
+                .Select(i => i.VariantId)
+                .Distinct()
+                .ToList();
+
+            var productVariants = await _mongo.ProductVariantInventory
+                .Find(p => variantIds.Contains(p.Id))
+                .ToListAsync();
+
+            var nameLookup = productVariants.ToDictionary(p => p.Id, p => p.VariantName);
+            var categoryLookup = productVariants.ToDictionary(p => p.Id, p => p.Category ?? "N/A");
+
+            // Build the view model
+            var viewModel = new SalesReportViewModel
+            {
+                TotalSales = productSales.Sum(sale =>
+                    decimal.TryParse(sale.SalePrice, out decimal price) ? price * sale.Quantity : 0),
+                TotalOrders = productSales.Count,
+                PeriodText = start == DateTime.MinValue
+                    ? "All Time"
+                    : $"{start.ToLocalTime():MMM d, yyyy} – {end.ToLocalTime():MMM d, yyyy}"
             };
 
-            return Json(grouped.ToList());
-        }
+            // Chart Data (Revenue Trend)
+            var dateSpan = (end - start).TotalDays;
 
+            if (period == "alltime" || period == "all" || period == "year" || (period == "custom" && dateSpan > 90))
+            {
+                // Group by month
+                var monthlySales = productSales
+                    .GroupBy(i => new { i.TransactionDate.Year, i.TransactionDate.Month })
+                    .OrderBy(g => g.Key.Year).ThenBy(g => g.Key.Month)
+                    .Select(g => new
+                    {
+                        DateLabel = new DateTime(g.Key.Year, g.Key.Month, 1).ToString("MMM yyyy"),
+                        Total = g.Sum(x => decimal.TryParse(x.SalePrice, out decimal p) ? p * x.Quantity : 0)
+                    })
+                    .ToList();
+
+                viewModel.ChartLabels = monthlySales.Select(m => m.DateLabel).ToList();
+                viewModel.ChartValues = monthlySales.Select(m => m.Total).ToList();
+            }
+            else
+            {
+                // Group by day
+                var dailySales = productSales
+                    .GroupBy(i => i.TransactionDate.Date)
+                    .OrderBy(g => g.Key)
+                    .Select(g => new
+                    {
+                        DateLabel = g.Key.ToString("MMM dd"),
+                        Total = g.Sum(x => decimal.TryParse(x.SalePrice, out decimal p) ? p * x.Quantity : 0)
+                    })
+                    .ToList();
+
+                viewModel.ChartLabels = dailySales.Select(d => d.DateLabel).ToList();
+                viewModel.ChartValues = dailySales.Select(d => d.Total).ToList();
+            }
+
+            // Top Products (for Doughnut Chart)
+            viewModel.TopProducts = productSales
+                .GroupBy(i => i.VariantId)
+                .Select(g => new TopProductDto
+                {
+                    ProductName = nameLookup.GetValueOrDefault(g.Key, "(Unknown Product)"),
+                    TotalAmount = g.Sum(x => decimal.TryParse(x.SalePrice, out decimal p) ? p * x.Quantity : 0)
+                })
+                .OrderByDescending(p => p.TotalAmount)
+                .Take(5)
+                .ToList();
+
+            // Sales Rows (for table)
+            viewModel.SalesRows = productSales
+                .GroupBy(x => x.VariantId)
+                .Select(g =>
+                {
+                    decimal totalAmount = g.Sum(x => decimal.TryParse(x.SalePrice, out decimal p) ? p * x.Quantity : 0);
+                    int totalQuantity = g.Sum(x => x.Quantity);
+                    return new ProductSalesRow
+                    {
+                        ProductId = g.Key ?? "(Unknown)",
+                        ProductName = nameLookup.GetValueOrDefault(g.Key, "(Unknown Product)"),
+                        Category = categoryLookup.GetValueOrDefault(g.Key, "(Unknown)"),
+                        UnitPrice = totalQuantity > 0 ? totalAmount / totalQuantity : 0,
+                        Quantity = totalQuantity,
+                        TotalAmount = totalAmount
+                    };
+                })
+                .OrderByDescending(x => x.TotalAmount)
+                .ToList();
+
+            return Json(viewModel);
+        }
 
         public IActionResult Products(int page = 1)
         {
@@ -292,11 +381,11 @@ namespace Sheessential_Sales_Finance.Controllers
             // NOTE: This assumes your ProductSalesInventory model has a property named 'VariantId'
             // that links back to the ProductVariant.
             var variantSalesCounts = sales
-                .GroupBy(s => s.VariantId) // Group by the ID of the variant being sold
-                .ToDictionary(
-                    g => g.Key,  // The key is the VariantId (the ID we grouped by)
-                    g => g.Count() // The value is the total number of sales/orders for that variant
-                );
+     .GroupBy(s => s.VariantId)
+     .ToDictionary(
+         g => g.Key,
+         g => new { Orders = g.Count(), UnitsSold = g.Sum(x => x.Quantity) }
+     );
 
             // --- 2. FETCH PAGINATED PRODUCT VARIANTS ---
             var totalProducts = (int)_mongo.ProductVariantInventory.CountDocuments(_ => true);
@@ -308,9 +397,10 @@ namespace Sheessential_Sales_Finance.Controllers
                 .ToList();
 
             // --- 3. ENRICH VARIANTS WITH CATEGORY, DESCRIPTION, AND ORDERS COUNT ---
+
+            // Then in the foreach loop, replace the OrdersCount enrichment:
             foreach (var variant in pagedVariants)
             {
-                // 3a. Enrich with Product Data (Category and Description)
                 if (allProducts.TryGetValue(variant.ProductId, out var product))
                 {
                     variant.Category = product.ProductCategory;
@@ -322,15 +412,13 @@ namespace Sheessential_Sales_Finance.Controllers
                     variant.Description = "No description available";
                 }
 
-                // 3b. Enrich with Orders Count
-                // Check if the variant's ID exists in the sales count dictionary
-                if (variantSalesCounts.TryGetValue(variant.Id, out int count))
+                if (variantSalesCounts.TryGetValue(variant.Id, out var salesData))
                 {
-                    variant.OrdersCount = count;
+                    variant.OrdersCount = salesData.UnitsSold; // Total units sold
                 }
                 else
                 {
-                    variant.OrdersCount = 0; // Set to 0 if no sales records are found
+                    variant.OrdersCount = 0;
                 }
             }
 
@@ -932,70 +1020,109 @@ namespace Sheessential_Sales_Finance.Controllers
             });
         }
 
+        // Replace the existing GetProductSales method
+       
         [HttpGet]
-        public IActionResult GetProductSales(string productId, string period = "week")
+public IActionResult GetProductSales(string productId, string period = "week", string startDate = null, string endDate = null)
         {
             if (string.IsNullOrEmpty(productId))
                 return Json(new { message = "Missing product ID" });
 
-            var productSales = _mongo.ProductSalesInventory.Find(product => product.VariantId == productId).ToList();
+            var productSales = _mongo.ProductSalesInventory
+                .Find(product => product.VariantId == productId)
+                .ToList();
 
             if (!productSales.Any())
                 return Json(new { message = "No sales data found" });
 
             DateTime today = DateTime.Today;
-            var startOfWeek = today.AddDays(-(int)today.DayOfWeek + (int)DayOfWeek.Monday);
-            var startOfMonth = new DateTime(today.Year, today.Month, 1);
-            var startOfYear = new DateTime(today.Year, 1, 1);
+            DateTime start;
+            DateTime end = today.AddDays(1);
+            string periodLower = (period ?? "week").ToLower();
 
-            IEnumerable<object> grouped;
-
-            switch (period.ToLower())
+            if (periodLower == "custom" && !string.IsNullOrEmpty(startDate) && !string.IsNullOrEmpty(endDate))
             {
-                // WEEKLY: Monday → Today, label on days (Mon, Tue, Wed)
-                case "week":
-                    grouped = productSales
-                        .Where(s => s.TransactionDate >= startOfWeek)
-                        .GroupBy(s => s.TransactionDate.Date)
-                        .OrderBy(g => g.Key)
-                        .Select(g => new
-                        {
-                            Label = g.Key.ToString("ddd"),  // Mon, Tue, Wed...
-                            Total = g.Sum(x => x.Quantity)
-                        });
-                    break;
-
-                //  YEARLY: January → Current Month, grouped by month
-                case "year":
-                    grouped = productSales
-                        .Where(s => s.TransactionDate >= startOfYear)
-                        .GroupBy(s => s.TransactionDate.Month)
-                        .OrderBy(g => g.Key)
-                        .Select(g => new
-                        {
-                            Label = System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetAbbreviatedMonthName(g.Key),
-                            Total = g.Sum(x => x.Quantity)
-                        });
-                    break;
-
-                //  MONTHLY : 1 → Today, grouped by day-of-month
-                default:
-                    grouped = productSales
-                        .Where(s => s.TransactionDate >= startOfMonth)
-                        .GroupBy(s => s.TransactionDate.Day)
-                        .OrderBy(g => g.Key)
-                        .Select(g => new
-                        {
-                            Label = g.Key.ToString(),  // Day number 1,2,3...
-                            Total = g.Sum(x => x.Quantity)
-                        });
-                    break;
+                if (DateTime.TryParse(startDate, out DateTime parsedStart) &&
+                    DateTime.TryParse(endDate, out DateTime parsedEnd))
+                {
+                    start = parsedStart.Date;
+                    end = parsedEnd.Date.AddDays(1);
+                }
+                else
+                {
+                    return Json(new { message = "Invalid date format" });
+                }
+            }
+            else
+            {
+                switch (periodLower)
+                {
+                    case "week":
+                        start = today.AddDays(-(int)today.DayOfWeek + (int)DayOfWeek.Monday);
+                        break;
+                    case "month":
+                        start = new DateTime(today.Year, today.Month, 1);
+                        break;
+                    case "year":
+                        start = new DateTime(today.Year, 1, 1);
+                        break;
+                    case "alltime":
+                        start = DateTime.MinValue;
+                        end = today.AddDays(1);
+                        break;
+                    default:
+                        start = new DateTime(today.Year, today.Month, 1);
+                        break;
+                }
             }
 
-            return Json(grouped);
+            var filtered = (periodLower == "alltime")
+                ? productSales
+                : productSales.Where(s => s.TransactionDate >= start && s.TransactionDate < end).ToList();
+
+            if (!filtered.Any())
+                return Json(Array.Empty<object>());
+
+            IEnumerable<object> grouped;
+            double dateSpan = periodLower == "alltime" ? 365 : (end - start).TotalDays;
+
+            if (periodLower == "year" || periodLower == "alltime" || (periodLower == "custom" && dateSpan > 90))
+            {
+                // Group by Year + Month to keep years separate
+                grouped = filtered
+                    .GroupBy(s => new { s.TransactionDate.Year, s.TransactionDate.Month })
+                    .OrderBy(g => g.Key.Year).ThenBy(g => g.Key.Month)
+                    .Select(g => new
+                    {
+                        Label = new DateTime(g.Key.Year, g.Key.Month, 1).ToString("MMM yyyy"),
+                        Total = g.Sum(x => x.Quantity)
+                    });
+            }
+            else if (periodLower == "month" || (periodLower == "custom" && dateSpan <= 90 && dateSpan > 7))
+            {
+                grouped = filtered
+                    .GroupBy(s => s.TransactionDate.Day)
+                    .OrderBy(g => g.Key)
+                    .Select(g => new
+                    {
+                        Label = g.Key.ToString(),
+                        Total = g.Sum(x => x.Quantity)
+                    });
+            }
+            else
+            {
+                grouped = filtered
+                    .GroupBy(s => s.TransactionDate.Date)
+                    .OrderBy(g => g.Key)
+                    .Select(g => new
+                    {
+                        Label = g.Key.ToString("ddd"),
+                        Total = g.Sum(x => x.Quantity)
+                    });
+            }
+
+            return Json(grouped.ToList());
         }
-
-
 
 
         [HttpPost]
@@ -1931,141 +2058,6 @@ namespace Sheessential_Sales_Finance.Controllers
 
 
 
-            [HttpGet]
-            public async Task<IActionResult> SalesReportData(string period = "week")
-            {
-                period = period.ToLowerInvariant();
-                var now = DateTime.UtcNow;
-
-                // 📅 Determine start date based on 'period'
-                DateTime start = period switch
-                {
-                    "week" => now.AddDays(-(int)now.DayOfWeek + (int)DayOfWeek.Monday), // Start of week (Monday)
-                    "month" => new DateTime(now.Year, now.Month, 1),                     // Start of month
-                    "year" => new DateTime(now.Year, 1, 1),                              // Jan 1
-                    "all" => DateTime.MinValue,                                          // All data
-                    _ => now.AddDays(-7)
-                };
-
-                // ✅ 1. Fetch sales data within the period
-                var ProductSales = await _mongo.ProductSalesInventory.Find(i =>
-                    i.TransactionDate >= start && i.TransactionDate <= now)
-                    .ToListAsync();
-
-                if (!ProductSales.Any())
-                {
-                    return Json(new SalesReportViewModel { PeriodText = "No data found" });
-                }
-
-                // Extract all unique VariantIds from the sales records
-                var variantIds = ProductSales
-                    .Where(i => !string.IsNullOrEmpty(i.VariantId))
-                    .Select(i => i.VariantId)
-                    .Distinct()
-                    .ToList();
-
-                // ✅ 2. Fetch all related ProductVariant details (VariantId is used as ProductId/VariantId)
-                var productVariants = await _mongo.ProductVariantInventory
-                    .Find(p => variantIds.Contains(p.Id))
-                    .ToListAsync();
-
-                // ✅ 3. Create lookup dictionaries for efficient mapping
-                var productLookup = productVariants.ToDictionary(p => p.Id, p => p.VariantName);
-                var categoryLookup = productVariants.ToDictionary(p => p.Id, p => p.Category);
-
-                // --- Aggregation and Data Construction ---
-
-                var viewModel = new SalesReportViewModel
-                {
-                    // Note: SalePrice and SRP are strings in your model, they must be parsed to decimal.
-                    TotalSales = ProductSales.Sum(sale =>
-                        decimal.TryParse(sale.SalePrice, out decimal price) ? price * sale.Quantity : 0),
-                    TotalOrders = ProductSales.Count,
-                };
-
-                // ✅ 4. Chart Data (Revenue Trend)
-                if (period == "all" || period == "year")
-                {
-                    // Group by Month/Year for yearly/all-time view
-                    var monthlySales = ProductSales
-                        .GroupBy(i => new { i.TransactionDate.Year, i.TransactionDate.Month })
-                        .OrderBy(g => g.Key.Year).ThenBy(g => g.Key.Month)
-                        .Select(g => new
-                        {
-                            DateLabel = new DateTime(g.Key.Year, g.Key.Month, 1).ToString("MMM yyyy"),
-                            Total = g.Sum(x => decimal.TryParse(x.SalePrice, out decimal price) ? price * x.Quantity : 0)
-                        })
-                        .ToList();
-
-                    viewModel.ChartLabels = monthlySales.Select(m => m.DateLabel).ToList();
-                    viewModel.ChartValues = monthlySales.Select(m => m.Total).ToList();
-                }
-                else // "week", "month", or default (daily view)
-                {
-                    // Group by Day/Date for weekly/monthly view
-                    var dailySales = ProductSales
-                        .GroupBy(i => i.TransactionDate.Date)
-                        .OrderBy(g => g.Key)
-                        .Select(g => new
-                        {
-                            DateLabel = g.Key.ToString("MMM dd"),
-                            Total = g.Sum(x => decimal.TryParse(x.SalePrice, out decimal price) ? price * x.Quantity : 0)
-                        })
-                        .ToList();
-
-                    viewModel.ChartLabels = dailySales.Select(d => d.DateLabel).ToList();
-                    viewModel.ChartValues = dailySales.Select(d => d.Total).ToList();
-                }
-
-                // ✅ 5. Top Products (for Doughnut Chart)
-                viewModel.TopProducts = ProductSales
-                    .GroupBy(i => i.VariantId)
-                    .Select(g => new TopProductDto
-                    {
-                        ProductName = productLookup.ContainsKey(g.Key)
-                            ? productLookup[g.Key]
-                            : "(Unknown Product)",
-                        TotalAmount = g.Sum(x => decimal.TryParse(x.SalePrice, out decimal price) ? price * x.Quantity : 0)
-                    })
-                    .OrderByDescending(p => p.TotalAmount)
-                    .Take(5)
-                    .ToList();
-
-                // ✅ 6. Period Text
-                viewModel.PeriodText = $"{start.ToLocalTime():MMMM d, yyyy} – {now.ToLocalTime():MMMM d, yyyy}";
-
-                // The 'SalesRows' section from your sample is often needed for a table,
-                // but not explicitly requested by the JS. I'll include it for completeness
-                // but you can remove it if your JS doesn't need it.
-
-                // ✅ 7. Product Sales Table (Full List)
-                viewModel.SalesRows = ProductSales
-                    .GroupBy(x => x.VariantId)
-                    .Select(g =>
-                    {
-                        decimal totalAmount = g.Sum(x => decimal.TryParse(x.SalePrice, out decimal price) ? price * x.Quantity : 0);
-                        int totalQuantity = g.Sum(x => x.Quantity);
-                        return new ProductSalesRow
-                        {
-                            ProductId = g.Key ?? "(Unknown)",
-                            ProductName = productLookup.ContainsKey(g.Key)
-                                ? productLookup[g.Key]
-                                : "(Unknown Product)",
-                            Category = categoryLookup.ContainsKey(g.Key)
-                                ? categoryLookup[g.Key]
-                                : "(Unknown)",
-                            // Average price is Total Amount / Total Quantity
-                            UnitPrice = totalQuantity > 0 ? totalAmount / totalQuantity : 0,
-                            Quantity = totalQuantity,
-                            TotalAmount = totalAmount
-                        };
-                    })
-                    .OrderByDescending(x => x.TotalAmount)
-                    .ToList();
-
-                return Json(viewModel);
-            }
-    
 
     [HttpPost]
         public IActionResult ExportPdfPreview([FromBody] FinancePdfPayload payload)
