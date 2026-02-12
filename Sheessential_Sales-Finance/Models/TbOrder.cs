@@ -27,17 +27,16 @@ namespace Sheessential_Sales_Finance.Models
         public ShippingAddress? ShippingAddress { get; set; }
 
         [BsonElement("subtotal")]
-        public decimal Subtotal { get; set; }
+        public decimal? Subtotal { get; set; }
 
         [BsonElement("shipping_fee")]
-        public decimal ShippingFee { get; set; }
+        public decimal? ShippingFee { get; set; }
 
-        // Add discount because some documents include it
         [BsonElement("discount")]
-        public decimal Discount { get; set; }
+        public decimal? Discount { get; set; }
 
         [BsonElement("tax")]
-        public decimal Tax { get; set; }
+        public decimal? Tax { get; set; }
 
         [BsonElement("total_amount")]
         public decimal TotalAmount { get; set; }
@@ -84,7 +83,7 @@ namespace Sheessential_Sales_Finance.Models
         public decimal Price { get; set; }
 
         [BsonElement("subtotal")]
-        public decimal Subtotal { get; set; }
+        public decimal? Subtotal { get; set; }
     }
 
     public class ShippingAddress

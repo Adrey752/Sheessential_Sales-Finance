@@ -666,7 +666,7 @@ namespace Sheessential_Sales_Finance.Controllers
             {
                 // A. Calculate Subtotal
                 item.Subtotal = item.Price * item.Quantity;
-                subtotal += item.Subtotal;
+                subtotal += (decimal)item.Subtotal;
 
                 // B. Prepare ProductSales Record
                 // Note: We use the VariantId (item.ProductId) here. 
@@ -694,7 +694,7 @@ namespace Sheessential_Sales_Finance.Controllers
             order.Subtotal = subtotal;
             order.Tax = 0;
             order.ShippingFee = 0;
-            order.TotalAmount = subtotal + order.Tax + order.ShippingFee;
+            order.TotalAmount = (decimal)(subtotal + order.Tax + order.ShippingFee);
 
             // 5. Insert Records into MongoDB
 
