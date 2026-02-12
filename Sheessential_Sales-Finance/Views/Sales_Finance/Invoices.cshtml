@@ -418,11 +418,12 @@
     var productsJson = System.Text.Json.JsonSerializer.Serialize(Model.AvailableProducts);
 }
 
+
 <script>
     window.appData = {
-        invoices: @Html.Raw(ordersJson), // JS still expects 'invoices' property based on Invoice.js
-        customers: @Html.Raw(customersJson),
-        availableProducts: @Html.Raw(productsJson)
+        invoices: @Html.Raw(ViewBag.OrdersJson ?? "[]"),
+        customers: @Html.Raw(ViewBag.CustomersJson ?? "[]"),
+        availableProducts: @Html.Raw(ViewBag.ProductsJson ?? "[]")
     };
 </script>
 <script>

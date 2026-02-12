@@ -16,7 +16,7 @@ using System.Globalization;
 using MongoDB.Driver.Linq;
 using Microsoft.AspNetCore.Mvc.ViewEngines;
 using Microsoft.Extensions.Logging;
-
+using System.Text.Json;
 namespace Sheessential_Sales_Finance.Controllers
 {
     public class Sales_FinanceController : Controller
@@ -423,62 +423,102 @@ namespace Sheessential_Sales_Finance.Controllers
         //    return View(viewModel);
         //}
 
+        // Replace the existing Invoices method body with this implementation
         public async Task<IActionResult> Invoices(int page = 1, int pageSize = 10)
         {
-            // 1. Fetch all Orders (replacing Invoices)
-            var allOrders = await _mongo.TbOrder
-                .Find(_ => true)
-                .SortByDescending(o => o.CreatedAt)
-                .ToListAsync();
-
-            // 2. Calculate totals using TbOrder fields (still use all orders for totals)
-            var overdueAmount = allOrders.Where(o => o.PaymentStatus == "Overdue").Sum(o => o.TotalAmount);
-            var openAmount = allOrders.Where(o => o.PaymentStatus == "Unpaid").Sum(o => o.TotalAmount);
-            var draftedAmount = allOrders.Where(o => o.PaymentStatus == "Pending" || o.OrderStatus == "Processing").Sum(o => o.TotalAmount);
-
-            // 3. Apply pagination
-            var totalOrders = allOrders.Count;
-            var totalPages = (int)Math.Ceiling(totalOrders / (double)pageSize);
-
-            // Ensure page is within bounds
-            page = Math.Max(1, Math.Min(page, totalPages == 0 ? 1 : totalPages));
-
-            var orders = allOrders
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize)
-                .ToList();
-
-            // 4. Combine Products and Variants into the combined ViewModel
-            var availableProducts = await _mongo.ProductVariantInventory
-                .Find(v => v.StockQuantity > 0)
-                .ToListAsync();
-
-            // 5. Fetch customer list (TbUser)
-            var customers = await _mongo.TbUserCollection
-                .Find(u => u.Role.ToLower() == "customer")
-                .SortBy(u => u.FirstName)
-                .ToListAsync();
-
-            // 6. Prepare ViewModel
-            var viewModel = new InvoiceListViewModel
+            try
             {
-                Orders = orders, // Now passing paginated TbOrder list
-                OverdueAmount = overdueAmount,
-                OpenAmount = openAmount,
-                DraftedAmount = draftedAmount,
-                AvailableProducts = availableProducts,
-                Customers = customers
-            };
+                _logger.LogInformation($"Loading Invoices page {page} (size {pageSize})");
 
-            // 7. ViewBags for pagination
-            ViewBag.NextInvoiceNumber = await GenerateInvoiceNumber();
-            ViewBag.ActiveUsers = await _mongo.TbUserCollection.CountDocumentsAsync(u => u.IsEmailVerified == true);
-            ViewBag.CurrentPage = page;
-            ViewBag.TotalPages = totalPages;
-            ViewBag.TotalOrders = totalOrders;
-            ViewBag.PageSize = pageSize;
+                var totalOrders = await _mongo.TbOrder.CountDocumentsAsync(_ => true);
+                var totalPages = (int)Math.Ceiling(totalOrders / (double)pageSize);
+                page = Math.Max(1, Math.Min(page, totalPages == 0 ? 1 : totalPages));
 
-            return View(viewModel);
+                var orders = await _mongo.TbOrder
+                    .Find(_ => true)
+                    .SortByDescending(o => o.CreatedAt)
+                    .Skip((page - 1) * pageSize)
+                    .Limit(pageSize)
+                    .ToListAsync();
+
+                // Lightweight projection for totals to avoid loading full documents
+                var totals = await _mongo.TbOrder
+                    .Find(_ => true)
+                    .Project(o => new { o.PaymentStatus, o.OrderStatus, o.TotalAmount })
+                    .ToListAsync();
+
+                var overdueAmount = totals.Where(o => o.PaymentStatus == "Overdue").Sum(o => o.TotalAmount);
+                var openAmount = totals.Where(o => o.PaymentStatus == "Unpaid").Sum(o => o.TotalAmount);
+                var draftedAmount = totals.Where(o => o.PaymentStatus == "Pending" || o.OrderStatus == "Processing").Sum(o => o.TotalAmount);
+
+                var availableProducts = await _mongo.ProductVariantInventory.Find(v => v.StockQuantity > 0).ToListAsync();
+                var customers = await _mongo.TbUserCollection.Find(u => u.Role.ToLower() == "customer").SortBy(u => u.FirstName).ToListAsync();
+
+                // --- Create JSON-safe DTOs to avoid serializer errors in the view ---
+                var safeOrders = orders.Select(o => new
+                {
+                    Id = o.Id,
+                    OrderNumber = o.OrderNumber,
+                    PaymentStatus = o.PaymentStatus,
+                    CreatedAt = o.CreatedAt,
+                    ShippingFirstName = o.ShippingAddress?.FirstName,
+                    ShippingLastName = o.ShippingAddress?.LastName,
+                    TotalAmount = o.TotalAmount
+                }).ToList();
+
+                var safeCustomers = customers.Select(c => new
+                {
+                    Id = c.Id,
+                    FirstName = c.FirstName,
+                    LastName = c.LastName,
+                    Email = c.Email
+                }).ToList();
+
+                var safeProducts = availableProducts.Select(p => new
+                {
+                    Id = p.Id,
+                    VariantName = p.VariantName,
+                    Price = p.Price,
+                    StockQuantity = p.StockQuantity
+                }).ToList();
+
+                // Serialize safe DTOs once on the server
+                ViewBag.OrdersJson = JsonSerializer.Serialize(safeOrders);
+                ViewBag.CustomersJson = JsonSerializer.Serialize(safeCustomers);
+                ViewBag.ProductsJson = JsonSerializer.Serialize(safeProducts);
+
+                var viewModel = new InvoiceListViewModel
+                {
+                    Orders = orders,
+                    OverdueAmount = overdueAmount,
+                    OpenAmount = openAmount,
+                    DraftedAmount = draftedAmount,
+                    AvailableProducts = availableProducts,
+                    Customers = customers
+                };
+
+                ViewBag.NextInvoiceNumber = await GenerateInvoiceNumber();
+                ViewBag.ActiveUsers = await _mongo.TbUserCollection.CountDocumentsAsync(u => u.IsEmailVerified == true);
+                ViewBag.CurrentPage = page;
+                ViewBag.TotalPages = totalPages;
+                ViewBag.TotalOrders = totalOrders;
+                ViewBag.PageSize = pageSize;
+
+                return View(viewModel);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error loading Invoices page");
+
+                // Show full exception in browser only during development to debug the 500
+                if (_env != null && _env.EnvironmentName == "Development")
+                {
+                    // return full stack trace in response for quick debugging (remove after fix)
+                    return Content(ex.ToString(), "text/plain");
+                }
+
+                return View(new InvoiceListViewModel());
+            }
         }
         public async Task<IActionResult> InvoiceArchieves()
         {
