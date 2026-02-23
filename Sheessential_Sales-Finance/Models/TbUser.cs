@@ -29,6 +29,7 @@ namespace Sheessential_Sales_Finance.Models
         public string FullAddress { get; set; } = string.Empty;
     }
 
+    [BsonIgnoreExtraElements]
     public class TbUser
     {
         [BsonId]
@@ -80,5 +81,8 @@ namespace Sheessential_Sales_Finance.Models
 
         [BsonElement("department")]
         public string? Department { get; set; } // Can be null
+
+        [BsonElement("auth_provider")]
+        public string? AuthProvider { get; set; }
     }
 }

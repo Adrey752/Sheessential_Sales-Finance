@@ -3,6 +3,7 @@ using MongoDB.Bson.Serialization.Attributes;
 
 namespace Sheessential_Sales_Finance.Models
 {
+    [BsonIgnoreExtraElements]
     public class InventoryProducts
     {
         [BsonId]

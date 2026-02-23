@@ -133,7 +133,7 @@ namespace Sheessential_Sales_Finance.Controllers
             // --- Get all involved users ---
             var userIds = logs.Select(l => l.UserId).Distinct().ToList();
             var users = await _mongo.Users
-                .Find(u => userIds.Contains(u.Id))
+                .Find(u => userIds.Contains(u.Id!))
                 .ToListAsync();
 
             // --- Map logs with user names ---
@@ -220,7 +220,7 @@ namespace Sheessential_Sales_Finance.Controllers
         // Replace the existing SalesReportData method with this one that handles all periods + custom dates
 
         [HttpGet]
-        public async Task<IActionResult> SalesReportData(string period = "week", string startDate = null, string endDate = null)
+        public async Task<IActionResult> SalesReportData(string period = "week", string? startDate = null, string? endDate = null)
         {
             period = period.ToLowerInvariant();
             var now = DateTime.UtcNow;
@@ -269,11 +269,15 @@ namespace Sheessential_Sales_Finance.Controllers
                 .ToList();
 
             var productVariants = await _mongo.ProductVariantInventory
-                .Find(p => variantIds.Contains(p.Id))
+                .Find(p => variantIds.Contains(p.Id!))
                 .ToListAsync();
 
-            var nameLookup = productVariants.ToDictionary(p => p.Id, p => p.VariantName);
-            var categoryLookup = productVariants.ToDictionary(p => p.Id, p => p.Category ?? "N/A");
+            var nameLookup = productVariants
+                .Where(p => p.Id != null)
+                .ToDictionary(p => p.Id!, p => p.VariantName);
+            var categoryLookup = productVariants
+                .Where(p => p.Id != null)
+                .ToDictionary(p => p.Id!, p => p.Category ?? "N/A");
 
             // Build the view model
             var viewModel = new SalesReportViewModel
@@ -412,7 +416,7 @@ namespace Sheessential_Sales_Finance.Controllers
                     variant.Description = "No description available";
                 }
 
-                if (variantSalesCounts.TryGetValue(variant.Id, out var salesData))
+                if (variant.Id != null && variantSalesCounts.TryGetValue(variant.Id, out var salesData))
                 {
                     variant.OrdersCount = salesData.UnitsSold; // Total units sold
                 }
@@ -909,11 +913,13 @@ namespace Sheessential_Sales_Finance.Controllers
 
                 // 3. Fetch variant details
                 var variants = await _mongo.ProductVariantInventory
-                    .Find(v => variantIds.Contains(v.Id))
+                    .Find(v => variantIds.Contains(v.Id!))
                     .ToListAsync();
 
                 // 4. Create lookup dictionary for efficient mapping
-                var variantLookup = variants.ToDictionary(v => v.Id, v => v.VariantName);
+                var variantLookup = variants
+                    .Where(v => v.Id != null)
+                    .ToDictionary(v => v.Id!, v => v.VariantName);
 
                 // 5. Map sales data with variant names
                 var salesData = allSales.Select(sale => new
@@ -956,7 +962,7 @@ namespace Sheessential_Sales_Finance.Controllers
             }
         }
         [HttpGet]
-        public IActionResult GetSalesSummaryByPeriod(string period = "week", string startDate = null, string endDate = null)
+        public IActionResult GetSalesSummaryByPeriod(string period = "week", string? startDate = null, string? endDate = null)
         {
             DateTime today = DateTime.Today;
             DateTime start;
@@ -1021,9 +1027,9 @@ namespace Sheessential_Sales_Finance.Controllers
         }
 
         // Replace the existing GetProductSales method
-       
+
         [HttpGet]
-public IActionResult GetProductSales(string productId, string period = "week", string startDate = null, string endDate = null)
+        public IActionResult GetProductSales(string productId, string period = "week", string? startDate = null, string? endDate = null)
         {
             if (string.IsNullOrEmpty(productId))
                 return Json(new { message = "Missing product ID" });
@@ -1995,7 +2001,7 @@ public IActionResult GetProductSales(string productId, string period = "week", s
             var tempDataProvider = HttpContext.RequestServices.GetService(typeof(ITempDataProvider)) as ITempDataProvider;
             var actionContext = new ActionContext(HttpContext, RouteData, ControllerContext.ActionDescriptor);
 
-            var viewResult = viewEngine.FindView(actionContext, viewName, false);
+            var viewResult = viewEngine!.FindView(actionContext, viewName, false);
             if (viewResult.View == null)
                 throw new Exception($"View '{viewName}' not found.");
 
@@ -2004,7 +2010,7 @@ public IActionResult GetProductSales(string productId, string period = "week", s
                 actionContext,
                 viewResult.View,
                 new ViewDataDictionary(new EmptyModelMetadataProvider(), new ModelStateDictionary()) { Model = model },
-                new TempDataDictionary(HttpContext, tempDataProvider),
+                new TempDataDictionary(HttpContext, tempDataProvider!),
                 sw,
                 new HtmlHelperOptions()
             );
@@ -2142,7 +2148,7 @@ public IActionResult GetProductSales(string productId, string period = "week", s
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetChartData(string period = "year", string startDate = null, string endDate = null)
+        public async Task<IActionResult> GetChartData(string period = "year", string? startDate = null, string? endDate = null)
         {
             _logger.LogInformation($"📊 GetChartData called with period: {period}, startDate: {startDate}, endDate: {endDate}");
 
