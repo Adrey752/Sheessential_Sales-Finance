@@ -302,37 +302,40 @@ namespace Sheessential_Sales_Finance.Controllers
             return Json(viewModel);
         }
 
+
         public IActionResult Products(int page = 1)
         {
             int pageSize = 5;
 
-            // --- 1. PRE-FETCH ALL PRODUCT DATA & SALES DATA ---
+            // --- 1. PRE-FETCH ALL PRODUCT DATA ---
             var allProducts = _mongo.ProductInventory.Find(_ => true)
                 .ToList()
                 .ToDictionary(p => p.Id, p => p);
 
-            var sales = _mongo.ProductSalesInventory.Find(_ => true).ToList();
+            // --- 2. FETCH PAID ORDERS FROM TbOrder ---
+            var paidOrders = _mongo.TbOrder
+                .Find(o => o.PaymentStatus == "Paid" && !o.IsArchive)
+                .ToList();
 
-            // --- NEW: CALCULATE TOTAL ORDERS AND SALES ---
+            // Flatten order items from all paid orders
+            var allOrderItems = paidOrders
+                .SelectMany(o => o.Items)
+                .Where(i => i.ProductId != null)
+                .ToList();
 
-            // 1. Calculate Total Orders
-            int totalOrders = sales.Count;
+            // --- CALCULATE TOTAL ORDERS AND SALES ---
+            int totalOrders = paidOrders.Count;
+            decimal totalSales = paidOrders.Sum(o => o.TotalAmount);
 
-            // 2. Calculate Total Sales
-            decimal totalSales = Math.Round(sales.Sum(s => decimal.Parse(s.SalePrice)), 2);
+            // --- CALCULATE UNITS SOLD PER VARIANT (ProductId in OrderItem = VariantId) ---
+            var variantSalesCounts = allOrderItems
+                .GroupBy(i => i.ProductId)
+                .ToDictionary(
+                    g => g.Key!,
+                    g => new { Orders = g.Count(), UnitsSold = g.Sum(x => x.Quantity) }
+                );
 
-            // --- NEW: CALCULATE ORDERS COUNT PER VARIANT ---
-            // Group the sales records to be paginated by their VariantId and count the records in each group.
-            // NOTE: This assumes your ProductSalesInventory model has a property named 'VariantId'
-            // that links back to the ProductVariant.
-            var variantSalesCounts = sales
-     .GroupBy(s => s.VariantId)
-     .ToDictionary(
-         g => g.Key,
-         g => new { Orders = g.Count(), UnitsSold = g.Sum(x => x.Quantity) }
-     );
-
-            // --- 2. FETCH PAGINATED PRODUCT VARIANTS ---
+            // --- 3. FETCH PAGINATED PRODUCT VARIANTS ---
             var totalProducts = (int)_mongo.ProductVariantInventory.CountDocuments(_ => true);
             int totalPages = (int)Math.Ceiling((double)totalProducts / pageSize);
 
@@ -341,9 +344,7 @@ namespace Sheessential_Sales_Finance.Controllers
                 .Limit(pageSize)
                 .ToList();
 
-            // --- 3. ENRICH VARIANTS WITH CATEGORY, DESCRIPTION, AND ORDERS COUNT ---
-
-            // Then in the foreach loop, replace the OrdersCount enrichment:
+            // --- 4. ENRICH VARIANTS WITH CATEGORY, DESCRIPTION, AND ORDERS COUNT ---
             foreach (var variant in pagedVariants)
             {
                 if (allProducts.TryGetValue(variant.ProductId, out var product))
@@ -359,7 +360,7 @@ namespace Sheessential_Sales_Finance.Controllers
 
                 if (variant.Id != null && variantSalesCounts.TryGetValue(variant.Id, out var salesData))
                 {
-                    variant.OrdersCount = salesData.UnitsSold; // Total units sold
+                    variant.OrdersCount = salesData.UnitsSold;
                 }
                 else
                 {
@@ -367,7 +368,7 @@ namespace Sheessential_Sales_Finance.Controllers
                 }
             }
 
-            // --- 4. PASS DATA TO VIEW BAGS ---
+            // --- 5. PASS DATA TO VIEW BAGS ---
             ViewBag.CurrentPage = page;
             ViewBag.TotalPages = totalPages;
 
@@ -376,7 +377,6 @@ namespace Sheessential_Sales_Finance.Controllers
 
             return View(pagedVariants);
         }
-
 
 
 
@@ -902,12 +902,14 @@ namespace Sheessential_Sales_Finance.Controllers
                 return Json(new { success = false, message = "Error loading sales data." });
             }
         }
+
+
         [HttpGet]
         public IActionResult GetSalesSummaryByPeriod(string period = "week", string? startDate = null, string? endDate = null)
         {
             DateTime today = DateTime.Today;
             DateTime start;
-            DateTime end = today;
+            DateTime end = today.AddDays(1).AddTicks(-1);
 
             // Handle custom date range
             if (period.ToLower() == "custom" && !string.IsNullOrEmpty(startDate) && !string.IsNullOrEmpty(endDate))
@@ -916,7 +918,7 @@ namespace Sheessential_Sales_Finance.Controllers
                     DateTime.TryParse(endDate, out DateTime parsedEnd))
                 {
                     start = parsedStart;
-                    end = parsedEnd;
+                    end = parsedEnd.AddDays(1).AddTicks(-1);
                 }
                 else
                 {
@@ -947,16 +949,15 @@ namespace Sheessential_Sales_Finance.Controllers
                 }
             }
 
-            // Fetch sales within the date range
-            var sales = _mongo.ProductSalesInventory
-                .Find(s => s.TransactionDate >= start)
+            // Fetch paid orders from TbOrder within the date range
+            var orders = _mongo.TbOrder
+                .Find(o => o.PaymentStatus == "Paid" && !o.IsArchive
+                    && o.CreatedAt >= start && o.CreatedAt <= end)
                 .ToList();
 
             // Calculate totals
-            int totalOrders = sales.Count;
-            decimal totalSales = sales.Sum(s =>
-                decimal.TryParse(s.SalePrice, out decimal price) ? price * s.Quantity : 0
-            );
+            int totalOrders = orders.Count;
+            decimal totalSales = orders.Sum(o => o.TotalAmount);
 
             return Json(new
             {
