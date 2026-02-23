@@ -32,20 +32,20 @@ public class ProductVariant
     public int OrdersCount { get; set; }
 
     [BsonElement("stockQuantity")]
-    public int StockQuantity { get; set; }
+    public int? StockQuantity { get; set; }
 
     [BsonElement("description")]
     public string? Description { get; set; }
 
     [BsonElement("totalSold")]
-    public int TotalSold { get; set; }
+    public int? TotalSold { get; set; }
 
     [BsonElement("minimumStock")]
-    public int MinimumStock { get; set; }
+    public int? MinimumStock { get; set; }
 
     [BsonElement("weight")]
     [BsonIgnoreIfNull]
-    public decimal Weight { get; set; }
+    public decimal? Weight { get; set; }
 
     [BsonElement("dimensions")]
     public string Dimensions { get; set; } = string.Empty;
@@ -64,7 +64,7 @@ public class ProductVariant
 
     [BsonElement("shelfLifeYears")]
     [BsonIgnoreIfNull]
-    public int ShelfLifeYears { get; set; }
+    public int? ShelfLifeYears { get; set; }
 
     [BsonElement("location")]
     public string Location { get; set; } = string.Empty;
