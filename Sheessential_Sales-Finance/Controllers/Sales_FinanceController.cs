@@ -302,7 +302,6 @@ namespace Sheessential_Sales_Finance.Controllers
             return Json(viewModel);
         }
 
-
         public IActionResult Products(int page = 1)
         {
             int pageSize = 5;
@@ -312,23 +311,24 @@ namespace Sheessential_Sales_Finance.Controllers
                 .ToList()
                 .ToDictionary(p => p.Id, p => p);
 
-            // --- 2. FETCH PAID ORDERS FROM TbOrder ---
+            // --- 2. FETCH ALL PAID ORDERS (including archived) ---
             var paidOrders = _mongo.TbOrder
-                .Find(o => o.PaymentStatus == "Paid" && !o.IsArchive)
+                .Find(o => o.PaymentStatus == "Paid")
                 .ToList();
 
             // Flatten order items from all paid orders
             var allOrderItems = paidOrders
                 .SelectMany(o => o.Items)
-                .Where(i => i.ProductId != null)
+                .Where(i => i.Quantity > 0)
                 .ToList();
 
             // --- CALCULATE TOTAL ORDERS AND SALES ---
             int totalOrders = paidOrders.Count;
             decimal totalSales = paidOrders.Sum(o => o.TotalAmount);
 
-            // --- CALCULATE UNITS SOLD PER VARIANT (ProductId in OrderItem = VariantId) ---
+            // --- CALCULATE UNITS SOLD PER VARIANT ---
             var variantSalesCounts = allOrderItems
+                .Where(i => i.ProductId != null)
                 .GroupBy(i => i.ProductId)
                 .ToDictionary(
                     g => g.Key!,
@@ -344,7 +344,7 @@ namespace Sheessential_Sales_Finance.Controllers
                 .Limit(pageSize)
                 .ToList();
 
-            // --- 4. ENRICH VARIANTS WITH CATEGORY, DESCRIPTION, AND ORDERS COUNT ---
+            // --- 4. ENRICH VARIANTS ---
             foreach (var variant in pagedVariants)
             {
                 if (allProducts.TryGetValue(variant.ProductId, out var product))
@@ -371,13 +371,11 @@ namespace Sheessential_Sales_Finance.Controllers
             // --- 5. PASS DATA TO VIEW BAGS ---
             ViewBag.CurrentPage = page;
             ViewBag.TotalPages = totalPages;
-
             ViewBag.TotalOrders = totalOrders;
             ViewBag.TotalSales = $"₱{totalSales:N2}";
 
             return View(pagedVariants);
         }
-
 
 
 
@@ -944,9 +942,9 @@ namespace Sheessential_Sales_Finance.Controllers
 
             // Fetch paid orders from TbOrder within the date range
             var orders = _mongo.TbOrder
-                .Find(o => o.PaymentStatus == "Paid" && !o.IsArchive
-                    && o.CreatedAt >= start && o.CreatedAt <= end)
-                .ToList();
+                   .Find(o => o.PaymentStatus == "Paid"
+                       && o.CreatedAt >= start && o.CreatedAt <= end)
+                   .ToList();
 
             // Calculate totals
             int totalOrders = orders.Count;
