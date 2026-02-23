@@ -1,4 +1,5 @@
 ﻿
+@model Sheessential_Sales_Finance.Models.DashboardViewModel
 @{
     ViewData["Title"] = "Dashboard";
 }
@@ -79,7 +80,7 @@
 <div class="p-8 min-h-screen">
 
     <h1 class="text-3xl font-bold mb-6" style="color:#A36A66;">
-        Welcome to the Dashboard, @ViewBag.UserName
+        Welcome to the Dashboard, @Model.UserName
     </h1>
 
     <h2 class="text-lg font-semibold mb-4" style="color:#A36A66;">
@@ -95,7 +96,7 @@
             </svg>
             <div>
                 <p class="text-md font-semibold" style="color:#A36A66;">Total Sales</p>
-                <p id="totalRevenue" class="text-sm mt-1" style="color:#A36A66;">₱@ViewBag.Revenue.ToString("N2")</p>
+                <p id="totalRevenue" class="text-sm mt-1" style="color:#A36A66;">₱@Model.Revenue.ToString("N2")</p>
             </div>
         </div>
 
@@ -107,7 +108,7 @@
             </svg>
             <div>
                 <p class="text-md font-semibold" style="color:#A36A66;">Total Expense</p>
-                <p id="totalExpense" class="text-sm mt-1" style="color:#A36A66;">₱@ViewBag.Expense.ToString("N2")</p>
+                <p id="totalExpense" class="text-sm mt-1" style="color:#A36A66;">₱@Model.Expense.ToString("N2")</p>
             </div>
         </div>
 
@@ -119,7 +120,7 @@
             </svg>
             <div>
                 <p class="text-md font-semibold" style="color:#A36A66;">Net Profit</p>
-                <p id="netProfit" class="text-sm mt-1" style="color:#A36A66;">₱@ViewBag.NetProfit.ToString("N2")</p>
+                <p id="netProfit" class="text-sm mt-1" style="color:#A36A66;">₱@Model.NetProfit.ToString("N2")</p>
             </div>
         </div>
     </div>
@@ -188,6 +189,45 @@
                 <p class="text-sm italic py-3" style="color:#A36A66;">No recent activity yet.</p>
             }
         </div>
+    </div>
+
+    <!-- Recent Orders Table -->
+    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mt-6 mb-8">
+        <h2 class="text-lg font-semibold mb-4" style="color:#A36A66;">Recent Orders</h2>
+        <table class="w-full text-sm text-left text-gray-600">
+            <thead class="text-xs text-gray-500 uppercase border-b">
+                <tr>
+                    <th class="py-3 px-4">Order #</th>
+                    <th class="py-3 px-4">Customer</th>
+                    <th class="py-3 px-4">Amount</th>
+                    <th class="py-3 px-4">Payment</th>
+                    <th class="py-3 px-4">Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var order in Model.RecentOrders)
+                {
+                    <tr class="border-b hover:bg-gray-50">
+                        <td class="py-3 px-4 font-medium text-gray-800">@order.OrderNumber</td>
+                        <td class="py-3 px-4">@order.ShippingAddress?.FirstName @order.ShippingAddress?.LastName</td>
+                        <td class="py-3 px-4 font-semibold">₱@order.TotalAmount.ToString("N2")</td>
+                        <td class="py-3 px-4">
+                            <span class="text-xs px-3 py-1 rounded-full font-medium
+                                    @(order.PaymentStatus == "Paid" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700")">
+                                @order.PaymentStatus
+                            </span>
+                        </td>
+                        <td class="py-3 px-4">@order.CreatedAt.ToString("MMM dd, yyyy")</td>
+                    </tr>
+                }
+                @if (!Model.RecentOrders.Any())
+                {
+                    <tr>
+                        <td colspan="5" class="py-6 text-center text-gray-400">No recent orders found.</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
     </div>
 
 </div>

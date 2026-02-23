@@ -90,38 +90,26 @@ namespace Sheessential_Sales_Finance.Controllers
             return View();
         }
 
-
-
         public async Task<IActionResult> Dashboard()
         {
             var userName = HttpContext.Session.GetString("UserName") ?? "User";
 
-            // --- Fetch Product Sales Inventory ---
-            var productSales = await _mongo.ProductSalesInventory
-                .Find(_ => true)
-                .ToListAsync();
+            // --- Fetch Orders from TbOrder ---
+            var allOrders = await _mongo.TbOrder
+     .Find(_ => true)
+     .SortByDescending(o => o.CreatedAt)
+     .ToListAsync();
 
-            // --- Calculate Revenue from ProductSalesInventory ---
-            double revenue = productSales.Sum(s =>
-            {
-                // Parse the SalePrice string to decimal, then multiply by Quantity
-                if (decimal.TryParse(s.SalePrice, out decimal price))
-                {
-                    return (double)(price * s.Quantity);
-                }
-                return 0;
-            });
-            ViewBag.Revenue = revenue;
+            // --- Calculate Revenue from TbOrder (Paid orders only) ---
+            double revenue = (double)allOrders
+     .Where(o => o.PaymentStatus == "Paid")
+     .Sum(o => o.TotalAmount);
 
             // --- Fetch Expenses ---
             var expenses = await _mongo.Expenses
                 .Find(e => e.Status == "Approved")
                 .ToListAsync();
             double expense = (double)expenses.Sum(e => e.Amount);
-            ViewBag.Expense = expense;
-
-            // --- Set Sales Count ---
-            ViewBag.Sales = productSales.Count;
 
             // --- Fetch Recent Logs ---
             var logs = await _mongo.ActionLog
@@ -130,13 +118,11 @@ namespace Sheessential_Sales_Finance.Controllers
                 .Limit(10)
                 .ToListAsync();
 
-            // --- Get all involved users ---
             var userIds = logs.Select(l => l.UserId).Distinct().ToList();
             var users = await _mongo.Users
                 .Find(u => userIds.Contains(u.Id!))
                 .ToListAsync();
 
-            // --- Map logs with user names ---
             var enrichedLogs = logs.Select(log =>
             {
                 var user = users.FirstOrDefault(u => u.Id == log.UserId);
@@ -150,70 +136,25 @@ namespace Sheessential_Sales_Finance.Controllers
                 };
             }).ToList();
 
-            ViewBag.UserName = userName;
             ViewBag.ActionLogs = enrichedLogs;
-            ViewBag.NetProfit = revenue - expense;
 
-            return View();
-        }
-        [HttpGet] // Sales vs Expenses Chart
-        public IActionResult GetSalesData(string period = "monthly")
-        {
-            // Replace invoice-based approach with direct sales query
-            var sales = _mongo.ProductSalesInventory.Find(_ => true).ToList();
-            var expenses = _mongo.Expenses.Find(_ => _.Status == "Approved").ToList();
-
-            DateTime today = DateTime.Today;
-            var startOfWeek = today.AddDays(-(int)today.DayOfWeek + (int)DayOfWeek.Monday);
-            var startOfMonth = new DateTime(today.Year, today.Month, 1);
-            var startOfYear = new DateTime(today.Year, 1, 1);
-
-            var grouped = period.ToLower() switch
+            // --- Build ViewModel ---
+            var viewModel = new DashboardViewModel
             {
-                // WEEKLY (show Mon → Today, label per day)
-                "weekly" => sales
-                    .Where(s => s.TransactionDate >= startOfWeek)
-                    .GroupBy(s => s.TransactionDate.Date)
-                    .OrderBy(g => g.Key)
-                    .Select(g => new
-                    {
-                        Label = g.Key.ToString("ddd"), // Mon, Tue, Wed...
-                        TotalRevenue = g.Sum(x => decimal.TryParse(x.SalePrice, out var price) ? price * x.Quantity : 0),
-                        TotalExpense = expenses
-                            .Where(e => e.RequestedAt.Date == g.Key)
-                            .Sum(e => (double)e.Amount)
-                    }),
-
-                // YEARLY (show Jan → Current month, label per month)
-                "yearly" => sales
-                    .Where(s => s.TransactionDate >= startOfYear)
-                    .GroupBy(s => s.TransactionDate.Month)
-                    .OrderBy(g => g.Key)
-                    .Select(g => new
-                    {
-                        Label = System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetAbbreviatedMonthName(g.Key),
-                        TotalRevenue = g.Sum(x => decimal.TryParse(x.SalePrice, out var price) ? price * x.Quantity : 0),
-                        TotalExpense = expenses
-                            .Where(e => e.RequestedAt.Month == g.Key)
-                            .Sum(e => (double)e.Amount)
-                    }),
-
-                // MONTHLY (default: 1st day → Today, label per day number)
-                _ => sales
-                    .Where(s => s.TransactionDate >= startOfMonth)
-                    .GroupBy(s => s.TransactionDate.Day)
-                    .OrderBy(g => g.Key)
-                    .Select(g => new
-                    {
-                        Label = g.Key.ToString(), // 1, 2, 3...
-                        TotalRevenue = g.Sum(x => decimal.TryParse(x.SalePrice, out var price) ? price * x.Quantity : 0),
-                        TotalExpense = expenses
-                            .Where(e => e.RequestedAt.Day == g.Key)
-                            .Sum(e => (double)e.Amount)
-                    }),
+                Revenue = revenue,
+                Expense = expense,
+                NetProfit = revenue - expense,
+                SalesCount = allOrders.Count,
+                UserName = userName,
+                TotalOrders = allOrders.Count,
+                PaidOrders = allOrders.Count(o => o.PaymentStatus == "Paid"),
+                UnpaidOrders = allOrders.Count(o => o.PaymentStatus == "Unpaid"),
+                ProcessingOrders = allOrders.Count(o => o.OrderStatus == "Processing"),
+                OrderRevenue = allOrders.Where(o => o.PaymentStatus == "Paid").Sum(o => o.TotalAmount),
+                RecentOrders = allOrders.Take(5).ToList()
             };
 
-            return Json(grouped.ToList());
+            return View(viewModel);
         }
 
 
@@ -381,7 +322,7 @@ namespace Sheessential_Sales_Finance.Controllers
             decimal totalSales = Math.Round(sales.Sum(s => decimal.Parse(s.SalePrice)), 2);
 
             // --- NEW: CALCULATE ORDERS COUNT PER VARIANT ---
-            // Group the sales records by their VariantId and count the records in each group.
+            // Group the sales records to be paginated by their VariantId and count the records in each group.
             // NOTE: This assumes your ProductSalesInventory model has a property named 'VariantId'
             // that links back to the ProductVariant.
             var variantSalesCounts = sales
@@ -1101,7 +1042,7 @@ namespace Sheessential_Sales_Finance.Controllers
                     .Select(g => new
                     {
                         Label = new DateTime(g.Key.Year, g.Key.Month, 1).ToString("MMM yyyy"),
-                        Total = g.Sum(x => x.Quantity)
+                        Total = g.Sum(x => decimal.TryParse(x.SalePrice, out decimal p) ? p * x.Quantity : 0)
                     });
             }
             else if (periodLower == "month" || (periodLower == "custom" && dateSpan <= 90 && dateSpan > 7))
@@ -1112,7 +1053,7 @@ namespace Sheessential_Sales_Finance.Controllers
                     .Select(g => new
                     {
                         Label = g.Key.ToString(),
-                        Total = g.Sum(x => x.Quantity)
+                        Total = g.Sum(x => decimal.TryParse(x.SalePrice, out decimal p) ? p * x.Quantity : 0)
                     });
             }
             else
@@ -1123,7 +1064,7 @@ namespace Sheessential_Sales_Finance.Controllers
                     .Select(g => new
                     {
                         Label = g.Key.ToString("ddd"),
-                        Total = g.Sum(x => x.Quantity)
+                        Total = g.Sum(x => decimal.TryParse(x.SalePrice, out decimal p) ? p * x.Quantity : 0)
                     });
             }
 
@@ -1615,18 +1556,11 @@ namespace Sheessential_Sales_Finance.Controllers
 
                         // B. Update Balance in DB
                         var balanceFilter = Builders<Balance>.Filter.Eq(b => b.Id, balance.Id);
-                        var balanceUpdate = Builders<Balance>.Update.Set(b => b.CurrentBalance, balance.CurrentBalance);
-                        _mongo.Balance.UpdateOne(balanceFilter, balanceUpdate);                        
-                        
-                        
-                        // B. Update Balance in DB
-                        var stockRequestFilter = Builders<IngredientStockRequests>.Filter.Eq(b => b.Id, balance.Id);
-                        // Replace this line:
-                        // var stockUpdate = Builders<IngredientStockRequests>.Update.Set(b => b.ExpenseId, id);
+                        var balanceUpdate = Builders<Balance>.Update
+                            .Set(b => b.CurrentBalance, balance.CurrentBalance);
 
-                        // With this corrected line:
-                        var stockUpdate = Builders<IngredientStockRequests>.Update.Set("ExpenseId", id);
-                        _mongo.IngredientsStockRequests.UpdateOne(stockRequestFilter, stockUpdate);
+                        _mongo.Balance.UpdateOne(balanceFilter, balanceUpdate);
+
 
                         // C. CREATE THE PAYMENT TRANSACTION RECORD (New Logic)
                         var newTransaction = new PaymentTransaction
@@ -1974,7 +1908,7 @@ namespace Sheessential_Sales_Finance.Controllers
                 {
                     Orientation = Orientation.Portrait,
                     PaperSize = PaperKind.A4,
-                    Margins = new MarginSettings { Top = 10, Bottom = 10 },
+                    Margins = new MarginSettings { Top = 10, Bottom = 10 }
                 },
                 Objects = {
                     new ObjectSettings {
@@ -2029,11 +1963,7 @@ namespace Sheessential_Sales_Finance.Controllers
             // Group by ExpenseType and sum up their total amounts
             var breakdown = expenses
                 .GroupBy(e => e.ExpenseType)
-                .Select(g => new
-                {
-                    Label = g.Key,
-                    Total = g.Sum(x => (double)x.Amount)
-                })
+                .Select(g => new { Label = g.Key, Total = g.Sum(x => x.Amount) })
                 .OrderByDescending(x => x.Total)
                 .ToList();
 
@@ -2146,7 +2076,6 @@ namespace Sheessential_Sales_Finance.Controllers
             // ✅ Make sure to pass the payroll list to the View
             return View(payroll);
         }
-
         [HttpGet]
         public async Task<IActionResult> GetChartData(string period = "year", string? startDate = null, string? endDate = null)
         {
@@ -2189,28 +2118,28 @@ namespace Sheessential_Sales_Finance.Controllers
                         calculatedStartDate = DateTime.MinValue;
                         break;
                     default:
-                        calculatedStartDate = new DateTime(utcNow.Year, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+                        calculatedStartDate = new DateTime(utcNow.Year, utcNow.Month, 1, 0, 0, 0, DateTimeKind.Utc);
                         break;
                 }
             }
 
-            // Fetch sales and expenses in parallel
-            var salesTask = _mongo.ProductSalesInventory.AsQueryable()
-                .Where(s => s.TransactionDate >= calculatedStartDate && s.TransactionDate <= calculatedEndDate)
+            // Fetch orders and expenses in parallel
+            var ordersTask = _mongo.TbOrder.AsQueryable()
+                .Where(o => o.PaymentStatus == "Paid" && !o.IsArchive
+                    && o.CreatedAt >= calculatedStartDate && o.CreatedAt <= calculatedEndDate)
                 .ToListAsync();
 
             var expensesTask = _mongo.Expenses.AsQueryable()
                 .Where(e => e.RequestedAt >= calculatedStartDate && e.RequestedAt <= calculatedEndDate && e.Status == "Approved")
                 .ToListAsync();
 
-            await Task.WhenAll(salesTask, expensesTask);
+            await Task.WhenAll(ordersTask, expensesTask);
 
-            var relevantSales = salesTask.Result;
+            var relevantOrders = ordersTask.Result;
             var relevantExpenses = expensesTask.Result;
 
             // Totals
-            decimal totalRevenue = relevantSales.Sum(s =>
-                decimal.TryParse(s.SalePrice, out var price) ? price * s.Quantity : 0);
+            decimal totalRevenue = relevantOrders.Sum(o => o.TotalAmount);
             decimal totalExpense = relevantExpenses.Sum(e => e.Amount);
             decimal netProfit = totalRevenue - totalExpense;
 
@@ -2234,8 +2163,8 @@ namespace Sheessential_Sales_Finance.Controllers
                 lineChartLabels = CultureInfo.CurrentCulture.DateTimeFormat.AbbreviatedMonthNames.Take(12).ToList();
 
                 revenueData = Enumerable.Range(1, 12)
-                    .Select(m => relevantSales.Where(s => s.TransactionDate.Month == m)
-                        .Sum(s => decimal.TryParse(s.SalePrice, out var p) ? p * s.Quantity : 0))
+                    .Select(m => relevantOrders.Where(o => o.CreatedAt.Month == m)
+                        .Sum(o => o.TotalAmount))
                     .ToList();
 
                 expenseData = Enumerable.Range(1, 12)
@@ -2251,8 +2180,8 @@ namespace Sheessential_Sales_Finance.Controllers
                 lineChartLabels = Enumerable.Range(1, daysInMonth).Select(d => d.ToString()).ToList();
 
                 revenueData = Enumerable.Range(1, daysInMonth)
-                    .Select(d => relevantSales.Where(s => s.TransactionDate.Day == d)
-                        .Sum(s => decimal.TryParse(s.SalePrice, out var p) ? p * s.Quantity : 0))
+                    .Select(d => relevantOrders.Where(o => o.CreatedAt.Day == d)
+                        .Sum(o => o.TotalAmount))
                     .ToList();
 
                 expenseData = Enumerable.Range(1, daysInMonth)
@@ -2267,8 +2196,8 @@ namespace Sheessential_Sales_Finance.Controllers
                 lineChartLabels = CultureInfo.CurrentCulture.DateTimeFormat.AbbreviatedDayNames.ToList();
 
                 revenueData = Enumerable.Range(0, 7)
-                    .Select(d => relevantSales.Where(s => (int)s.TransactionDate.DayOfWeek == d)
-                        .Sum(s => decimal.TryParse(s.SalePrice, out var p) ? p * s.Quantity : 0))
+                    .Select(d => relevantOrders.Where(o => (int)o.CreatedAt.DayOfWeek == d)
+                        .Sum(o => o.TotalAmount))
                     .ToList();
 
                 expenseData = Enumerable.Range(0, 7)
