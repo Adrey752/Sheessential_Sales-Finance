@@ -1,5 +1,4 @@
-﻿
-/* ============================================================
+﻿/* ============================================================
     GLOBAL STATE
     ============================================================ */
 let productChart = null;
@@ -325,6 +324,17 @@ async function loadProductSales(period, startDate, endDate) {
         if (!response.ok) return;
 
         var data = await response.json();
+
+        // Update total units sold for the selected product based on the period
+        var totalUnitsSold = 0;
+        if (Array.isArray(data)) {
+            totalUnitsSold = data.reduce(function (sum, x) {
+                return sum + (x.total || x.Total || 0);
+            }, 0);
+        }
+
+        var orderEl = document.getElementById("productCardTotalOrder");
+        if (orderEl) orderEl.textContent = totalUnitsSold;
 
         if (!Array.isArray(data)) {
             productChart.data.labels = [];
