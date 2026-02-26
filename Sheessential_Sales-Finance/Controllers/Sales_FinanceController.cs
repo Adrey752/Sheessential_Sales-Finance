@@ -492,10 +492,33 @@ namespace Sheessential_Sales_Finance.Controllers
                     OrderNumber = o.OrderNumber,
                     PaymentStatus = o.PaymentStatus,
                     CreatedAt = o.CreatedAt,
-                    ShippingFirstName = o.ShippingAddress?.FirstName,
-                    ShippingLastName = o.ShippingAddress?.LastName,
+                    ShippingAddress = o.ShippingAddress == null ? null : new
+                    {
+                        FirstName = o.ShippingAddress.FirstName,
+                        LastName = o.ShippingAddress.LastName,
+                        Email = o.ShippingAddress.Email,
+                        Phone = o.ShippingAddress.Phone,
+                        Street = o.ShippingAddress.Street,
+                        City = o.ShippingAddress.City,
+                        State = o.ShippingAddress.State,
+                        Country = o.ShippingAddress.Country,
+                        ZipCode = o.ShippingAddress.ZipCode,
+                        FullAddress = o.ShippingAddress.FullAddress
+                    },
+                    Items = (o.Items ?? new List<OrderItem>()).Select(i => new
+                    {
+                        ProductId = i.ProductId,
+                        ProductName = i.ProductName,
+                        Quantity = i.Quantity,
+                        Price = i.Price,
+                        Subtotal = i.Subtotal
+                    }).ToList(),
+                    Subtotal = o.Subtotal,
+                    Tax = o.Tax,
+                    ShippingFee = o.ShippingFee,
                     TotalAmount = o.TotalAmount
                 }).ToList();
+
 
                 var safeCustomers = customers.Select(c => new
                 {
