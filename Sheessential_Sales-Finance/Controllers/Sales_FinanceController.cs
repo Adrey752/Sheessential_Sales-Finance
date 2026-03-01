@@ -1463,7 +1463,62 @@ namespace Sheessential_Sales_Finance.Controllers
             }
         }
 
+        // Replace the existing ExpensesByDepartment method with this one
+        [HttpGet]
+        public IActionResult ExpensesByDepartment()
+        {
+            try
+            {
+                // Fetch all non-ingredient expenses
+                var allExpenses = _mongo.Expenses
+                    .Find(e => e.isIngredientsRequest == false)
+                    .ToList();
 
+                // Fetch all ingredient stock requests + lookups
+                var rawRequests = _mongo.IngredientsStockRequests.Find(_ => true).ToList();
+                var allIngredients = _mongo.Ingredients.Find(_ => true).ToList().ToDictionary(i => i.Id, i => i);
+                var allSuppliers = _mongo.Suppliers.Find(_ => true).ToList().ToDictionary(s => s.Id, s => s);
+
+                var displayRequests = rawRequests.Select(r => new IngredientStockRequestDisplayModel
+                {
+                    Id = r.Id,
+                    ExpenseId = r.ExpenseId?.ToString(),
+                    RequestStatus = r.RequestStatus,
+                    TotalCost = r.TotalCost,
+                    RequestDate = r.RequestDate,
+                    RequestedBy = r.RequestedBy,
+                    QuantityRequested = r.QuantityRequested,
+                    Unit = r.Unit,
+                    CurrentStockAtRequest = r.CurrentStockAtRequest,
+                    Instructions = r.Instructions,
+                    IngredientName = allIngredients.GetValueOrDefault(r.IngredientId.ToString())?.IngredientName ?? "Unknown Ingredient",
+                    SupplierName = allSuppliers.GetValueOrDefault(r.SupplierId.ToString())?.SupplierName ?? "Unknown Supplier"
+                }).OrderByDescending(r => r.RequestDate).ToList();
+
+                // Fetch all payroll runs
+                var payrollRuns = _mongo.ParyrollRuns.Find(_ => true)
+                    .SortByDescending(p => p.PayDate)
+                    .ToList();
+
+                // Get balance
+                var balance = _mongo.Balance.Find(_ => true).FirstOrDefault() ?? new Balance();
+
+                var viewModel = new ExpensesWithBalanceViewModel
+                {
+                    Expenses = allExpenses,
+                    Balance = balance,
+                    StockRequests = displayRequests,
+                    PayrollRuns = payrollRuns
+                };
+
+                return View(viewModel);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error loading ExpensesByDepartment view.");
+                return View(new ExpensesWithBalanceViewModel());
+            }
+        }
 
 
 

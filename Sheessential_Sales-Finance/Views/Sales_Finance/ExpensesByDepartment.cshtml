@@ -1,0 +1,736 @@
+﻿@using Sheessential_Sales_Finance.Models
+@using Newtonsoft.Json
+@model ExpensesWithBalanceViewModel
+
+@{
+    ViewData["Title"] = "Expenses by Department";
+
+    var expenses = Model?.Expenses ?? new List<Expenses>();
+    var stockRequests = Model?.StockRequests ?? new List<IngredientStockRequestDisplayModel>();
+    var payrollRuns = Model?.PayrollRuns ?? new List<PayrollRun>();
+    var currentBalance = Model?.Balance?.CurrentBalance ?? 0;
+
+    // ── 1. Expense departments — THESE are your real departments ──
+    var deptFromExpenses = expenses
+        .GroupBy(e => string.IsNullOrWhiteSpace(e.Department) ? "Unassigned" : e.Department.Trim())
+        .ToDictionary(g => g.Key, g => g.ToList());
+
+    var allDeptNames = deptFromExpenses.Keys.OrderBy(d => d).ToList();
+
+    // ── 2. Payroll data: per cutoff → per department → per employee ──
+    var payrollCutoffs = payrollRuns
+        .Where(pr => pr.Items != null && pr.Items.Any())
+        .Select(pr => new
+        {
+            id = pr.Id,
+            payRunNumber = pr.PayRunNumber ?? "",
+            payPeriod = $"{pr.PayPeriodStart:MMM dd} – {pr.PayPeriodEnd:MMM dd, yyyy}",
+            payDate = pr.PayDate.ToString("MMM dd, yyyy"),
+            payType = pr.PayPeriodType ?? "",
+            cutoffHalf = pr.PayPeriodStart.Day <= 15 ? "1st Half" : "2nd Half",
+            cutoffLabel = $"{pr.PayPeriodStart:MMM yyyy} ({(pr.PayPeriodStart.Day <= 15 ? "1st – 15th" : $"16th – {DateTime.DaysInMonth(pr.PayPeriodStart.Year, pr.PayPeriodStart.Month)}th")})",
+            status = pr.Status ?? "",
+            isPaid = pr.IsPaid,
+            totalEmployees = pr.TotalEmployees,
+            grossSalary = pr.TotalGrossSalary,
+            netSalary = pr.TotalNetSalary,
+            totalDeductions = pr.TotalDeductions,
+            overtimePay = pr.TotalOvertimePay,
+            fullGross = pr.TotalGrossSalary,
+            fullNet = pr.TotalNetSalary,
+            // Group items by department
+            departments = pr.Items!
+                .GroupBy(i => string.IsNullOrWhiteSpace(i.Department) ? "Unassigned" : i.Department.Trim())
+                .OrderBy(g => g.Key)
+                .Select(g => new
+                {
+                    name = g.Key,
+                    employeeCount = g.Count(),
+                    grossSalary = g.Sum(x => x.GrossSalary),
+                    netSalary = g.Sum(x => x.NetSalary),
+                    totalDeductions = g.Sum(x => x.TotalDeductions),
+                    overtimePay = g.Sum(x => x.OvertimePay),
+                    // Department-level breakdowns
+                    sss = g.Sum(x => x.SssDeduction),
+                    philHealth = g.Sum(x => x.PhilHealthDeduction),
+                    pagIbig = g.Sum(x => x.PagIbigDeduction),
+                    withholdingTax = g.Sum(x => x.WithholdingTax),
+                    sssLoan = g.Sum(x => x.SssLoan),
+                    pagIbigLoan = g.Sum(x => x.PagIbigLoan),
+                    companyLoan = g.Sum(x => x.CompanyLoan),
+                    absencePenalty = g.Sum(x => x.AbsencePenalty),
+                    latePenalty = g.Sum(x => x.LatePenalty),
+                    unpaidLeave = g.Sum(x => x.UnpaidLeaveDeduction),
+                    otherDeductions = g.Sum(x => x.OtherDeductions),
+                    allowances = g.Sum(x => x.Allowances),
+                    bonuses = g.Sum(x => x.Bonuses),
+                    holidayPay = g.Sum(x => x.HolidayPay),
+                    nightDiff = g.Sum(x => x.NightDifferentialPay),
+                    // Individual employees
+                    employees = g.Select(e => new
+                    {
+                        employeeId = e.EmployeeId,
+                        employeeName = e.EmployeeName,
+                        position = e.Position ?? "",
+                        basicSalary = e.BasicSalary,
+                        proratedBasic = e.ProratedBasicSalary,
+                        grossSalary = e.GrossSalary,
+                        netSalary = e.NetSalary,
+                        totalDeductions = e.TotalDeductions,
+                        overtimePay = e.OvertimePay,
+                        allowances = e.Allowances,
+                        bonuses = e.Bonuses,
+                        holidayPay = e.HolidayPay,
+                        nightDiff = e.NightDifferentialPay,
+                        otherEarnings = e.OtherEarnings,
+                        sss = e.SssDeduction,
+                        philHealth = e.PhilHealthDeduction,
+                        pagIbig = e.PagIbigDeduction,
+                        withholdingTax = e.WithholdingTax,
+                        sssLoan = e.SssLoan,
+                        pagIbigLoan = e.PagIbigLoan,
+                        companyLoan = e.CompanyLoan,
+                        absencePenalty = e.AbsencePenalty,
+                        latePenalty = e.LatePenalty,
+                        unpaidLeave = e.UnpaidLeaveDeduction,
+                        otherDeductions = e.OtherDeductions,
+                        daysPresent = e.DaysPresent,
+                        daysAbsent = e.DaysAbsent,
+                        totalWorkingDays = e.TotalWorkingDays,
+                        daysLate = e.DaystLate,
+                        minutesLate = e.MinutesLate,
+                        regularOT = e.RegularOvertimeHours,
+                        holidayOT = e.HolidayOvertimeHours,
+                        nightDiffHours = e.NightDifferentialHours,
+                        status = e.Status ?? ""
+                    }).OrderBy(e => e.employeeName).ToList()
+                }).ToList()
+        }).ToList();
+
+    // Serialize stock requests for JS
+    var stockRequestsJson = stockRequests.Select(r => new
+    {
+        id = r.Id,
+        expenseId = r.ExpenseId,
+        ingredientName = r.IngredientName,
+        supplierName = r.SupplierName,
+        requestedBy = r.RequestedBy,
+        quantityRequested = r.QuantityRequested,
+        unit = r.Unit,
+        totalCost = r.TotalCost,
+        currentStock = r.CurrentStockAtRequest,
+        status = r.RequestStatus,
+        requestDate = r.RequestDate?.ToString("MMM dd, yyyy") ?? "",
+        instructions = r.Instructions ?? ""
+    }).ToList();
+
+    var ingredientTotal = stockRequests.Sum(r => r.TotalCost);
+    var payrollTotal = payrollRuns.Sum(p => p.TotalGrossSalary);
+    var grandTotal = expenses.Sum(e => e.Amount) + ingredientTotal + payrollTotal;
+}
+
+<div class="p-6 bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
+
+    <!-- Header -->
+    <div class="flex justify-between items-center mb-8">
+        <div>
+            <h1 class="text-3xl font-bold text-[#A36A66]">Expenses by Department</h1>
+            <p class="text-sm text-gray-500 mt-1">All expense requests, ingredient requests & payroll — grouped per department</p>
+        </div>
+        <a href="@Url.Action("Expenses", "Sales_Finance")"
+           class="px-5 py-2.5 bg-[#A36A66] text-white rounded-xl hover:opacity-90 transition-all shadow-md flex items-center gap-2 text-sm font-medium">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+            Back to Expenses
+        </a>
+    </div>
+
+    <!-- Grand Total Banner -->
+    <div class="bg-white rounded-2xl shadow-md p-6 mb-8 border border-gray-100">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 bg-[#A36A66]/10 rounded-xl flex items-center justify-center">
+                    <svg class="w-6 h-6 text-[#A36A66]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-500 font-medium">Overall Total</p>
+                    <p class="text-3xl font-bold text-[#A36A66]">₱@grandTotal.ToString("N2")</p>
+                </div>
+            </div>
+            <div class="flex gap-6 text-right">
+                <div><p class="text-xs text-gray-400">Departments</p><p class="text-xl font-bold text-gray-800">@allDeptNames.Count</p></div>
+                <div><p class="text-xs text-gray-400">Balance</p><p class="text-xl font-bold text-green-600">₱@currentBalance.ToString("N2")</p></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══ DEPARTMENT CARDS ═══ -->
+    <h2 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+        <svg class="w-5 h-5 text-[#A36A66]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+        Departments
+    </h2>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-10">
+        @foreach (var deptName in allDeptNames)
+        {
+            var deptExpenses = deptFromExpenses.GetValueOrDefault(deptName) ?? new List<Expenses>();
+            var expTotal = deptExpenses.Sum(e => e.Amount);
+            var expPending = deptExpenses.Count(e => e.Status == "Pending");
+            var expPendingAmt = deptExpenses.Where(e => e.Status == "Pending").Sum(e => e.Amount);
+            var expApproved = deptExpenses.Count(e => e.Status == "Approved");
+            var expApprovedAmt = deptExpenses.Where(e => e.Status == "Approved").Sum(e => e.Amount);
+            var expDeclined = deptExpenses.Count(e => e.Status == "Declined");
+            var expDeclinedAmt = deptExpenses.Where(e => e.Status == "Declined").Sum(e => e.Amount);
+
+            var deptExpJson = deptExpenses.Select(e => new
+            {
+                id = e.Id,
+                expenseId = e.ExpenseId,
+                expenseType = e.ExpenseType,
+                description = e.Description,
+                amount = e.Amount,
+                requestedBy = e.RequestedBy,
+                status = e.Status,
+                requestedAt = e.RequestedAt.ToString("MMM dd, yyyy"),
+                dateApproved = e.DateApproved?.ToString("MMM dd, yyyy") ?? "",
+                notes = e.Notes
+            }).ToList();
+
+            <div class="bg-white rounded-2xl shadow-md hover:shadow-lg transition-shadow border border-gray-100 flex flex-col cursor-pointer"
+                 onclick='openDeptPanel("department", @Html.Raw(JsonConvert.SerializeObject(deptName)), @Html.Raw(JsonConvert.SerializeObject(deptExpJson)), [])'>
+                <div class="p-5 border-b border-gray-100">
+                    <div class="flex items-start justify-between mb-3">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-[#A36A66]/10 rounded-lg flex items-center justify-center">
+                                <span class="text-[#A36A66] font-bold text-sm">@deptName.Substring(0, Math.Min(2, deptName.Length)).ToUpper()</span>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-semibold text-gray-900">@deptName</h3>
+                                <p class="text-xs text-gray-400">@deptExpenses.Count expense request(s)</p>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="text-2xl font-bold text-[#A36A66]">₱@expTotal.ToString("N2")</p>
+                    <p class="text-xs text-gray-400 mt-1">Expense requests total</p>
+                </div>
+                <div class="px-5 py-4 space-y-2">
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="flex items-center gap-2"><span class="w-2 h-2 bg-yellow-500 rounded-full"></span><span class="text-gray-600">Pending (@expPending)</span></span>
+                        <span class="font-medium text-gray-800">₱@expPendingAmt.ToString("N2")</span>
+                    </div>
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="flex items-center gap-2"><span class="w-2 h-2 bg-green-500 rounded-full"></span><span class="text-gray-600">Approved (@expApproved)</span></span>
+                        <span class="font-medium text-gray-800">₱@expApprovedAmt.ToString("N2")</span>
+                    </div>
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="flex items-center gap-2"><span class="w-2 h-2 bg-red-500 rounded-full"></span><span class="text-gray-600">Declined (@expDeclined)</span></span>
+                        <span class="font-medium text-gray-800">₱@expDeclinedAmt.ToString("N2")</span>
+                    </div>
+                </div>
+                <div class="px-5 py-3 mt-auto border-t border-gray-100 bg-gray-50 rounded-b-2xl">
+                    <span class="text-sm text-[#A36A66] font-medium flex items-center gap-1">
+                        Click to view all requests
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                    </span>
+                </div>
+            </div>
+        }
+
+        <!-- ═══ INVENTORY / INGREDIENT CARD ═══ -->
+        @{
+            var ingPending = stockRequests.Count(r => r.RequestStatus == "Pending");
+            var ingPendingAmt = stockRequests.Where(r => r.RequestStatus == "Pending").Sum(r => r.TotalCost);
+            var ingApproved = stockRequests.Count(r => r.RequestStatus.StartsWith("Approved"));
+            var ingApprovedAmt = stockRequests.Where(r => r.RequestStatus.StartsWith("Approved")).Sum(r => r.TotalCost);
+            var ingDeclined = stockRequests.Count(r => r.RequestStatus == "Declined");
+            var ingDeclinedAmt = stockRequests.Where(r => r.RequestStatus == "Declined").Sum(r => r.TotalCost);
+        }
+        <div class="bg-white rounded-2xl shadow-md hover:shadow-lg transition-shadow border border-gray-100 flex flex-col cursor-pointer"
+             onclick='openDeptPanel("ingredient", "Inventory / Ingredients", [], @Html.Raw(JsonConvert.SerializeObject(stockRequestsJson)))'>
+            <div class="p-5 border-b border-gray-100">
+                <div class="flex items-center gap-3 mb-3">
+                    <div class="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+                        <svg class="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-900">Inventory / Ingredients</h3>
+                        <p class="text-xs text-gray-400">@stockRequests.Count request(s)</p>
+                    </div>
+                </div>
+                <p class="text-2xl font-bold text-orange-600">₱@ingredientTotal.ToString("N2")</p>
+            </div>
+            <div class="px-5 py-4 space-y-2">
+                <div class="flex items-center justify-between text-sm">
+                    <span class="flex items-center gap-2"><span class="w-2 h-2 bg-yellow-500 rounded-full"></span><span class="text-gray-600">Pending (@ingPending)</span></span>
+                    <span class="font-medium text-gray-800">₱@ingPendingAmt.ToString("N2")</span>
+                </div>
+                <div class="flex items-center justify-between text-sm">
+                    <span class="flex items-center gap-2"><span class="w-2 h-2 bg-green-500 rounded-full"></span><span class="text-gray-600">Approved (@ingApproved)</span></span>
+                    <span class="font-medium text-gray-800">₱@ingApprovedAmt.ToString("N2")</span>
+                </div>
+                <div class="flex items-center justify-between text-sm">
+                    <span class="flex items-center gap-2"><span class="w-2 h-2 bg-red-500 rounded-full"></span><span class="text-gray-600">Declined (@ingDeclined)</span></span>
+                    <span class="font-medium text-gray-800">₱@ingDeclinedAmt.ToString("N2")</span>
+                </div>
+            </div>
+            <div class="px-5 py-3 mt-auto border-t border-gray-100 bg-gray-50 rounded-b-2xl">
+                <span class="text-sm text-orange-600 font-medium flex items-center gap-1">Click to view all requests <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg></span>
+            </div>
+        </div>
+
+        <!-- ═══ PAYROLL CARD ═══ -->
+        @if (payrollCutoffs.Any())
+        {
+            var prPending = payrollCutoffs.Count(p => p.status == "Calculated");
+            var prApproved = payrollCutoffs.Count(p => p.status == "Approved");
+            var prDeclined = payrollCutoffs.Count(p => p.status == "Declined");
+
+            <div class="bg-white rounded-2xl shadow-md hover:shadow-lg transition-shadow border border-gray-100 flex flex-col cursor-pointer"
+                 onclick='openDeptPanel("payroll", "Payroll", [], @Html.Raw(JsonConvert.SerializeObject(payrollCutoffs)))'>
+                <div class="p-5 border-b border-gray-100">
+                    <div class="flex items-center gap-3 mb-3">
+                        <div class="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
+                            <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-900">Payroll</h3>
+                            <p class="text-xs text-gray-400">@payrollCutoffs.Count cutoff(s)</p>
+                        </div>
+                    </div>
+                    <p class="text-2xl font-bold text-indigo-600">₱@payrollTotal.ToString("N2")</p>
+                    <p class="text-xs text-gray-400 mt-1">Total gross salary</p>
+                </div>
+                <div class="px-5 py-4 space-y-2">
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="flex items-center gap-2"><span class="w-2 h-2 bg-blue-500 rounded-full"></span><span class="text-gray-600">Calculated (@prPending)</span></span>
+                    </div>
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="flex items-center gap-2"><span class="w-2 h-2 bg-green-500 rounded-full"></span><span class="text-gray-600">Approved (@prApproved)</span></span>
+                    </div>
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="flex items-center gap-2"><span class="w-2 h-2 bg-red-500 rounded-full"></span><span class="text-gray-600">Declined (@prDeclined)</span></span>
+                    </div>
+                </div>
+                <div class="px-5 py-3 mt-auto border-t border-gray-100 bg-gray-50 rounded-b-2xl">
+                    <span class="text-sm text-indigo-600 font-medium flex items-center gap-1">Click to view all cutoffs & breakdowns <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg></span>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- ═══ SLIDE-OUT PANEL ═══ -->
+<div id="deptPanel" class="fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick="closeDeptPanel()"></div>
+    <div id="deptPanelContent" class="absolute right-0 top-0 h-full w-full max-w-4xl bg-white shadow-2xl transform translate-x-full transition-transform duration-300 ease-in-out flex flex-col">
+        <div class="p-6 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white shrink-0">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h2 class="text-2xl font-bold text-[#A36A66]" id="panelDeptName">Department</h2>
+                    <p class="text-sm text-gray-500 mt-1" id="panelSubtitle">All requests</p>
+                </div>
+                <button onclick="closeDeptPanel()" class="text-gray-400 hover:text-gray-600 transition p-2 rounded-lg hover:bg-gray-100">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div class="flex gap-1 mt-4 bg-gray-100 rounded-xl p-1" id="panelTabs"></div>
+        </div>
+        <div class="flex-1 overflow-y-auto p-6" id="panelBody"></div>
+    </div>
+</div>
+
+<!-- ═══ APPROVE MODAL ═══ -->
+<div id="deptApproveModal" class="fixed inset-0 bg-black/50 hidden flex items-center justify-center z-[60] backdrop-blur-sm">
+    <div class="bg-white w-full max-w-lg rounded-2xl shadow-2xl p-6 m-4 max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center gap-3 mb-5 pb-4 border-b">
+            <div class="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center"><svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></div>
+            <div><h2 class="text-xl font-bold text-gray-900">Approve & Transfer</h2><p class="text-sm text-gray-500" id="approveExpenseLabel"></p></div>
+        </div>
+        <div class="grid grid-cols-3 gap-3 mb-5">
+            <div class="bg-blue-50 p-3 rounded-xl border border-blue-200"><p class="text-[10px] text-blue-700 font-medium">Balance</p><p class="text-sm font-bold text-blue-900">₱@currentBalance.ToString("N2")</p></div>
+            <div class="bg-orange-50 p-3 rounded-xl border border-orange-200"><p class="text-[10px] text-orange-700 font-medium">Amount</p><p class="text-sm font-bold text-orange-900" id="approveAmountDisplay">₱0.00</p></div>
+            <div class="bg-green-50 p-3 rounded-xl border border-green-200"><p class="text-[10px] text-green-700 font-medium">After</p><p class="text-sm font-bold text-green-900" id="approveBalanceAfter">₱0.00</p></div>
+        </div>
+        <form method="post" action="@Url.Action("ApproveExpense", "Sales_Finance")">
+            <input type="hidden" name="id" id="approveId" /><input type="hidden" name="requestId" value="" />
+            <div class="space-y-4">
+                <div><label class="block text-sm font-medium text-gray-700 mb-1">Transfer To *</label><input type="text" name="TransferTo" required placeholder="Recipient" class="w-full border rounded-xl px-4 py-2.5 text-sm" /></div>
+                <div><label class="block text-sm font-medium text-gray-700 mb-1">Payment Method *</label><select name="PaymentMethod" required class="w-full border rounded-xl px-4 py-2.5 text-sm"><option value="">Select</option><option value="Bank Transfer">Bank Transfer</option><option value="Cash">Cash</option><option value="Check">Check</option><option value="Online Payment">Online Payment</option></select></div>
+                <div><label class="block text-sm font-medium text-gray-700 mb-1">Reference Number</label><input type="text" name="ReferenceNumber" placeholder="Optional" class="w-full border rounded-xl px-4 py-2.5 text-sm" /></div>
+                <div><label class="block text-sm font-medium text-gray-700 mb-1">Notes</label><textarea name="TransferNotes" rows="2" placeholder="Optional" class="w-full border rounded-xl px-4 py-2.5 text-sm"></textarea></div>
+            </div>
+            <div class="flex justify-end gap-3 mt-6 pt-4 border-t">
+                <button type="button" onclick="closeApproveModal()" class="px-5 py-2 bg-gray-100 text-gray-700 rounded-xl text-sm font-medium">Cancel</button>
+                <button type="submit" class="px-5 py-2 bg-green-600 text-white rounded-xl text-sm font-medium">Confirm & Approve</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ═══ DECLINE MODAL ═══ -->
+<div id="deptDeclineModal" class="fixed inset-0 bg-black/50 hidden flex items-center justify-center z-[60] backdrop-blur-sm">
+    <div class="bg-white w-full max-w-lg rounded-2xl shadow-2xl p-6 m-4">
+        <div class="flex items-center gap-3 mb-5 pb-4 border-b">
+            <div class="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center"><svg class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg></div>
+            <div><h2 class="text-xl font-bold text-gray-900">Decline</h2><p class="text-sm text-gray-500" id="declineExpenseLabel"></p></div>
+        </div>
+        <form method="post" action="@Url.Action("DeclineExpense", "Sales_Finance")">
+            <input type="hidden" name="id" id="declineId" /><input type="hidden" name="isStockRequest" id="declineIsStock" value="false" />
+            <div class="mb-5"><label class="block text-sm font-medium text-gray-700 mb-1">Reason *</label><textarea name="DeclineReason" required rows="3" placeholder="Provide a reason..." class="w-full border rounded-xl px-4 py-2.5 text-sm"></textarea></div>
+            <div class="flex justify-end gap-3 pt-4 border-t">
+                <button type="button" onclick="closeDeclineModal()" class="px-5 py-2 bg-gray-100 text-gray-700 rounded-xl text-sm font-medium">Cancel</button>
+                <button type="submit" class="px-5 py-2 bg-red-600 text-white rounded-xl text-sm font-medium">Confirm Decline</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ═══ PAYROLL CONFIRM MODAL ═══ -->
+<div id="payrollConfirmModal" class="fixed inset-0 bg-black/50 hidden flex items-center justify-center z-[60] backdrop-blur-sm">
+    <div class="bg-white rounded-2xl shadow-lg p-6 w-full max-w-md m-4">
+        <h2 class="text-xl font-bold mb-2" id="payrollConfirmTitle">Confirm</h2>
+        <p class="text-gray-600 mb-4" id="payrollConfirmMsg">Are you sure?</p>
+        <div class="bg-gray-50 rounded-xl p-4 mb-5 space-y-2" id="payrollConfirmDetails"></div>
+        <div class="flex justify-end gap-3">
+            <button onclick="closePayrollConfirm()" class="px-4 py-2 bg-gray-200 rounded-lg text-sm font-medium">Cancel</button>
+            <button id="payrollConfirmBtn" class="px-4 py-2 text-white rounded-lg text-sm font-medium">Confirm</button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ EMPLOYEE BREAKDOWN MODAL ═══ -->
+<div id="employeeModal" class="fixed inset-0 bg-black/50 hidden flex items-center justify-center z-[60] backdrop-blur-sm">
+    <div class="bg-white w-full max-w-2xl rounded-2xl shadow-2xl m-4 max-h-[90vh] overflow-y-auto">
+        <div class="p-6 border-b border-gray-200 bg-gradient-to-r from-indigo-50 to-white rounded-t-2xl">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h2 class="text-xl font-bold text-indigo-900" id="empModalName">Employee</h2>
+                    <p class="text-sm text-indigo-600" id="empModalPosition">Position</p>
+                </div>
+                <button onclick="closeEmployeeModal()" class="text-gray-400 hover:text-gray-600 p-2 rounded-lg hover:bg-gray-100">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+        </div>
+        <div class="p-6" id="empModalBody"></div>
+    </div>
+</div>
+
+<script>
+    const availableBalance = @currentBalance;
+
+    function openDeptPanel(type, title, expensesOrEmpty, dataArr) {
+        const panel = document.getElementById('deptPanel');
+        const content = document.getElementById('deptPanelContent');
+        document.getElementById('panelDeptName').textContent = title;
+
+        if (type === 'department') {
+            document.getElementById('panelSubtitle').textContent = 'All expense requests for this department';
+            buildExpenseOnlyPanel(expensesOrEmpty);
+        } else if (type === 'ingredient') {
+            document.getElementById('panelSubtitle').textContent = 'All ingredient stock requests';
+            buildIngredientOnlyPanel(dataArr);
+        } else if (type === 'payroll') {
+            document.getElementById('panelSubtitle').textContent = 'All payroll cutoffs — grouped by department';
+            buildPayrollPanel(dataArr);
+        }
+
+        panel.classList.remove('hidden');
+        requestAnimationFrame(() => { content.classList.remove('translate-x-full'); content.classList.add('translate-x-0'); });
+    }
+
+    function closeDeptPanel() {
+        const c = document.getElementById('deptPanelContent');
+        c.classList.remove('translate-x-0'); c.classList.add('translate-x-full');
+        setTimeout(() => document.getElementById('deptPanel').classList.add('hidden'), 300);
+    }
+
+    // ═══ EXPENSE-ONLY PANEL ═══
+    function buildExpenseOnlyPanel(expenses) {
+        document.getElementById('panelTabs').innerHTML = `<button class="flex-1 px-4 py-2 rounded-lg text-sm font-medium bg-white shadow text-[#A36A66]">Expense Requests (${expenses.length})</button>`;
+        renderExpensesTab(expenses);
+    }
+
+    function renderExpensesTab(expenses) {
+        const body = document.getElementById('panelBody');
+        if (!expenses.length) { body.innerHTML = '<p class="text-gray-400 text-center py-8">No expense requests for this department</p>'; return; }
+        const grouped = {};
+        expenses.forEach(e => { const k = e.expenseType || 'Uncategorized'; if (!grouped[k]) grouped[k] = []; grouped[k].push(e); });
+        const sortedKeys = Object.keys(grouped).sort((a, b) => grouped[b].reduce((s, e) => s + e.amount, 0) - grouped[a].reduce((s, e) => s + e.amount, 0));
+        let html = `<div class="grid grid-cols-3 gap-3 mb-6">
+            <div class="bg-yellow-50 rounded-xl p-3 border border-yellow-200"><p class="text-xs text-yellow-700 font-medium">Pending</p><p class="text-lg font-bold text-yellow-800">${fmt(expenses.filter(e=>e.status==='Pending').reduce((s,e)=>s+e.amount,0))}</p></div>
+            <div class="bg-green-50 rounded-xl p-3 border border-green-200"><p class="text-xs text-green-700 font-medium">Approved</p><p class="text-lg font-bold text-green-800">${fmt(expenses.filter(e=>e.status==='Approved').reduce((s,e)=>s+e.amount,0))}</p></div>
+            <div class="bg-red-50 rounded-xl p-3 border border-red-200"><p class="text-xs text-red-700 font-medium">Declined</p><p class="text-lg font-bold text-red-800">${fmt(expenses.filter(e=>e.status==='Declined').reduce((s,e)=>s+e.amount,0))}</p></div>
+        </div>`;
+        sortedKeys.forEach(cat => {
+            const items = grouped[cat]; const catTotal = items.reduce((s, e) => s + e.amount, 0);
+            html += `<div class="mb-6"><div class="flex items-center justify-between mb-3"><h3 class="text-sm font-semibold text-gray-900">${esc(cat)} <span class="text-gray-400 font-normal">(${items.length})</span></h3><span class="text-sm font-bold text-[#A36A66]">${fmt(catTotal)}</span></div><div class="space-y-2">`;
+            items.forEach(exp => {
+                const badge = exp.status==='Pending'?'<span class="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-yellow-100 text-yellow-800">Pending</span>':exp.status==='Approved'?'<span class="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-green-100 text-green-800">✓ Approved</span>':'<span class="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-red-100 text-red-800">✕ Declined</span>';
+                const actions = exp.status==='Pending'?`<div class="flex gap-1.5 mt-2"><button onclick="event.stopPropagation();openApproveModal('${exp.id}','${esc(exp.expenseId)}',${exp.amount})" class="px-3 py-1 bg-green-600 text-white text-[11px] font-medium rounded-lg hover:bg-green-700">Approve</button><button onclick="event.stopPropagation();openDeclineModal('${exp.id}','${esc(exp.expenseId)}',false)" class="px-3 py-1 bg-red-600 text-white text-[11px] font-medium rounded-lg hover:bg-red-700">Decline</button></div>`:'';
+                const notes = exp.status==='Declined'&&exp.notes?`<p class="text-[11px] text-red-600 mt-1">Reason: ${esc(exp.notes)}</p>`:'';
+                html += `<div class="bg-gray-50 rounded-xl p-4 border border-gray-100"><div class="flex items-start justify-between"><div class="flex-1 mr-3"><div class="flex items-center gap-2 mb-1"><span class="text-xs font-semibold text-blue-600">${esc(exp.expenseId)}</span>${badge}</div><p class="text-sm font-medium text-gray-800">${esc(exp.requestedBy)}</p><p class="text-xs text-gray-400 mt-0.5">${esc(exp.description||'')}</p><p class="text-[11px] text-gray-400 mt-1">${exp.requestedAt}</p>${notes}</div><div class="text-right shrink-0"><p class="text-sm font-bold text-gray-900">${fmt(exp.amount)}</p></div></div>${actions}</div>`;
+            });
+            html += '</div></div>';
+        });
+        body.innerHTML = html;
+    }
+
+    // ═══ PAYROLL PANEL — per cutoff → per department → clickable employees ═══
+    function buildPayrollPanel(cutoffList) {
+        document.getElementById('panelTabs').innerHTML = `<button class="flex-1 px-4 py-2 rounded-lg text-sm font-medium bg-white shadow text-indigo-600">All Cutoffs (${cutoffList.length})</button>`;
+        const body = document.getElementById('panelBody');
+        if (!cutoffList.length) { body.innerHTML = '<p class="text-gray-400 text-center py-8">No payroll data</p>'; return; }
+
+        // Group runs by cutoff label
+        const grouped = {};
+        cutoffList.forEach(pr => { const k = pr.cutoffLabel; if (!grouped[k]) grouped[k] = []; grouped[k].push(pr); });
+        const cutoffKeys = Object.keys(grouped).sort().reverse();
+
+        let html = '';
+        cutoffKeys.forEach(key => {
+            const runs = grouped[key];
+            const totalGross = runs.reduce((s,r) => s + r.grossSalary, 0);
+            const totalNet = runs.reduce((s,r) => s + r.netSalary, 0);
+            const totalDed = runs.reduce((s,r) => s + r.totalDeductions, 0);
+            const totalEmp = runs.reduce((s,r) => s + r.totalEmployees, 0);
+            const half = runs[0].cutoffHalf;
+            const firstRun = runs[0];
+            const canAct = firstRun.status !== 'Approved' && firstRun.status !== 'Declined';
+            const statusBadge = firstRun.status === 'Calculated' ? '<span class="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-blue-100 text-blue-800">Calculated</span>' : firstRun.status === 'Approved' ? `<span class="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-green-100 text-green-800">✓ Approved${firstRun.isPaid?' & Paid':''}</span>` : '<span class="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-red-100 text-red-800">✕ Declined</span>';
+
+            html += `<div class="mb-8 bg-indigo-50 rounded-2xl p-5 border border-indigo-100">
+                <!-- Cutoff Header -->
+                <div class="flex items-center justify-between mb-1">
+                    <div><h3 class="text-base font-bold text-indigo-900">${esc(key)}</h3>
+                    <p class="text-xs text-indigo-600">${half} • ${totalEmp} employee(s) • ${runs.length} run(s) ${statusBadge}</p></div>
+                    <span class="text-lg font-bold text-indigo-700">${fmt(totalGross)}</span>
+                </div>
+
+                <!-- Cutoff Summary -->
+                <div class="grid grid-cols-3 gap-2 my-4">
+                    <div class="text-center bg-white rounded-lg p-2 border"><p class="text-[10px] text-gray-400">Gross</p><p class="text-xs font-bold">${fmt(totalGross)}</p></div>
+                    <div class="text-center bg-white rounded-lg p-2 border"><p class="text-[10px] text-gray-400">Deductions</p><p class="text-xs font-bold text-red-600">${fmt(totalDed)}</p></div>
+                    <div class="text-center bg-white rounded-lg p-2 border"><p class="text-[10px] text-gray-400">Net</p><p class="text-xs font-bold text-green-700">${fmt(totalNet)}</p></div>
+                </div>`;
+
+            // Actions for whole cutoff
+            if (canAct) {
+                html += `<div class="flex gap-2 mb-4">`;
+                runs.forEach(pr => {
+                    html += `<button onclick="event.stopPropagation();confirmPayroll('${pr.id}','Approved',${pr.fullGross},'${esc(pr.payRunNumber)}','${esc(pr.cutoffHalf)}')" class="flex-1 px-3 py-2 bg-green-600 text-white text-xs font-medium rounded-lg hover:bg-green-700">✓ Approve ${esc(pr.payRunNumber)}</button>
+                    <button onclick="event.stopPropagation();confirmPayroll('${pr.id}','Declined',${pr.fullGross},'${esc(pr.payRunNumber)}','${esc(pr.cutoffHalf)}')" class="flex-1 px-3 py-2 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700">✕ Decline ${esc(pr.payRunNumber)}</button>`;
+                });
+                html += `</div>`;
+            }
+
+            // Departments within this cutoff
+            // Merge departments across runs in same cutoff
+            const deptMap = {};
+            runs.forEach(pr => {
+                (pr.departments || []).forEach(d => {
+                    if (!deptMap[d.name]) deptMap[d.name] = { ...d, employees: [...d.employees] };
+                    else {
+                        deptMap[d.name].employeeCount += d.employeeCount;
+                        deptMap[d.name].grossSalary += d.grossSalary;
+                        deptMap[d.name].netSalary += d.netSalary;
+                        deptMap[d.name].totalDeductions += d.totalDeductions;
+                        deptMap[d.name].employees = deptMap[d.name].employees.concat(d.employees);
+                    }
+                });
+            });
+            const deptNames = Object.keys(deptMap).sort();
+
+            deptNames.forEach((dName, di) => {
+                const dept = deptMap[dName];
+                const deptId = `dept_${key.replace(/[^a-zA-Z0-9]/g,'')}_${di}`;
+
+                html += `<div class="mb-3">
+                    <button onclick="toggleDept('${deptId}')" class="w-full flex items-center justify-between bg-white rounded-xl p-4 border border-gray-200 hover:border-indigo-300 hover:shadow transition-all text-left">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center">
+                                <span class="text-indigo-600 font-bold text-[10px]">${esc(dName.substring(0,2).toUpperCase())}</span>
+                            </div>
+                            <div>
+                                <p class="text-sm font-semibold text-gray-900">${esc(dName)}</p>
+                                <p class="text-[11px] text-gray-400">${dept.employeeCount} employee(s)</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <div class="text-right">
+                                <p class="text-sm font-bold text-gray-900">${fmt(dept.grossSalary)}</p>
+                                <p class="text-[10px] text-gray-400">Ded: ${fmt(dept.totalDeductions)} • Net: ${fmt(dept.netSalary)}</p>
+                            </div>
+                            <svg id="${deptId}_arrow" class="w-4 h-4 text-gray-400 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                        </div>
+                    </button>
+
+                    <!-- Department breakdown (collapsed) -->
+                    <div id="${deptId}" class="hidden mt-2 ml-4 space-y-2">
+                        <!-- Dept deduction summary -->
+                        <div class="bg-gray-50 rounded-xl p-3 border border-gray-100">
+                            <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
+                                <div class="flex justify-between"><span class="text-gray-400">SSS</span><span class="font-medium">${fmt(dept.sss)}</span></div>
+                                <div class="flex justify-between"><span class="text-gray-400">PhilHealth</span><span class="font-medium">${fmt(dept.philHealth)}</span></div>
+                                <div class="flex justify-between"><span class="text-gray-400">Pag-IBIG</span><span class="font-medium">${fmt(dept.pagIbig)}</span></div>
+                                <div class="flex justify-between"><span class="text-gray-400">Tax</span><span class="font-medium">${fmt(dept.withholdingTax)}</span></div>
+                                <div class="flex justify-between"><span class="text-gray-400">SSS Loan</span><span class="font-medium">${fmt(dept.sssLoan)}</span></div>
+                                <div class="flex justify-between"><span class="text-gray-400">Pag-IBIG Loan</span><span class="font-medium">${fmt(dept.pagIbigLoan)}</span></div>
+                                <div class="flex justify-between"><span class="text-gray-400">Company Loan</span><span class="font-medium">${fmt(dept.companyLoan)}</span></div>
+                                <div class="flex justify-between"><span class="text-gray-400">Late/Absence</span><span class="font-medium">${fmt(dept.latePenalty + dept.absencePenalty)}</span></div>
+                            </div>
+                            <div class="mt-1 pt-1 border-t flex justify-between text-[11px] font-bold">
+                                <span class="text-red-600">Total Deductions</span><span class="text-red-600">${fmt(dept.totalDeductions)}</span>
+                            </div>
+                        </div>
+
+                        <!-- Employee list (clickable) -->`;
+
+                dept.employees.forEach((emp, ei) => {
+                    const empDataId = `emp_${deptId}_${ei}`;
+                    html += `<button onclick="event.stopPropagation();showEmployeeBreakdown(${JSON.stringify(emp).replace(/"/g,'&quot;')})"
+                        class="w-full flex items-center justify-between bg-white rounded-xl p-3 border border-gray-100 hover:border-indigo-200 hover:bg-indigo-50/30 transition-all text-left">
+                        <div>
+                            <p class="text-sm font-medium text-gray-800">${esc(emp.employeeName)}</p>
+                            <p class="text-[10px] text-gray-400">${esc(emp.position)} • ${emp.daysPresent}/${emp.totalWorkingDays} days</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-sm font-bold">${fmt(emp.grossSalary)}</p>
+                            <p class="text-[10px] text-green-600">Net: ${fmt(emp.netSalary)}</p>
+                        </div>
+                    </button>`;
+                });
+
+                html += `</div></div>`;
+            });
+
+            html += `</div>`;
+        });
+
+        body.innerHTML = html;
+    }
+
+    function toggleDept(id) {
+        const el = document.getElementById(id);
+        const arrow = document.getElementById(id + '_arrow');
+        if (el.classList.contains('hidden')) {
+            el.classList.remove('hidden');
+            arrow.classList.add('rotate-180');
+        } else {
+            el.classList.add('hidden');
+            arrow.classList.remove('rotate-180');
+        }
+    }
+
+    function showEmployeeBreakdown(emp) {
+        document.getElementById('empModalName').textContent = emp.employeeName;
+        document.getElementById('empModalPosition').textContent = emp.position || 'No position';
+
+        const body = document.getElementById('empModalBody');
+        body.innerHTML = `
+            <!-- Summary Cards -->
+            <div class="grid grid-cols-3 gap-3 mb-5">
+                <div class="bg-indigo-50 p-3 rounded-xl border border-indigo-200"><p class="text-[10px] text-indigo-700 font-medium">Gross</p><p class="text-sm font-bold text-indigo-900">${fmt(emp.grossSalary)}</p></div>
+                <div class="bg-red-50 p-3 rounded-xl border border-red-200"><p class="text-[10px] text-red-700 font-medium">Deductions</p><p class="text-sm font-bold text-red-900">${fmt(emp.totalDeductions)}</p></div>
+                <div class="bg-green-50 p-3 rounded-xl border border-green-200"><p class="text-[10px] text-green-700 font-medium">Net Pay</p><p class="text-sm font-bold text-green-900">${fmt(emp.netSalary)}</p></div>
+            </div>
+
+            <!-- Attendance -->
+            <div class="bg-gray-50 rounded-xl p-4 border mb-4">
+                <h4 class="text-xs font-bold text-gray-700 uppercase mb-2">📅 Attendance</h4>
+                <div class="grid grid-cols-3 gap-3 text-xs">
+                    <div class="flex justify-between"><span class="text-gray-500">Days Present</span><span class="font-medium">${emp.daysPresent} / ${emp.totalWorkingDays}</span></div>
+                    <div class="flex justify-between"><span class="text-gray-500">Days Absent</span><span class="font-medium">${emp.daysAbsent}</span></div>
+                    <div class="flex justify-between"><span class="text-gray-500">Late</span><span class="font-medium">${emp.daysLate}x (${emp.minutesLate} min)</span></div>
+                </div>
+            </div>
+
+            <!-- Earnings -->
+            <div class="bg-green-50 rounded-xl p-4 border border-green-200 mb-4">
+                <h4 class="text-xs font-bold text-green-700 uppercase mb-2">💰 Earnings</h4>
+                <div class="grid grid-cols-2 gap-x-6 gap-y-1 text-xs">
+                    <div class="flex justify-between"><span class="text-gray-500">Basic Salary</span><span class="font-medium">${fmt(emp.basicSalary)}</span></div>
+                    <div class="flex justify-between"><span class="text-gray-500">Prorated Basic</span><span class="font-medium">${fmt(emp.proratedBasic)}</span></div>
+                    <div class="flex justify-between"><span class="text-gray-500">Allowances</span><span class="font-medium">${fmt(emp.allowances)}</span></div>
+                    <div class="flex justify-between"><span class="text-gray-500">Overtime (${emp.regularOT}h reg + ${emp.holidayOT}h hol)</span><span class="font-medium">${fmt(emp.overtimePay)}</span></div>
+                    <div class="flex justify-between"><span class="text-gray-500">Holiday Pay</span><span class="font-medium">${fmt(emp.holidayPay)}</span></div>
+                    <div class="flex justify-between"><span class="text-gray-500">Night Diff (${emp.nightDiffHours}h)</span><span class="font-medium">${fmt(emp.nightDiff)}</span></div>
+                    <div class="flex justify-between"><span class="text-gray-500">Bonuses</span><span class="font-medium">${fmt(emp.bonuses)}</span></div>
+                    <div class="flex justify-between"><span class="text-gray-500">Other Earnings</span><span class="font-medium">${fmt(emp.otherEarnings)}</span></div>
+                </div>
+                <div class="mt-2 pt-2 border-t flex justify-between text-xs font-bold">
+                    <span class="text-green-800">Total Gross</span><span class="text-green-800">${fmt(emp.grossSalary)}</span>
+                </div>
+            </div>
+
+            <!-- Deductions -->
+            <div class="bg-red-50 rounded-xl p-4 border border-red-200">
+                <h4 class="text-xs font-bold text-red-600 uppercase mb-2">📋 Deductions</h4>
+                <div class="grid grid-cols-2 gap-x-6 gap-y-1 text-xs">
+                    <div class="flex justify-between"><span class="text-gray-500">SSS</span><span class="font-medium">${fmt(emp.sss)}</span></div>
+                    <div class="flex justify-between"><span class="text-gray-500">PhilHealth</span><span class="font-medium">${fmt(emp.philHealth)}</span></div>
+                    <div class="flex justify-between"><span class="text-gray-500">Pag-IBIG</span><span class="font-medium">${fmt(emp.pagIbig)}</span></div>
+                    <div class="flex justify-between"><span class="text-gray-500">Withholding Tax</span><span class="font-medium">${fmt(emp.withholdingTax)}</span></div>
+                    <div class="flex justify-between"><span class="text-gray-500">SSS Loan</span><span class="font-medium">${fmt(emp.sssLoan)}</span></div>
+                    <div class="flex justify-between"><span class="text-gray-500">Pag-IBIG Loan</span><span class="font-medium">${fmt(emp.pagIbigLoan)}</span></div>
+                    <div class="flex justify-between"><span class="text-gray-500">Company Loan</span><span class="font-medium">${fmt(emp.companyLoan)}</span></div>
+                    <div class="flex justify-between"><span class="text-gray-500">Absence Penalty</span><span class="font-medium">${fmt(emp.absencePenalty)}</span></div>
+                    <div class="flex justify-between"><span class="text-gray-500">Late Penalty</span><span class="font-medium">${fmt(emp.latePenalty)}</span></div>
+                    <div class="flex justify-between"><span class="text-gray-500">Unpaid Leave</span><span class="font-medium">${fmt(emp.unpaidLeave)}</span></div>
+                    <div class="flex justify-between"><span class="text-gray-500">Other Deductions</span><span class="font-medium">${fmt(emp.otherDeductions)}</span></div>
+                </div>
+                <div class="mt-2 pt-2 border-t flex justify-between text-xs font-bold">
+                    <span class="text-red-700">Total Deductions</span><span class="text-red-700">${fmt(emp.totalDeductions)}</span>
+                </div>
+            </div>
+        `;
+        document.getElementById('employeeModal').classList.remove('hidden');
+    }
+
+    function closeEmployeeModal() { document.getElementById('employeeModal').classList.add('hidden'); }
+
+    // ═══ INGREDIENT-ONLY PANEL ═══
+    function buildIngredientOnlyPanel(requests) {
+        document.getElementById('panelTabs').innerHTML = `<button class="flex-1 px-4 py-2 rounded-lg text-sm font-medium bg-white shadow text-orange-600">Ingredient Requests (${requests.length})</button>`;
+        const body = document.getElementById('panelBody');
+        if (!requests.length) { body.innerHTML = '<p class="text-gray-400 text-center py-8">No ingredient requests</p>'; return; }
+        const pendingAmt = requests.filter(r => r.status==='Pending').reduce((s,r) => s+r.totalCost,0);
+        const approvedAmt = requests.filter(r => r.status&&r.status.startsWith('Approved')).reduce((s,r) => s+r.totalCost,0);
+        const declinedAmt = requests.filter(r => r.status==='Declined').reduce((s,r) => s+r.totalCost,0);
+        let html = `<div class="grid grid-cols-3 gap-3 mb-6">
+            <div class="bg-yellow-50 rounded-xl p-3 border border-yellow-200"><p class="text-xs text-yellow-700 font-medium">Pending</p><p class="text-lg font-bold text-yellow-800">${fmt(pendingAmt)}</p></div>
+            <div class="bg-green-50 rounded-xl p-3 border border-green-200"><p class="text-xs text-green-700 font-medium">Approved</p><p class="text-lg font-bold text-green-800">${fmt(approvedAmt)}</p></div>
+            <div class="bg-red-50 rounded-xl p-3 border border-red-200"><p class="text-xs text-red-700 font-medium">Declined</p><p class="text-lg font-bold text-red-800">${fmt(declinedAmt)}</p></div>
+        </div>`;
+        const grouped = {};
+        requests.forEach(r => { const k = r.supplierName||'Unknown'; if (!grouped[k]) grouped[k]=[]; grouped[k].push(r); });
+        Object.keys(grouped).sort((a,b)=>grouped[b].reduce((s,r)=>s+r.totalCost,0)-grouped[a].reduce((s,r)=>s+r.totalCost,0)).forEach(supplier => {
+            const items = grouped[supplier]; const total = items.reduce((s,r)=>s+r.totalCost,0);
+            html += `<div class="mb-6"><div class="flex items-center justify-between mb-3"><h3 class="text-sm font-semibold text-gray-900">${esc(supplier)} <span class="text-gray-400 font-normal">(${items.length})</span></h3><span class="text-sm font-bold text-orange-600">${fmt(total)}</span></div><div class="space-y-2">`;
+            items.forEach(r => {
+                const badge = r.status==='Pending'?'<span class="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-yellow-100 text-yellow-800">Pending</span>':r.status&&r.status.startsWith('Approved')?`<span class="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-green-100 text-green-800">✓ ${esc(r.status)}</span>`:'<span class="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-red-100 text-red-800">✕ Declined</span>';
+                const actions = r.status==='Pending'?`<div class="flex gap-1.5 mt-2"><button onclick="event.stopPropagation();approveIngredient('${r.id}','${r.expenseId||''}')" class="px-3 py-1 bg-green-600 text-white text-[11px] font-medium rounded-lg hover:bg-green-700">Approve</button><button onclick="event.stopPropagation();openDeclineModal('${r.id}','Stock Request',true)" class="px-3 py-1 bg-red-600 text-white text-[11px] font-medium rounded-lg hover:bg-red-700">Decline</button></div>`:'';
+                html += `<div class="bg-gray-50 rounded-xl p-4 border border-gray-100"><div class="flex items-start justify-between"><div class="flex-1 mr-3"><div class="flex items-center gap-2 mb-1"><span class="text-xs font-semibold text-orange-600">${esc(r.ingredientName)}</span>${badge}</div><p class="text-sm font-medium text-gray-800">${esc(r.requestedBy)}</p><p class="text-xs text-gray-400 mt-0.5">${r.quantityRequested} ${esc(r.unit)} • Stock: ${r.currentStock} • ${r.requestDate}</p></div><div class="text-right shrink-0"><p class="text-sm font-bold text-gray-900">${fmt(r.totalCost)}</p></div></div>${actions}</div>`;
+            });
+            html += '</div></div>';
+        });
+        body.innerHTML = html;
+    }
+
+    // ═══ Modals ═══
+    function openApproveModal(id,label,amount){document.getElementById('approveId').value=id;document.getElementById('approveExpenseLabel').textContent=label;document.getElementById('approveAmountDisplay').textContent=fmt(amount);document.getElementById('approveBalanceAfter').textContent=fmt(availableBalance-amount);document.getElementById('deptApproveModal').classList.remove('hidden');}
+    function closeApproveModal(){document.getElementById('deptApproveModal').classList.add('hidden');}
+    function openDeclineModal(id,label,isStock){document.getElementById('declineId').value=id;document.getElementById('declineExpenseLabel').textContent=label;document.getElementById('declineIsStock').value=isStock?'true':'false';document.getElementById('deptDeclineModal').classList.remove('hidden');}
+    function closeDeclineModal(){document.getElementById('deptDeclineModal').classList.add('hidden');}
+
+    async function approveIngredient(id,expenseId){if(!confirm('Approve this stock request?'))return;try{const res=await fetch('/Sales_Finance/UpdatedStockRequestStatus',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:`id=${encodeURIComponent(id)}&expenseId=${encodeURIComponent(expenseId||'')}`});const data=await res.json();if(data.success){alert('✅ Approved!');location.reload();}else{alert('❌ '+(data.message||'Error'));}}catch(err){alert('❌ '+err.message);}}
+
+    let pendingPayrollId=null,pendingPayrollStatus=null;
+    function confirmPayroll(id,status,grossAmount,runNumber,cutoffHalf){pendingPayrollId=id;pendingPayrollStatus=status;const btn=document.getElementById('payrollConfirmBtn');const details=document.getElementById('payrollConfirmDetails');if(status==='Approved'){document.getElementById('payrollConfirmTitle').textContent='Approve & Release Payroll';document.getElementById('payrollConfirmMsg').textContent=`Release ${runNumber} (${cutoffHalf})?`;btn.className='px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium';btn.textContent='Approve';const balAfter=availableBalance-grossAmount;details.innerHTML=`<div class="flex justify-between text-sm"><span class="text-gray-500">Balance</span><span>${fmt(availableBalance)}</span></div><div class="flex justify-between text-sm"><span class="text-gray-500">Amount</span><span class="text-red-600">-${fmt(grossAmount)}</span></div><hr><div class="flex justify-between text-sm"><span class="font-medium">After</span><span class="font-bold ${balAfter<0?'text-red-600':'text-green-600'}">${fmt(balAfter)}</span></div>${balAfter<0?'<p class="text-xs text-red-500 mt-1">⚠️ Insufficient balance!</p>':''}`;details.classList.remove('hidden');}else{document.getElementById('payrollConfirmTitle').textContent='Decline Payroll';document.getElementById('payrollConfirmMsg').textContent=`Decline ${runNumber} (${cutoffHalf})?`;btn.className='px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium';btn.textContent='Decline';details.innerHTML='';details.classList.add('hidden');}document.getElementById('payrollConfirmModal').classList.remove('hidden');}
+    function closePayrollConfirm(){document.getElementById('payrollConfirmModal').classList.add('hidden');}
+
+    document.getElementById('payrollConfirmBtn').addEventListener('click',async()=>{if(!pendingPayrollId)return;try{const res=await fetch('/Sales_Finance/ReleasePayroll',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:`id=${encodeURIComponent(pendingPayrollId)}&status=${encodeURIComponent(pendingPayrollStatus)}`});const data=await res.json();if(data.success){alert(`✅ Payroll ${pendingPayrollStatus.toLowerCase()}!`);location.reload();}else{alert('❌ '+(data.message||'Error'));}}catch(err){alert('❌ '+err.message);}closePayrollConfirm();});
+
+    function fmt(n){return '₱'+n.toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2});}
+    function esc(s){if(!s)return '';const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+    document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeDeptPanel();closeApproveModal();closeDeclineModal();closePayrollConfirm();closeEmployeeModal();}});
+</script>
