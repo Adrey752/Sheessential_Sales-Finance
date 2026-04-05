@@ -7,7 +7,7 @@
 
     var expenses = Model?.Expenses ?? new List<Expenses>();
     var stockRequests = Model?.StockRequests ?? new List<IngredientStockRequestDisplayModel>();
-    var payrollRuns = Model?.PayrollRuns ?? new List<PayrollRun>();
+    var payrollSnapshots = Model?.PayrollSnapshots ?? new List<PayrollSnapshot>();
     var currentBalance = Model?.Balance?.CurrentBalance ?? 0;
 
     // ── 1. Expense departments — THESE are your real departments ──
@@ -17,91 +17,89 @@
 
     var allDeptNames = deptFromExpenses.Keys.OrderBy(d => d).ToList();
 
-    // ── 2. Payroll data: per cutoff → per department → per employee ──
-    var payrollCutoffs = payrollRuns
-        .Where(pr => pr.Items != null && pr.Items.Any())
-        .Select(pr => new
+    // ── 2. Payroll snapshots: per cutoff → per department → per employee ──
+    var payrollCutoffs = payrollSnapshots
+        .GroupBy(p => new { p.PayPeriodStart, p.PayPeriodEnd })
+        .OrderByDescending(g => g.Key.PayPeriodStart)
+        .Select(g => new
         {
-            id = pr.Id,
-            payRunNumber = pr.PayRunNumber ?? "",
-            payPeriod = $"{pr.PayPeriodStart:MMM dd} – {pr.PayPeriodEnd:MMM dd, yyyy}",
-            payDate = pr.PayDate.ToString("MMM dd, yyyy"),
-            payType = pr.PayPeriodType ?? "",
-            cutoffHalf = pr.PayPeriodStart.Day <= 15 ? "1st Half" : "2nd Half",
-            cutoffLabel = $"{pr.PayPeriodStart:MMM yyyy} ({(pr.PayPeriodStart.Day <= 15 ? "1st – 15th" : $"16th – {DateTime.DaysInMonth(pr.PayPeriodStart.Year, pr.PayPeriodStart.Month)}th")})",
-            status = pr.Status ?? "",
-            isPaid = pr.IsPaid,
-            totalEmployees = pr.TotalEmployees,
-            grossSalary = pr.TotalGrossSalary,
-            netSalary = pr.TotalNetSalary,
-            totalDeductions = pr.TotalDeductions,
-            overtimePay = pr.TotalOvertimePay,
-            fullGross = pr.TotalGrossSalary,
-            fullNet = pr.TotalNetSalary,
-            // Group items by department
-            departments = pr.Items!
+            id = $"{g.Key.PayPeriodStart:yyyyMMdd}-{g.Key.PayPeriodEnd:yyyyMMdd}",
+            payRunNumber = $"{g.Key.PayPeriodStart:MMM dd} – {g.Key.PayPeriodEnd:MMM dd}",
+            payPeriod = $"{g.Key.PayPeriodStart:MMM dd} – {g.Key.PayPeriodEnd:MMM dd, yyyy}",
+            payDate = g.Max(x => x.ProcessedAt).ToString("MMM dd, yyyy"),
+            payType = "Snapshot",
+            cutoffHalf = g.Key.PayPeriodStart.Day <= 15 ? "1st Half" : "2nd Half",
+            cutoffLabel = $"{g.Key.PayPeriodStart:MMM yyyy} ({(g.Key.PayPeriodStart.Day <= 15 ? "1st – 15th" : $"16th – {DateTime.DaysInMonth(g.Key.PayPeriodStart.Year, g.Key.PayPeriodStart.Month)}th")})",
+            status = g.All(x => x.Status == "Completed") ? "Completed" : g.FirstOrDefault()?.Status ?? "Completed",
+            isPaid = g.All(x => x.Status == "Completed"),
+            totalEmployees = g.Count(),
+            grossSalary = g.Sum(x => x.GrossPay),
+            netSalary = g.Sum(x => x.NetPay),
+            totalDeductions = g.Sum(x => x.TotalDeductions),
+            overtimePay = g.Sum(x => x.TotalOvertime),
+            fullGross = g.Sum(x => x.GrossPay),
+            fullNet = g.Sum(x => x.NetPay),
+            departments = g
                 .GroupBy(i => string.IsNullOrWhiteSpace(i.Department) ? "Unassigned" : i.Department.Trim())
-                .OrderBy(g => g.Key)
-                .Select(g => new
+                .OrderBy(d => d.Key)
+                .Select(d => new
                 {
-                    name = g.Key,
-                    employeeCount = g.Count(),
-                    grossSalary = g.Sum(x => x.GrossSalary),
-                    netSalary = g.Sum(x => x.NetSalary),
-                    totalDeductions = g.Sum(x => x.TotalDeductions),
-                    overtimePay = g.Sum(x => x.OvertimePay),
-                    // Department-level breakdowns
-                    sss = g.Sum(x => x.SssDeduction),
-                    philHealth = g.Sum(x => x.PhilHealthDeduction),
-                    pagIbig = g.Sum(x => x.PagIbigDeduction),
-                    withholdingTax = g.Sum(x => x.WithholdingTax),
-                    sssLoan = g.Sum(x => x.SssLoan),
-                    pagIbigLoan = g.Sum(x => x.PagIbigLoan),
-                    companyLoan = g.Sum(x => x.CompanyLoan),
-                    absencePenalty = g.Sum(x => x.AbsencePenalty),
-                    latePenalty = g.Sum(x => x.LatePenalty),
-                    unpaidLeave = g.Sum(x => x.UnpaidLeaveDeduction),
-                    otherDeductions = g.Sum(x => x.OtherDeductions),
-                    allowances = g.Sum(x => x.Allowances),
-                    bonuses = g.Sum(x => x.Bonuses),
-                    holidayPay = g.Sum(x => x.HolidayPay),
-                    nightDiff = g.Sum(x => x.NightDifferentialPay),
-                    // Individual employees
-                    employees = g.Select(e => new
+                    name = d.Key,
+                    employeeCount = d.Count(),
+                    grossSalary = d.Sum(x => x.GrossPay),
+                    netSalary = d.Sum(x => x.NetPay),
+                    totalDeductions = d.Sum(x => x.TotalDeductions),
+                    overtimePay = d.Sum(x => x.TotalOvertime),
+                    sss = d.Sum(x => x.SssDeduction),
+                    philHealth = d.Sum(x => x.PhilhealthDeduction),
+                    pagIbig = d.Sum(x => x.PagibigDeduction),
+                    withholdingTax = d.Sum(x => x.WithholdingTax),
+                    sssLoan = 0m,
+                    pagIbigLoan = 0m,
+                    companyLoan = 0m,
+                    absencePenalty = d.Sum(x => x.AbsenceDeduction),
+                    latePenalty = d.Sum(x => x.TotalPenalties),
+                    unpaidLeave = 0m,
+                    otherDeductions = d.Sum(x => x.TotalLoans),
+                    allowances = d.Sum(x => x.HousingAllowance + x.TransportAllowance + x.MealAllowance + x.OtherAllowances),
+                    bonuses = 0m,
+                    holidayPay = d.Sum(x => x.HolidayPay + x.SpecialDayPay),
+                    nightDiff = 0m,
+                    employees = d.Select(e => new
                     {
                         employeeId = e.EmployeeId,
-                        employeeName = e.EmployeeName,
-                        position = e.Position ?? "",
+                        employeeName = e.FullName,
+                        position = "",
                         basicSalary = e.BasicSalary,
-                        proratedBasic = e.ProratedBasicSalary,
-                        grossSalary = e.GrossSalary,
-                        netSalary = e.NetSalary,
+                        proratedBasic = e.BasicSalary,
+                        grossSalary = e.GrossPay,
+                        netSalary = e.NetPay,
                         totalDeductions = e.TotalDeductions,
-                        overtimePay = e.OvertimePay,
-                        allowances = e.Allowances,
-                        bonuses = e.Bonuses,
-                        holidayPay = e.HolidayPay,
-                        nightDiff = e.NightDifferentialPay,
-                        otherEarnings = e.OtherEarnings,
+                        overtimePay = e.TotalOvertime,
+                        allowances = e.HousingAllowance + e.TransportAllowance + e.MealAllowance + e.OtherAllowances,
+                        bonuses = 0m,
+                        holidayPay = e.HolidayPay + e.SpecialDayPay,
+                        nightDiff = 0m,
+                        otherEarnings = e.ExcessDaysPay,
                         sss = e.SssDeduction,
-                        philHealth = e.PhilHealthDeduction,
-                        pagIbig = e.PagIbigDeduction,
+                        philHealth = e.PhilhealthDeduction,
+                        pagIbig = e.PagibigDeduction,
                         withholdingTax = e.WithholdingTax,
-                        sssLoan = e.SssLoan,
-                        pagIbigLoan = e.PagIbigLoan,
-                        companyLoan = e.CompanyLoan,
-                        absencePenalty = e.AbsencePenalty,
-                        latePenalty = e.LatePenalty,
-                        unpaidLeave = e.UnpaidLeaveDeduction,
-                        otherDeductions = e.OtherDeductions,
+                        sssLoan = 0m,
+                        pagIbigLoan = 0m,
+                        companyLoan = 0m,
+                        absencePenalty = e.AbsenceDeduction,
+                        latePenalty = e.TotalPenalties,
+                        unpaidLeave = 0m,
+                        otherDeductions = e.TotalLoans,
                         daysPresent = e.DaysPresent,
                         daysAbsent = e.DaysAbsent,
-                        totalWorkingDays = e.TotalWorkingDays,
-                        daysLate = e.DaystLate,
-                        minutesLate = e.MinutesLate,
-                        regularOT = e.RegularOvertimeHours,
-                        holidayOT = e.HolidayOvertimeHours,
-                        nightDiffHours = e.NightDifferentialHours,
+                        totalWorkingDays = e.DaysWorked,
+                        daysLate = 0,
+                        minutesLate = 0,
+                        regularOT = 0m,
+                        holidayOT = 0m,
+                        nightDiffHours = 0m,
                         status = e.Status ?? ""
                     }).OrderBy(e => e.employeeName).ToList()
                 }).ToList()
@@ -125,7 +123,7 @@
     }).ToList();
 
     var ingredientTotal = stockRequests.Sum(r => r.TotalCost);
-    var payrollTotal = payrollRuns.Sum(p => p.TotalGrossSalary);
+    var payrollTotal = payrollSnapshots.Sum(p => p.GrossPay);
     var grandTotal = expenses.Sum(e => e.Amount) + ingredientTotal + payrollTotal;
 }
 
@@ -281,7 +279,7 @@
         @if (payrollCutoffs.Any())
         {
             var prPending = payrollCutoffs.Count(p => p.status == "Calculated");
-            var prApproved = payrollCutoffs.Count(p => p.status == "Approved");
+            var prApproved = payrollCutoffs.Count(p => p.status == "Completed");
             var prDeclined = payrollCutoffs.Count(p => p.status == "Declined");
 
             <div class="bg-white rounded-2xl shadow-md hover:shadow-lg transition-shadow border border-gray-100 flex flex-col cursor-pointer"
@@ -430,7 +428,7 @@
             document.getElementById('panelSubtitle').textContent = 'All ingredient stock requests';
             buildIngredientOnlyPanel(dataArr);
         } else if (type === 'payroll') {
-            document.getElementById('panelSubtitle').textContent = 'All payroll cutoffs — grouped by department';
+            document.getElementById('panelSubtitle').textContent = 'All payroll snapshots — grouped by department';
             buildPayrollPanel(dataArr);
         }
 
@@ -466,8 +464,7 @@
             html += `<div class="mb-6"><div class="flex items-center justify-between mb-3"><h3 class="text-sm font-semibold text-gray-900">${esc(cat)} <span class="text-gray-400 font-normal">(${items.length})</span></h3><span class="text-sm font-bold text-[#A36A66]">${fmt(catTotal)}</span></div><div class="space-y-2">`;
             items.forEach(exp => {
                 const badge = exp.status==='Pending'?'<span class="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-yellow-100 text-yellow-800">Pending</span>':exp.status==='Approved'?'<span class="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-green-100 text-green-800">✓ Approved</span>':'<span class="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-red-100 text-red-800">✕ Declined</span>';
-                const actions = exp.status==='Pending'?`<div class="flex gap-1.5 mt-2"><button onclick="event.stopPropagation();openApproveModal('${exp.id}','${esc(exp.expenseId)}',${exp.amount})" class="px-3 py-1 bg-green-600 text-white text-[11px] font-medium rounded-lg hover:bg-green-700">Approve</button><button onclick="event.stopPropagation();openDeclineModal('${exp.id}','${esc(exp.expenseId)}',false)" class="px-3 py-1 bg-red-600 text-white text-[11px] font-medium rounded-lg hover:bg-red-700">Decline</button></div>`:'';
-                const notes = exp.status==='Declined'&&exp.notes?`<p class="text-[11px] text-red-600 mt-1">Reason: ${esc(exp.notes)}</p>`:'';
+                const actions = exp.status==='Pending'?`<div class="flex gap-1.5 mt-2"><button onclick="event.stopPropagation();openApproveModal('${exp.id}','${esc(exp.expenseId)}',${exp.amount})" class="px-3 py-1 bg-green-600 text-white text-[11px] font-medium rounded-lg hover:bg-green-700">Approve</button><button onclick="event.stopPropagation();openDeclineModal('${exp.id}','${esc(exp.expenseId)}',false)" class="px-3 py-1 bg-red-600 text-white text-[11px] font-medium rounded-lg hover:bg-red-700">Decline</button></div>`:'';                const notes = exp.status==='Declined'&&exp.notes?`<p class="text-[11px] text-red-600 mt-1">Reason: ${esc(exp.notes)}</p>`:'';
                 html += `<div class="bg-gray-50 rounded-xl p-4 border border-gray-100"><div class="flex items-start justify-between"><div class="flex-1 mr-3"><div class="flex items-center gap-2 mb-1"><span class="text-xs font-semibold text-blue-600">${esc(exp.expenseId)}</span>${badge}</div><p class="text-sm font-medium text-gray-800">${esc(exp.requestedBy)}</p><p class="text-xs text-gray-400 mt-0.5">${esc(exp.description||'')}</p><p class="text-[11px] text-gray-400 mt-1">${exp.requestedAt}</p>${notes}</div><div class="text-right shrink-0"><p class="text-sm font-bold text-gray-900">${fmt(exp.amount)}</p></div></div>${actions}</div>`;
             });
             html += '</div></div>';
@@ -489,14 +486,27 @@
         let html = '';
         cutoffKeys.forEach(key => {
             const runs = grouped[key];
-            const totalGross = runs.reduce((s,r) => s + r.grossSalary, 0);
-            const totalNet = runs.reduce((s,r) => s + r.netSalary, 0);
-            const totalDed = runs.reduce((s,r) => s + r.totalDeductions, 0);
-            const totalEmp = runs.reduce((s,r) => s + r.totalEmployees, 0);
+            const totalGross = runs.reduce((s, r) => s + r.grossSalary, 0);
+            const totalNet = runs.reduce((s, r) => s + r.netSalary, 0);
+            const totalDed = runs.reduce((s, r) => s + r.totalDeductions, 0);
+            const totalEmp = runs.reduce((s, r) => s + r.totalEmployees, 0);
             const half = runs[0].cutoffHalf;
             const firstRun = runs[0];
-            const canAct = firstRun.status !== 'Approved' && firstRun.status !== 'Declined';
-            const statusBadge = firstRun.status === 'Calculated' ? '<span class="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-blue-100 text-blue-800">Calculated</span>' : firstRun.status === 'Approved' ? `<span class="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-green-100 text-green-800">✓ Approved${firstRun.isPaid?' & Paid':''}</span>` : '<span class="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-red-100 text-red-800">✕ Declined</span>';
+
+            const statusText = firstRun.status || 'Completed';
+            const isCalculated = statusText === 'Calculated' || statusText === 'Processing';
+            const isCompleted = statusText === 'Completed';
+            const isApproved = statusText === 'Approved';
+            const isDeclined = statusText === 'Declined';
+            const statusBadge = isCalculated
+                ? '<span class="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-blue-100 text-blue-800">Processing</span>'
+                : isCompleted
+                    ? '<span class="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-green-100 text-green-800">✓ Completed</span>'
+                    : isApproved
+                        ? '<span class="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-green-100 text-green-800">✓ Approved</span>'
+                        : isDeclined
+                            ? '<span class="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-red-100 text-red-800">✕ Declined</span>'
+                            : `<span class="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-gray-100 text-gray-700">${esc(statusText)}</span>`;
 
             html += `<div class="mb-8 bg-indigo-50 rounded-2xl p-5 border border-indigo-100">
                 <!-- Cutoff Header -->
@@ -512,16 +522,6 @@
                     <div class="text-center bg-white rounded-lg p-2 border"><p class="text-[10px] text-gray-400">Deductions</p><p class="text-xs font-bold text-red-600">${fmt(totalDed)}</p></div>
                     <div class="text-center bg-white rounded-lg p-2 border"><p class="text-[10px] text-gray-400">Net</p><p class="text-xs font-bold text-green-700">${fmt(totalNet)}</p></div>
                 </div>`;
-
-            // Actions for whole cutoff
-            if (canAct) {
-                html += `<div class="flex gap-2 mb-4">`;
-                runs.forEach(pr => {
-                    html += `<button onclick="event.stopPropagation();confirmPayroll('${pr.id}','Approved',${pr.fullGross},'${esc(pr.payRunNumber)}','${esc(pr.cutoffHalf)}')" class="flex-1 px-3 py-2 bg-green-600 text-white text-xs font-medium rounded-lg hover:bg-green-700">✓ Approve ${esc(pr.payRunNumber)}</button>
-                    <button onclick="event.stopPropagation();confirmPayroll('${pr.id}','Declined',${pr.fullGross},'${esc(pr.payRunNumber)}','${esc(pr.cutoffHalf)}')" class="flex-1 px-3 py-2 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700">✕ Decline ${esc(pr.payRunNumber)}</button>`;
-                });
-                html += `</div>`;
-            }
 
             // Departments within this cutoff
             // Merge departments across runs in same cutoff
@@ -542,13 +542,13 @@
 
             deptNames.forEach((dName, di) => {
                 const dept = deptMap[dName];
-                const deptId = `dept_${key.replace(/[^a-zA-Z0-9]/g,'')}_${di}`;
+                const deptId = `dept_${key.replace(/[^a-zA-Z0-9]/g, '')}_${di}`;
 
                 html += `<div class="mb-3">
                     <button onclick="toggleDept('${deptId}')" class="w-full flex items-center justify-between bg-white rounded-xl p-4 border border-gray-200 hover:border-indigo-300 hover:shadow transition-all text-left">
                         <div class="flex items-center gap-3">
                             <div class="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center">
-                                <span class="text-indigo-600 font-bold text-[10px]">${esc(dName.substring(0,2).toUpperCase())}</span>
+                                <span class="text-indigo-600 font-bold text-[10px]">${esc(dName.substring(0, 2).toUpperCase())}</span>
                             </div>
                             <div>
                                 <p class="text-sm font-semibold text-gray-900">${esc(dName)}</p>
@@ -585,9 +585,10 @@
 
                         <!-- Employee list (clickable) -->`;
 
+
                 dept.employees.forEach((emp, ei) => {
                     const empDataId = `emp_${deptId}_${ei}`;
-                    html += `<button onclick="event.stopPropagation();showEmployeeBreakdown(${JSON.stringify(emp).replace(/"/g,'&quot;')})"
+                    html += `<button onclick="event.stopPropagation();showEmployeeBreakdown(${JSON.stringify(emp).replace(/"/g, '&quot;')})"
                         class="w-full flex items-center justify-between bg-white rounded-xl p-3 border border-gray-100 hover:border-indigo-200 hover:bg-indigo-50/30 transition-all text-left">
                         <div>
                             <p class="text-sm font-medium text-gray-800">${esc(emp.employeeName)}</p>

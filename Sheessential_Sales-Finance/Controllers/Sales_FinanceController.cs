@@ -1103,7 +1103,6 @@ namespace Sheessential_Sales_Finance.Controllers
             var order = await _mongo.TbOrder.Find(i => i.Id == id).FirstOrDefaultAsync();
             _logger.LogInformation("\n\n\n\n" + order.OrderNumber + "\n\n\n");
 
-
             if (order == null)
                 return NotFound("Order not found.");
 
@@ -1495,10 +1494,13 @@ namespace Sheessential_Sales_Finance.Controllers
                     SupplierName = allSuppliers.GetValueOrDefault(r.SupplierId.ToString())?.SupplierName ?? "Unknown Supplier"
                 }).OrderByDescending(r => r.RequestDate).ToList();
 
-                // Fetch all payroll runs
-                var payrollRuns = _mongo.ParyrollRuns.Find(_ => true)
-                    .SortByDescending(p => p.PayDate)
+                // ✅ Fetch payroll snapshots
+                var payrollSnapshots = _mongo.PayrollSnapshots
+                    .Find(_ => true)
+                    .SortByDescending(p => p.ProcessedAt)
                     .ToList();
+
+                _logger.LogInformation("PayrollSnapshots count: {Count}", payrollSnapshots.Count);
 
                 // Get balance
                 var balance = _mongo.Balance.Find(_ => true).FirstOrDefault() ?? new Balance();
@@ -1508,7 +1510,7 @@ namespace Sheessential_Sales_Finance.Controllers
                     Expenses = allExpenses,
                     Balance = balance,
                     StockRequests = displayRequests,
-                    PayrollRuns = payrollRuns
+                    PayrollSnapshots = payrollSnapshots
                 };
 
                 return View(viewModel);
@@ -1633,7 +1635,8 @@ namespace Sheessential_Sales_Finance.Controllers
                         // B. Update Balance in DB
                         var balanceFilter = Builders<Balance>.Filter.Eq(b => b.Id, balance.Id);
                         var balanceUpdate = Builders<Balance>.Update
-                            .Set(b => b.CurrentBalance, balance.CurrentBalance);
+                            .Set(b => b.CurrentBalance, balance.CurrentBalance)
+                            .Set(b => b.LastUpdated, DateTime.UtcNow);
 
                         _mongo.Balance.UpdateOne(balanceFilter, balanceUpdate);
 
@@ -1989,10 +1992,7 @@ namespace Sheessential_Sales_Finance.Controllers
                 Objects = {
                     new ObjectSettings {
                         HtmlContent = html,
-                        WebSettings = {
-                            DefaultEncoding = "utf-8",
-                            LoadImages = true
-                        }
+                        WebSettings = { DefaultEncoding = "utf-8", LoadImages = true }
                     }
                 }
             };

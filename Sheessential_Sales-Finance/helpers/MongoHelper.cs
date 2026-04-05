@@ -25,13 +25,13 @@ namespace Sheessential_Sales_Finance.helpers
         private readonly string _secondaryDbName = "db_shessentials";
         private readonly string _inventoryDbName = "InventorySystemDB";
         private readonly string _hrDbName = "HumanResourcesDB";
-
+        private readonly string _payrollDbName = "sia_payroll_db";
 
         private IMongoDatabase? _primaryDatabase;
-        private IMongoDatabase? _secondaryDatabase; 
-        private IMongoDatabase? _inventoryDatabase; 
-        private IMongoDatabase? _hrDatabase; 
-
+        private IMongoDatabase? _secondaryDatabase;
+        private IMongoDatabase? _inventoryDatabase;
+        private IMongoDatabase? _hrDatabase;
+        private IMongoDatabase? _payrollDatabase;
 
         private bool _isInitialized = false;
 
@@ -45,8 +45,10 @@ namespace Sheessential_Sales_Finance.helpers
 
             // Initialize Secondary Connection
             _secondaryDatabase = InitializeDatabase(_secondaryConnectionString, _secondaryDbName);
-            _inventoryDatabase = InitializeDatabase(_secondaryConnectionString, _inventoryDbName);
+            _inventoryDatabase = InitializeDatabase(_secondaryConnectionString, $"" +
+                $"{_inventoryDbName}");
             _hrDatabase = InitializeDatabase(_secondaryConnectionString, _hrDbName);
+            _payrollDatabase = InitializeDatabase(_secondaryConnectionString, _payrollDbName);
 
             _isInitialized = true;
         }
@@ -85,16 +87,21 @@ namespace Sheessential_Sales_Finance.helpers
         {
             if (_secondaryDatabase == null) EnsureConnection();
             return _secondaryDatabase!.GetCollection<T>(name);
-        }        
+        }
         private IMongoCollection<T> GetInventoryCollection<T>(string name)
         {
             if (_inventoryDatabase == null) EnsureConnection();
             return _inventoryDatabase!.GetCollection<T>(name);
-        }        
+        }
         private IMongoCollection<T> GetHrCollection<T>(string name)
         {
             if (_hrDatabase == null) EnsureConnection();
             return _hrDatabase!.GetCollection<T>(name);
+        }
+        private IMongoCollection<T> GetPayrollCollection<T>(string name)
+        {
+            if (_payrollDatabase == null) EnsureConnection();
+            return _payrollDatabase!.GetCollection<T>(name);
         }
 
 
@@ -111,8 +118,6 @@ namespace Sheessential_Sales_Finance.helpers
 
 
         // === SECONDARY DATABASE COLLECTIONS (db_shessentials) ===
-
-        // New Collections using the SECONDARY Database helper
         public IMongoCollection<TbOrder> TbOrder => GetSecondaryCollection<TbOrder>("tbl_order");
 
         // FIX: Renamed property to avoid conflict
@@ -129,6 +134,10 @@ namespace Sheessential_Sales_Finance.helpers
 
         public IMongoCollection<InventoryProductSales> ProductSalesInventory => GetInventoryCollection<InventoryProductSales>("ProductSales");
 
+
+        // === PAYROLL DATABASE COLLECTIONS (sia_payroll_db) ===
+        public IMongoCollection<PayrollSnapshot> PayrollSnapshots =>
+            GetPayrollCollection<PayrollSnapshot>("PayrollSnapshots");
 
         // ✅ Safe query wrapper (updated to use EnsureConnection)
         public List<T> SafeFindAll<T>(IMongoCollection<T> collection)
