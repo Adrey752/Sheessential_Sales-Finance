@@ -494,10 +494,14 @@
             const firstRun = runs[0];
 
             const statusText = firstRun.status || 'Completed';
-            const isCalculated = statusText === 'Calculated' || statusText === 'Processing';
-            const isCompleted = statusText === 'Completed';
-            const isApproved = statusText === 'Approved';
-            const isDeclined = statusText === 'Declined';
+            const normalizedStatus = (statusText || '').trim().toLowerCase();
+
+            const isPending = normalizedStatus === 'pending';
+            const isCalculated = normalizedStatus === 'calculated' || normalizedStatus === 'processing';
+            const isCompleted = normalizedStatus === 'completed';
+            const isApproved = normalizedStatus === 'approved';
+            const isDeclined = normalizedStatus === 'declined';
+
             const statusBadge = isCalculated
                 ? '<span class="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-blue-100 text-blue-800">Processing</span>'
                 : isCompleted
@@ -506,7 +510,22 @@
                         ? '<span class="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-green-100 text-green-800">✓ Approved</span>'
                         : isDeclined
                             ? '<span class="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-red-100 text-red-800">✕ Declined</span>'
-                            : `<span class="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-gray-100 text-gray-700">${esc(statusText)}</span>`;
+                            : isPending
+                                ? '<span class="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-yellow-100 text-yellow-800">Pending</span>'
+                                : `<span class="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-gray-100 text-gray-700">${esc(statusText)}</span>`;
+
+            const payrollActions = isPending
+                ? `<div class="flex gap-1.5 mt-3">
+                        <button onclick='event.stopPropagation();confirmPayroll("${firstRun.id}","Completed",${totalGross},${JSON.stringify(firstRun.payRunNumber || "")},${JSON.stringify(half)})'
+                                class="px-3 py-1 bg-green-600 text-white text-[11px] font-medium rounded-lg hover:bg-green-700">
+                            Approve
+                        </button>
+                        <button onclick='event.stopPropagation();confirmPayroll("${firstRun.id}","Declined",${totalGross},${JSON.stringify(firstRun.payRunNumber || "")},${JSON.stringify(half)})'
+                                class="px-3 py-1 bg-red-600 text-white text-[11px] font-medium rounded-lg hover:bg-red-700">
+                            Decline
+                        </button>
+                   </div>`
+                : '';
 
             html += `<div class="mb-8 bg-indigo-50 rounded-2xl p-5 border border-indigo-100">
                 <!-- Cutoff Header -->
@@ -521,7 +540,8 @@
                     <div class="text-center bg-white rounded-lg p-2 border"><p class="text-[10px] text-gray-400">Gross</p><p class="text-xs font-bold">${fmt(totalGross)}</p></div>
                     <div class="text-center bg-white rounded-lg p-2 border"><p class="text-[10px] text-gray-400">Deductions</p><p class="text-xs font-bold text-red-600">${fmt(totalDed)}</p></div>
                     <div class="text-center bg-white rounded-lg p-2 border"><p class="text-[10px] text-gray-400">Net</p><p class="text-xs font-bold text-green-700">${fmt(totalNet)}</p></div>
-                </div>`;
+                </div>
+                ${payrollActions}`;
 
             // Departments within this cutoff
             // Merge departments across runs in same cutoff
@@ -726,10 +746,68 @@
     async function approveIngredient(id,expenseId){if(!confirm('Approve this stock request?'))return;try{const res=await fetch('/Sales_Finance/UpdatedStockRequestStatus',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:`id=${encodeURIComponent(id)}&expenseId=${encodeURIComponent(expenseId||'')}`});const data=await res.json();if(data.success){alert('✅ Approved!');location.reload();}else{alert('❌ '+(data.message||'Error'));}}catch(err){alert('❌ '+err.message);}}
 
     let pendingPayrollId=null,pendingPayrollStatus=null;
-    function confirmPayroll(id,status,grossAmount,runNumber,cutoffHalf){pendingPayrollId=id;pendingPayrollStatus=status;const btn=document.getElementById('payrollConfirmBtn');const details=document.getElementById('payrollConfirmDetails');if(status==='Approved'){document.getElementById('payrollConfirmTitle').textContent='Approve & Release Payroll';document.getElementById('payrollConfirmMsg').textContent=`Release ${runNumber} (${cutoffHalf})?`;btn.className='px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium';btn.textContent='Approve';const balAfter=availableBalance-grossAmount;details.innerHTML=`<div class="flex justify-between text-sm"><span class="text-gray-500">Balance</span><span>${fmt(availableBalance)}</span></div><div class="flex justify-between text-sm"><span class="text-gray-500">Amount</span><span class="text-red-600">-${fmt(grossAmount)}</span></div><hr><div class="flex justify-between text-sm"><span class="font-medium">After</span><span class="font-bold ${balAfter<0?'text-red-600':'text-green-600'}">${fmt(balAfter)}</span></div>${balAfter<0?'<p class="text-xs text-red-500 mt-1">⚠️ Insufficient balance!</p>':''}`;details.classList.remove('hidden');}else{document.getElementById('payrollConfirmTitle').textContent='Decline Payroll';document.getElementById('payrollConfirmMsg').textContent=`Decline ${runNumber} (${cutoffHalf})?`;btn.className='px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium';btn.textContent='Decline';details.innerHTML='';details.classList.add('hidden');}document.getElementById('payrollConfirmModal').classList.remove('hidden');}
+    // 2) In confirmPayroll(...), treat Completed as approve flow
+    function confirmPayroll(id,status,grossAmount,runNumber,cutoffHalf){
+        pendingPayrollId=id;
+        pendingPayrollStatus=status;
+
+        const btn=document.getElementById('payrollConfirmBtn');
+        const details=document.getElementById('payrollConfirmDetails');
+
+        if(status==='Completed' || status==='Approved'){
+            document.getElementById('payrollConfirmTitle').textContent='Approve & Release Payroll';
+            document.getElementById('payrollConfirmMsg').textContent=`Release ${runNumber} (${cutoffHalf})?`;
+            btn.className='px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium';
+            btn.textContent='Approve';
+            const balAfter=availableBalance-grossAmount;
+            details.innerHTML=`<div class="flex justify-between text-sm"><span class="text-gray-500">Balance</span><span>${fmt(availableBalance)}</span></div><div class="flex justify-between text-sm"><span class="text-gray-500">Amount</span><span class="text-red-600">-${fmt(grossAmount)}</span></div><hr><div class="flex justify-between text-sm"><span class="font-medium">After</span><span class="font-bold ${balAfter<0?'text-red-600':'text-green-600'}">${fmt(balAfter)}</span></div>${balAfter<0?'<p class="text-xs text-red-500 mt-1">⚠️ Insufficient balance!</p>':''}`;
+            details.classList.remove('hidden');
+        }else{
+            document.getElementById('payrollConfirmTitle').textContent='Decline Payroll';
+            document.getElementById('payrollConfirmMsg').textContent=`Decline ${runNumber} (${cutoffHalf})?`;
+            btn.className='px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium';
+            btn.textContent='Decline';
+            details.innerHTML='';
+            details.classList.add('hidden');
+        }
+
+        document.getElementById('payrollConfirmModal').classList.remove('hidden');
+    }
     function closePayrollConfirm(){document.getElementById('payrollConfirmModal').classList.add('hidden');}
 
-    document.getElementById('payrollConfirmBtn').addEventListener('click',async()=>{if(!pendingPayrollId)return;try{const res=await fetch('/Sales_Finance/ReleasePayroll',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:`id=${encodeURIComponent(pendingPayrollId)}&status=${encodeURIComponent(pendingPayrollStatus)}`});const data=await res.json();if(data.success){alert(`✅ Payroll ${pendingPayrollStatus.toLowerCase()}!`);location.reload();}else{alert('❌ '+(data.message||'Error'));}}catch(err){alert('❌ '+err.message);}closePayrollConfirm();});
+    document.getElementById('payrollConfirmBtn').addEventListener('click', async () => {
+        if (!pendingPayrollId) return;
+
+        try {
+            const res = await fetch('/Sales_Finance/ReleasePayroll', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `id=${encodeURIComponent(pendingPayrollId)}&status=${encodeURIComponent(pendingPayrollStatus)}`
+            });
+
+            const raw = await res.text();
+            let data;
+
+            try {
+                data = JSON.parse(raw);
+            } catch {
+                alert('❌ Server error: ' + raw);
+                closePayrollConfirm();
+                return;
+            }
+
+            if (res.ok && data.success) {
+                alert(`✅ Payroll ${pendingPayrollStatus.toLowerCase()}!`);
+                location.reload();
+            } else {
+                alert('❌ ' + (data.message || 'Error'));
+            }
+        } catch (err) {
+            alert('❌ ' + err.message);
+        }
+
+        closePayrollConfirm();
+    });
 
     function fmt(n){return '₱'+n.toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2});}
     function esc(s){if(!s)return '';const d=document.createElement('div');d.textContent=s;return d.innerHTML;}

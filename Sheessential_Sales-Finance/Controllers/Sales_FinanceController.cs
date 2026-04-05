@@ -2034,7 +2034,7 @@ namespace Sheessential_Sales_Finance.Controllers
         public IActionResult GetExpenseBreakdown()
         {
             // Get all approved expenses (optional: include others if needed)
-            var expenses = _mongo.Expenses.Find(_ => _.Status == "Approved").ToList();
+            var expenses = _mongo.Expenses.Find(e => e.Status == "Approved").ToList();
 
             // Group by ExpenseType and sum up their total amounts
             var breakdown = expenses
@@ -2492,69 +2492,84 @@ namespace Sheessential_Sales_Finance.Controllers
         [HttpPost]
         public async Task<IActionResult> ReleasePayroll(string id, string status)
         {
-            _logger.LogInformation("ReleasePayroll triggered for PayrollRun Id: {Id} {s}", id, status);
-
-            // 1. Find the payroll run
-            var filter = Builders<PayrollRun>.Filter.Eq(r => r.Id, id);
-            var payrollRun = await _mongo.ParyrollRuns.Find(filter).FirstOrDefaultAsync();
-
-            if (payrollRun == null)
-                return Json(new { success = false, message = "PayrollRun not found." });
-
-            // 2. Decrement balance by total gross salary
-            var balance = _mongo.Balance.Find(_ => true).FirstOrDefault();
-            if (balance != null)
+            try
             {
-                balance.CurrentBalance -= payrollRun.TotalGrossSalary;
+                _logger.LogInformation("ReleasePayroll triggered for Id: {Id}, Status: {Status}", id, status);
 
-                var balanceFilter = Builders<Balance>.Filter.Eq(b => b.Id, balance.Id);
-                var balanceUpdate = Builders<Balance>.Update
-                    .Set(b => b.CurrentBalance, balance.CurrentBalance)
-                    .Set(b => b.LastUpdated, DateTime.UtcNow);
+                if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(status))
+                    return Json(new { success = false, message = "Invalid request." });
 
-                _mongo.Balance.UpdateOne(balanceFilter, balanceUpdate);
+                var normalizedStatus = status.Trim();
+                if (normalizedStatus.Equals("Approved", StringComparison.OrdinalIgnoreCase))
+                    normalizedStatus = "Completed";
+
+                // 1) Find target snapshots by the same cutoff key used by the UI
+                var allSnapshots = await _mongo.PayrollSnapshots.Find(_ => true).ToListAsync();
+                var targetSnapshots = allSnapshots
+                    .Where(s => $"{s.PayPeriodStart:yyyyMMdd}-{s.PayPeriodEnd:yyyyMMdd}" == id)
+                    .ToList();
+
+                if (!targetSnapshots.Any())
+                    return Json(new { success = false, message = $"No payroll snapshots found for cutoff {id}." });
+
+                var snapshotIds = targetSnapshots
+                    .Where(s => !string.IsNullOrWhiteSpace(s.Id))
+                    .Select(s => s.Id!)
+                    .ToList();
+
+                var grossAmount = targetSnapshots.Sum(x => x.GrossPay);
+
+                // 2) Complete flow = deduct + expense
+                if (normalizedStatus.Equals("Completed", StringComparison.OrdinalIgnoreCase))
+                {
+                    var balance = _mongo.Balance.Find(_ => true).FirstOrDefault();
+                    if (balance != null)
+                    {
+                        if (balance.CurrentBalance < grossAmount)
+                            return Json(new { success = false, message = "Insufficient balance." });
+
+                        var newBalance = balance.CurrentBalance - grossAmount;
+
+                        await _mongo.Balance.UpdateOneAsync(
+                            Builders<Balance>.Filter.Eq(b => b.Id, balance.Id),
+                            Builders<Balance>.Update
+                                .Set(b => b.CurrentBalance, newBalance)
+                                .Set(b => b.LastUpdated, DateTime.UtcNow));
+                    }
+
+                    _mongo.Expenses.InsertOne(new Expenses
+                    {
+                        ExpenseId = $"EXP-{DateTime.UtcNow.Ticks}",
+                        Department = "Finance",
+                        ExpenseType = "Salary",
+                        Description = $"Salary payout for payroll cutoff {id}",
+                        Amount = grossAmount,
+                        RequestedBy = "System",
+                        Status = "Approved",
+                        RequestedAt = DateTime.UtcNow,
+                        DateApproved = DateTime.UtcNow,
+                        Notes = "Automatically generated after payroll release.",
+                        AttachmentUrl = "",
+                        isIngredientsRequest = false,
+                        Version = 0
+                    });
+                }
+
+                // 3) Update matched snapshots by Id
+                await _mongo.PayrollSnapshots.UpdateManyAsync(
+                    Builders<PayrollSnapshot>.Filter.In(x => x.Id, snapshotIds),
+                    Builders<PayrollSnapshot>.Update
+                        .Set(x => x.Status, normalizedStatus)
+                        .Set(x => x.ProcessedAt, DateTime.UtcNow));
+
+                return Json(new { success = true, message = $"Payroll marked as {normalizedStatus}." });
             }
-
-            // 3. Update payroll run status
-            var update = Builders<PayrollRun>.Update
-                .Set(r => r.Status, status)
-                .Set(r => r.IsFinalized, true)
-                .Set(r => r.IsSentToFinance, true)
-                .Set(r => r.IsPayslipsGenerated, true)
-                .Set(r => r.ReviewedBy, "Adrial")
-                .Set(r => r.ReviewedAt, DateTime.UtcNow)
-                .Set(r => r.ApprovedBy, "Adrial")
-                .Set(r => r.ApprovalComments, "")
-                .Set(r => r.UpdatedAt, DateTime.UtcNow);
-
-            var result = await _mongo.ParyrollRuns.UpdateOneAsync(filter, update);
-
-            // 4. Create Salary Expense Record
-            var newExpense = new Expenses
+            catch (Exception ex)
             {
-                ExpenseId = $"EXP-{DateTime.UtcNow.Ticks}",   // or your preferred format
-                Department = "Finance",
-                ExpenseType = "Salary",
-                Description = $"Salary Payout for Payroll Run",
-                Amount = payrollRun.TotalGrossSalary,
-                RequestedBy = "System",
-                Status = "Approved",
-                RequestedAt = DateTime.UtcNow,
-                DateApproved = DateTime.UtcNow,
-                Notes = "Automatically generated after payroll release.",
-                AttachmentUrl = "",
-                isIngredientsRequest = false,
-                Version = 0
-            };
-
-            _mongo.Expenses.InsertOne(newExpense);
-
-            if (result.ModifiedCount > 0)
-                return Json(new { success = true });
-
-            return Json(new { success = false });
+                _logger.LogError(ex, "ReleasePayroll failed. Id: {Id}, Status: {Status}", id, status);
+                return Json(new { success = false, message = ex.Message });
+            }
         }
-
 
     }
 }
