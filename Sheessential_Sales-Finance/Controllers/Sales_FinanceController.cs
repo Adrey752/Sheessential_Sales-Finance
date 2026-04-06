@@ -2544,6 +2544,22 @@ namespace Sheessential_Sales_Finance.Controllers
             }
         }
 
+        public IActionResult ExecutivePayrollApproval()
+        {
+            var model = new ExpensesWithBalanceViewModel
+            {
+                Expenses = new List<Expenses>(),
+                StockRequests = new List<IngredientStockRequestDisplayModel>(),
+                PayrollSnapshots = _mongo.PayrollSnapshots
+                    .Find(p => p.Department == "Finance")
+                    .ToList(),
+                Balance = _mongo.Balance.Find(_ => true).FirstOrDefault()
+            };
+
+            return View(model);
+        }
+
+
         [HttpPost]
         public async Task<IActionResult> ReleasePayroll(string id, string status)
         {
