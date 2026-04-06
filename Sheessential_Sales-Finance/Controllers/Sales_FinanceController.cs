@@ -1693,7 +1693,6 @@ namespace Sheessential_Sales_Finance.Controllers
             }
         }
 
-
         // Add new expense
         [HttpPost]
         public IActionResult AddExpense(Expenses newExpense)
@@ -2487,6 +2486,62 @@ namespace Sheessential_Sales_Finance.Controllers
             };
 
             return Json(reportData);
+        }
+
+        [HttpGet]
+        public IActionResult ExpenseReportPrint(string status = "all", string sortBy = "amount")
+        {
+            try
+            {
+                var allExpenses = _mongo.Expenses
+                    .Find(e => e.isIngredientsRequest == false)
+                    .ToList();
+
+                var rawRequests = _mongo.IngredientsStockRequests.Find(_ => true).ToList();
+                var allIngredients = _mongo.Ingredients.Find(_ => true).ToList().ToDictionary(i => i.Id, i => i);
+                var allSuppliers = _mongo.Suppliers.Find(_ => true).ToList().ToDictionary(s => s.Id, s => s);
+
+                var displayRequests = rawRequests.Select(r => new IngredientStockRequestDisplayModel
+                {
+                    Id = r.Id,
+                    ExpenseId = r.ExpenseId?.ToString(),
+                    RequestStatus = r.RequestStatus,
+                    TotalCost = r.TotalCost,
+                    RequestDate = r.RequestDate,
+                    RequestedBy = r.RequestedBy,
+                    QuantityRequested = r.QuantityRequested,
+                    Unit = r.Unit,
+                    CurrentStockAtRequest = r.CurrentStockAtRequest,
+                    Instructions = r.Instructions,
+                    IngredientName = allIngredients.GetValueOrDefault(r.IngredientId.ToString())?.IngredientName ?? "Unknown Ingredient",
+                    SupplierName = allSuppliers.GetValueOrDefault(r.SupplierId.ToString())?.SupplierName ?? "Unknown Supplier"
+                }).OrderByDescending(r => r.RequestDate).ToList();
+
+                var payrollSnapshots = _mongo.PayrollSnapshots
+                    .Find(_ => true)
+                    .SortByDescending(p => p.ProcessedAt)
+                    .ToList();
+
+                var balance = _mongo.Balance.Find(_ => true).FirstOrDefault() ?? new Balance();
+
+                var viewModel = new ExpensesWithBalanceViewModel
+                {
+                    Expenses = allExpenses,
+                    Balance = balance,
+                    StockRequests = displayRequests,
+                    PayrollSnapshots = payrollSnapshots
+                };
+
+                ViewBag.FilterStatus = status;
+                ViewBag.SortBy = sortBy;
+
+                return View(viewModel);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error loading ExpenseReportPrint view.");
+                return Content("Error generating report.");
+            }
         }
 
         [HttpPost]

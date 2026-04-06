@@ -1,5 +1,4 @@
-﻿
-@model Sheessential_Sales_Finance.Models.DashboardViewModel
+﻿@model Sheessential_Sales_Finance.Models.DashboardViewModel
 @{
     ViewData["Title"] = "Dashboard";
 }
@@ -10,15 +9,22 @@
         color: #A36A66;
     }
 
-    .chart-container {
-        background-color: #ffffff;
-        padding: 1.5rem;
-        border-radius: 1rem;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
-        border: 1px solid #f0f0f0;
+    .metric-card {
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border: 2px solid transparent;
     }
 
-    /* Date range input styles */
+        .metric-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(163, 106, 102, 0.15);
+        }
+
+        .metric-card.active {
+            border-color: #A36A66;
+            box-shadow: 0 4px 16px rgba(163, 106, 102, 0.2);
+        }
+
     .date-range-inputs {
         display: none;
         gap: 0.5rem;
@@ -30,28 +36,26 @@
         }
 
     .date-input {
-        padding: 0.5rem;
+        padding: 0.4rem 0.6rem;
         border: 1px solid #d1d5db;
-        border-radius: 0.375rem;
+        border-radius: 0.5rem;
         color: #A36A66;
-        font-size: 0.875rem;
+        font-size: 0.8rem;
     }
 
         .date-input:focus {
             outline: none;
             border-color: #A36A66;
-            ring: 2px;
-            ring-color: rgba(163, 106, 102, 0.2);
         }
 
     .apply-date-btn {
-        padding: 0.5rem 1rem;
+        padding: 0.4rem 0.9rem;
         background-color: #A36A66;
         color: white;
         border: none;
-        border-radius: 0.375rem;
+        border-radius: 0.5rem;
         cursor: pointer;
-        font-size: 0.875rem;
+        font-size: 0.8rem;
         transition: background-color 0.2s;
     }
 
@@ -59,77 +63,38 @@
             background-color: #8a5a57;
         }
 
-    /* Clickable metric cards */
-    .metric-card {
+    /* Tab toggle for activity/orders */
+    .tab-btn {
+        padding: 0.4rem 1rem;
+        border-radius: 0.5rem;
+        font-size: 0.8rem;
+        font-weight: 600;
         cursor: pointer;
-        transition: all 0.2s ease;
-        border: 2px solid transparent;
+        border: none;
+        background: transparent;
+        color: #9ca3af;
+        transition: all 0.15s;
     }
 
-        .metric-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 16px rgba(163, 106, 102, 0.15);
-        }
-
-        .metric-card.active {
-            border-color: #A36A66;
-            box-shadow: 0 4px 12px rgba(163, 106, 102, 0.25);
+        .tab-btn.active {
+            background: #A36A66;
+            color: white;
         }
 </style>
 
-<div class="p-8 min-h-screen">
+<div class="p-6 min-h-screen">
 
-    <h1 class="text-3xl font-bold mb-6" style="color:#A36A66;">
-        Welcome to the Dashboard, @Model.UserName
-    </h1>
-
-    <h2 class="text-lg font-semibold mb-4" style="color:#A36A66;">
-        Dashboard Overview
-    </h2>
-
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-        <!-- Total Sales card -->
-        <div class="metric-card active rounded-2xl shadow-md px-6 py-5 border border-gray-100 flex items-center gap-4"
-             id="card-sales">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-10 w-10 text-[#A36A66]">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625C9.75 8.004 10.254 7.5 10.875 7.5h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25A1.125 1.125 0 0 1 9.75 19.875V8.625ZM16.5 4.125C16.5 3.504 17.004 3 17.625 3h2.25c.621 0 1.125.504 1.125 1.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25A1.125 1.125 0 0 1 16.5 19.875V4.125Z" />
-            </svg>
-            <div>
-                <p class="text-md font-semibold" style="color:#A36A66;">Total Sales</p>
-                <p id="totalRevenue" class="text-sm mt-1" style="color:#A36A66;">₱@Model.Revenue.ToString("N2")</p>
-            </div>
+    <!-- ── Single header ── -->
+    <div class="flex items-center justify-between mb-6">
+        <div>
+            <h1 class="text-2xl font-bold" style="color:#A36A66;">Welcome back, @Model.UserName 👋</h1>
+            <p class="text-sm text-gray-400 mt-0.5">Here's what's happening with your business.</p>
         </div>
-
-        <!-- Total Expense card -->
-        <div class="metric-card rounded-2xl shadow-md px-6 py-5 border border-gray-100 flex items-center gap-4"
-             id="card-expense">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-10 w-10 text-[#A36A66]">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c.61 0 1.17.255 1.562.686l2.853 3.804A.5.5 0 0 1 21 18.75V19.5a.5.5 0 0 1-.5.5h-15a.5.5 0 0 1-.5-.5v-1.372A.5.5 0 0 1 5.062 17.5l.235-.314M4.5 11.25h15L15 7.5M4.5 11.25l.235-.314m0 0L8.25 5.25M7.5 14.25v-3.75m0 0L8.25 5.25m-3.75 0L4.5 7.5m0 0l3-3m0 0L11.25 7.5" />
-            </svg>
-            <div>
-                <p class="text-md font-semibold" style="color:#A36A66;">Total Expense</p>
-                <p id="totalExpense" class="text-sm mt-1" style="color:#A36A66;">₱@Model.Expense.ToString("N2")</p>
-            </div>
-        </div>
-
-        <!-- Net Profit card -->
-        <div class="metric-card rounded-2xl shadow-md px-6 py-5 border border-gray-100 flex items-center gap-4"
-             id="card-profit">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-10 w-10 text-[#A36A66]">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0 1 15.375-1.849m-15.375 1.849V5.25A2.25 2.25 0 0 1 4.5 3h15a2.25 2.25 0 0 1 2.25 2.25v10.5A2.25 2.25 0 0 1 19.5 18h-15a2.25 2.25 0 0 1-2.25-2.25m15.375-1.849a2.25 2.25 0 0 0-2.25-2.25H4.5M2.25 18.75h15.375a2.25 2.25 0 0 1-2.25-2.25H4.5a2.25 2.25 0 0 1-2.25-2.25V5.25M2.25 18.75V5.25m18 13.5V5.25m0 13.5a2.25 2.25 0 0 0 2.25-2.25V5.25a2.25 2.25 0 0 0-2.25-2.25H4.5a2.25 2.25 0 0 0-2.25 2.25v10.5a2.25 2.25 0 0 0 2.25 2.25h15.375Z" />
-            </svg>
-            <div>
-                <p class="text-md font-semibold" style="color:#A36A66;">Net Profit</p>
-                <p id="netProfit" class="text-sm mt-1" style="color:#A36A66;">₱@Model.NetProfit.ToString("N2")</p>
-            </div>
-        </div>
-    </div>
-
-    @* CHARTS *@
-    <div class="flex flex-wrap items-center justify-between mb-4 gap-4">
-        <h3 id="currentDateRange" class="text-lg font-semibold" style="color:#A36A66;"></h3>
-        <div class="flex items-center gap-3">
-            <select id="timePeriodSelect" class="block w-48 rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50" style="color:#A36A66;">
+        <!-- Period selector -->
+        <div class="flex items-center gap-2 flex-wrap justify-end">
+            <select id="timePeriodSelect"
+                    class="rounded-xl border border-gray-200 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-[#A36A66]/30"
+                    style="color:#A36A66;">
                 <option value="year">This Year</option>
                 <option value="month">This Month</option>
                 <option value="week">This Week</option>
@@ -138,96 +103,172 @@
             </select>
             <div id="customDateRange" class="date-range-inputs">
                 <input type="date" id="startDate" class="date-input" />
-                <span style="color:#A36A66;">to</span>
+                <span class="text-gray-400 text-sm">to</span>
                 <input type="date" id="endDate" class="date-input" />
                 <button id="applyDateRange" class="apply-date-btn">Apply</button>
             </div>
         </div>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
-        <div class="lg:col-span-2 chart-container">
-            <h2 id="mainChartTitle" class="text-lg font-semibold mb-4" style="color:#A36A66;">Total Sales Trend</h2>
-            <div class="w-full h-80">
+    <!-- ── Period summary strip ── -->
+    <div id="periodStrip" class="mb-6 px-4 py-2.5 bg-[#A36A66]/5 border border-[#A36A66]/15 rounded-xl flex items-center gap-2 text-sm" style="color:#A36A66;">
+        <svg class="w-4 h-4 shrink-0 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+        <span>Showing data for: <strong id="currentDateRange">This Year</strong></span>
+    </div>
+
+    <!-- ── Metric cards ── -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+
+        <!-- Total Sales -->
+        <div class="metric-card active bg-white rounded-2xl shadow-sm border border-gray-100 px-6 py-5 flex items-center gap-4"
+             id="card-sales" onclick="setActiveCard('sales')">
+            <div class="w-12 h-12 rounded-xl bg-[#A36A66]/10 flex items-center justify-center shrink-0">
+                <svg class="w-6 h-6" style="color:#A36A66;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25A1.125 1.125 0 019.75 19.875V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25A1.125 1.125 0 0116.5 19.875V4.125z" />
+                </svg>
+            </div>
+            <div>
+                <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Total Sales</p>
+                <p id="totalRevenue" class="text-2xl font-bold" style="color:#A36A66;">₱@Model.Revenue.ToString("N2")</p>
+            </div>
+        </div>
+
+        <!-- Total Expense -->
+        <div class="metric-card bg-white rounded-2xl shadow-sm border border-gray-100 px-6 py-5 flex items-center gap-4"
+             id="card-expense" onclick="setActiveCard('expense')">
+            <div class="w-12 h-12 rounded-xl bg-red-50 flex items-center justify-center shrink-0">
+                <svg class="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+            </div>
+            <div>
+                <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Total Expense</p>
+                <p id="totalExpense" class="text-2xl font-bold text-red-500">₱@Model.Expense.ToString("N2")</p>
+            </div>
+        </div>
+
+        <!-- Net Profit -->
+        <div class="metric-card bg-white rounded-2xl shadow-sm border border-gray-100 px-6 py-5 flex items-center gap-4"
+             id="card-profit" onclick="setActiveCard('profit')">
+            <div class="w-12 h-12 rounded-xl bg-green-50 flex items-center justify-center shrink-0">
+                <svg class="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                </svg>
+            </div>
+            <div>
+                <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Net Profit</p>
+                <p id="netProfit" class="text-2xl font-bold text-green-600">₱@Model.NetProfit.ToString("N2")</p>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ── Charts ── -->
+    <div class="grid grid-cols-1 lg:grid-cols-5 gap-4 mb-6">
+
+        <!-- Line/Bar chart — wider -->
+        <div class="lg:col-span-3 bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+            <h2 id="mainChartTitle" class="text-sm font-semibold mb-4 text-gray-500 uppercase tracking-wider">Sales Trend</h2>
+            <div class="w-full h-72">
                 <canvas id="profitTrendChart"></canvas>
             </div>
         </div>
 
-        <div class="lg:col-span-1 chart-container">
-            <h2 id="doughnutChartTitle" class="text-lg font-semibold mb-4" style="color:#A36A66;">Expense Breakdown</h2>
-            <div class="w-full h-80 flex items-center justify-center">
+        <!-- Doughnut chart — narrower but proportional -->
+        <div class="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+            <h2 id="doughnutChartTitle" class="text-sm font-semibold mb-4 text-gray-500 uppercase tracking-wider">Expense Breakdown</h2>
+            <div class="w-full h-72 flex items-center justify-center">
                 <canvas id="expenseBreakdownChart"></canvas>
             </div>
         </div>
+
     </div>
 
-    <div class="rounded-2xl shadow-md border border-gray-100 p-6">
-        <h2 class="text-xl font-semibold mb-4" style="color:#A36A66;">Recent Activity</h2>
-        <div class="divide-y divide-gray-100">
+    <!-- ── Merged Activity + Orders with tab toggle ── -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+
+        <!-- Tab header -->
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider">Recent Activity</h2>
+            <div class="flex gap-1 bg-gray-100 p-1 rounded-xl">
+                <button class="tab-btn active" id="tab-orders" onclick="switchTab('orders')">Orders</button>
+                <button class="tab-btn" id="tab-activity" onclick="switchTab('activity')">Activity Log</button>
+            </div>
+        </div>
+
+        <!-- Orders tab -->
+        <div id="panel-orders">
+            <table class="w-full text-sm text-left text-gray-600">
+                <thead class="text-xs text-gray-400 uppercase border-b border-gray-100">
+                    <tr>
+                        <th class="py-3 px-3">Order #</th>
+                        <th class="py-3 px-3">Customer</th>
+                        <th class="py-3 px-3">Amount</th>
+                        <th class="py-3 px-3">Payment</th>
+                        <th class="py-3 px-3">Date</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-50">
+                    @foreach (var order in Model.RecentOrders)
+                    {
+                        <tr class="hover:bg-gray-50 transition-colors">
+                            <td class="py-3 px-3 font-semibold" style="color:#A36A66;">@order.OrderNumber</td>
+                            <td class="py-3 px-3 text-gray-700">@order.ShippingAddress?.FirstName @order.ShippingAddress?.LastName</td>
+                            <td class="py-3 px-3 font-bold text-gray-800">₱@order.TotalAmount.ToString("N2")</td>
+                            <td class="py-3 px-3">
+                                <span class="text-xs px-2.5 py-1 rounded-full font-semibold
+                                        @(order.PaymentStatus == "Paid" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600")">
+                                    @order.PaymentStatus
+                                </span>
+                            </td>
+                            <td class="py-3 px-3 text-gray-400 text-xs">@order.CreatedAt.ToString("MMM dd, yyyy")</td>
+                        </tr>
+                    }
+                    @if (!Model.RecentOrders.Any())
+                    {
+                        <tr>
+                            <td colspan="5" class="py-10 text-center text-gray-300 text-sm">No recent orders found.</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Activity log tab (hidden by default) -->
+        <div id="panel-activity" class="hidden">
             @if (ViewBag.ActionLogs != null && ((IEnumerable<dynamic>)ViewBag.ActionLogs).Any())
             {
-                foreach (var log in (IEnumerable<dynamic>)ViewBag.ActionLogs)
-                {
-                    <div class="py-3 flex justify-between items-start">
-                        <div class="flex flex-col text-sm w-1/4">
-                            <p class="font-semibold" style="color:#A36A66;">@log.UserName</p>
-                            <p class="text-xs text-gray-500">@log.TimeStamp.ToString("MM/dd/yyyy")</p>
-                            <p class="text-xs text-gray-500">@log.TimeStamp.ToString("hh:mm:ss tt")</p>
+                <div class="divide-y divide-gray-50">
+                    @foreach (var log in (IEnumerable<dynamic>)ViewBag.ActionLogs)
+                    {
+                        <div class="py-3 flex items-start gap-4">
+                            <div class="w-8 h-8 rounded-full bg-[#A36A66]/10 flex items-center justify-center shrink-0 mt-0.5">
+                                <span class="text-xs font-bold" style="color:#A36A66;">
+                                    @log.UserName.ToString().Substring(0, Math.Min(2, log.UserName.ToString().Length)).ToUpper()
+                                </span>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2 mb-0.5">
+                                    <p class="text-sm font-semibold" style="color:#A36A66;">@log.UserName</p>
+                                    <span class="text-xs text-gray-300">·</span>
+                                    <p class="text-xs text-gray-400">@log.TimeStamp.ToString("MMM dd, yyyy · hh:mm tt")</p>
+                                </div>
+                                <p class="text-sm text-gray-600">
+                                    <span class="font-medium">@log.Action</span> @log.Entity — @log.Description
+                                </p>
+                            </div>
                         </div>
-                        <div class="text-sm w-3/4 pl-4" style="color:#A36A66;">
-                            <p>
-                                @log.Action.ToLower()d
-                                <span class="font-semibold">@log.Entity</span> –
-                                @log.Description
-                            </p>
-                        </div>
-                    </div>
-                }
+                    }
+                </div>
             }
             else
             {
-                <p class="text-sm italic py-3" style="color:#A36A66;">No recent activity yet.</p>
+                <p class="text-sm text-gray-300 text-center py-10">No recent activity yet.</p>
             }
         </div>
-    </div>
 
-    <!-- Recent Orders Table -->
-    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mt-6 mb-8">
-        <h2 class="text-lg font-semibold mb-4" style="color:#A36A66;">Recent Orders</h2>
-        <table class="w-full text-sm text-left text-gray-600">
-            <thead class="text-xs text-gray-500 uppercase border-b">
-                <tr>
-                    <th class="py-3 px-4">Order #</th>
-                    <th class="py-3 px-4">Customer</th>
-                    <th class="py-3 px-4">Amount</th>
-                    <th class="py-3 px-4">Payment</th>
-                    <th class="py-3 px-4">Date</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var order in Model.RecentOrders)
-                {
-                    <tr class="border-b hover:bg-gray-50">
-                        <td class="py-3 px-4 font-medium text-gray-800">@order.OrderNumber</td>
-                        <td class="py-3 px-4">@order.ShippingAddress?.FirstName @order.ShippingAddress?.LastName</td>
-                        <td class="py-3 px-4 font-semibold">₱@order.TotalAmount.ToString("N2")</td>
-                        <td class="py-3 px-4">
-                            <span class="text-xs px-3 py-1 rounded-full font-medium
-                                    @(order.PaymentStatus == "Paid" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700")">
-                                @order.PaymentStatus
-                            </span>
-                        </td>
-                        <td class="py-3 px-4">@order.CreatedAt.ToString("MMM dd, yyyy")</td>
-                    </tr>
-                }
-                @if (!Model.RecentOrders.Any())
-                {
-                    <tr>
-                        <td colspan="5" class="py-6 text-center text-gray-400">No recent orders found.</td>
-                    </tr>
-                }
-            </tbody>
-        </table>
     </div>
 
 </div>
@@ -235,4 +276,84 @@
 @section Scripts {
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="~/js/Dashboard.js"></script>
+    <script>
+        // ── Tab toggle ──
+        function switchTab(tab) {
+            document.getElementById('panel-orders').classList.toggle('hidden', tab !== 'orders');
+            document.getElementById('panel-activity').classList.toggle('hidden', tab !== 'activity');
+            document.getElementById('tab-orders').classList.toggle('active', tab === 'orders');
+            document.getElementById('tab-activity').classList.toggle('active', tab === 'activity');
+        }
+
+        // ── Active card highlight ──
+        function setActiveCard(name) {
+            ['sales','expense','profit'].forEach(n => {
+                document.getElementById('card-' + n).classList.toggle('active', n === name);
+            });
+        }
+
+        // ── Sync period strip label ──
+        function updatePeriodStrip(period, startDate, endDate) {
+            const el = document.getElementById('currentDateRange');
+            const labels = {
+                year: 'This Year',
+                month: 'This Month',
+                week: 'This Week',
+                alltime: 'All Time'
+            };
+            if (period === 'custom' && startDate && endDate) {
+                el.textContent = startDate + ' – ' + endDate;
+            } else {
+                el.textContent = labels[period] || 'This Year';
+            }
+        }
+
+        // ── Patch Dashboard.js to also update cards & strip ──
+        // Override the period select handler after Dashboard.js loads
+        document.addEventListener('DOMContentLoaded', function () {
+            const sel = document.getElementById('timePeriodSelect');
+            const applyBtn = document.getElementById('applyDateRange');
+            const customDiv = document.getElementById('customDateRange');
+
+            sel.addEventListener('change', function () {
+                const val = this.value;
+                customDiv.classList.toggle('active', val === 'custom');
+                if (val !== 'custom') {
+                    updatePeriodStrip(val);
+                    fetchAndUpdateCards(val);
+                }
+            });
+
+            if (applyBtn) {
+                applyBtn.addEventListener('click', function () {
+                    const s = document.getElementById('startDate').value;
+                    const e = document.getElementById('endDate').value;
+                    if (s && e) {
+                        updatePeriodStrip('custom', s, e);
+                        fetchAndUpdateCards('custom', s, e);
+                    }
+                });
+            }
+
+            updatePeriodStrip('year');
+        });
+
+        // ── Fetch updated totals and sync cards ──
+        function fetchAndUpdateCards(period, startDate, endDate) {
+            let url = '/Sales_Finance/GetChartData?period=' + period;
+            if (startDate) url += '&startDate=' + startDate;
+            if (endDate) url += '&endDate=' + endDate;
+
+            fetch(url)
+                .then(r => r.json())
+                .then(data => {
+                    if (!data || !data.summary) return;
+                    const fmt = n => '₱' + Number(n).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    document.getElementById('totalRevenue').textContent = fmt(data.summary.totalRevenue);
+                    document.getElementById('totalExpense').textContent = fmt(data.summary.totalExpense);
+                    document.getElementById('netProfit').textContent   = fmt(data.summary.netProfit);
+                })
+                .catch(() => {});
+        }
+    </script>
 }

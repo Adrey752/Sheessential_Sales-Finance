@@ -1,0 +1,775 @@
+﻿@using Sheessential_Sales_Finance.Models
+@using Newtonsoft.Json
+@model ExpensesWithBalanceViewModel
+
+@{
+    Layout = null;
+
+    var expenses = Model?.Expenses ?? new List<Expenses>();
+    var stockRequests = Model?.StockRequests ?? new List<IngredientStockRequestDisplayModel>();
+    var payrollSnaps = Model?.PayrollSnapshots ?? new List<PayrollSnapshot>();
+    var balance = Model?.Balance?.CurrentBalance ?? 0;
+
+    string filterStatus = ViewBag.FilterStatus ?? "all";
+    string sortBy = ViewBag.SortBy ?? "amount";
+
+    // Apply status filter
+    var filteredExpenses = filterStatus == "all"
+        ? expenses
+        : expenses.Where(e => e.Status == filterStatus).ToList();
+
+    // Apply sort
+    filteredExpenses = sortBy switch
+    {
+        "count" => filteredExpenses.OrderByDescending(e => e.Amount).ToList(),
+        "name" => filteredExpenses.OrderBy(e => e.Department).ToList(),
+        _ => filteredExpenses.OrderByDescending(e => e.Amount).ToList()
+    };
+
+    // Group by department
+    var byDept = filteredExpenses
+        .GroupBy(e => string.IsNullOrWhiteSpace(e.Department) ? "Unassigned" : e.Department.Trim())
+        .OrderByDescending(g => g.Sum(e => e.Amount))
+        .ToList();
+
+    // Totals
+    var grandTotal = filteredExpenses.Sum(e => e.Amount);
+    var totalApproved = filteredExpenses.Where(e => e.Status == "Approved").Sum(e => e.Amount);
+    var totalPending = filteredExpenses.Where(e => e.Status == "Pending").Sum(e => e.Amount);
+    var totalDeclined = filteredExpenses.Where(e => e.Status == "Declined").Sum(e => e.Amount);
+    var totalIngredients = stockRequests.Sum(r => r.TotalCost);
+    var totalPayroll = payrollSnaps.Sum(p => p.GrossPay);
+
+    var dateStr = DateTime.Now.ToString("MMMM dd, yyyy");
+    var timeStr = DateTime.Now.ToString("h:mm tt");
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Expense Report by Department &mdash; @dateStr</title>
+    <style>
+        /* ── Reset ── */
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* ── Page ── */
+        html, body {
+            background: #fff;
+            color: #1a1a2e;
+            font-family: 'Georgia', 'Times New Roman', serif;
+            font-size: 12px;
+            line-height: 1.6;
+        }
+
+        body {
+            padding: 40px 48px 60px;
+        }
+
+        /* ── Header ── */
+        .rp-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            border-bottom: 3px solid #A36A66;
+            padding-bottom: 18px;
+            margin-bottom: 28px;
+        }
+
+        .rp-brand {
+        }
+
+        .rp-brand-name {
+            font-size: 22px;
+            font-weight: 700;
+            color: #A36A66;
+            letter-spacing: -0.5px;
+        }
+
+        .rp-brand-sub {
+            font-size: 11px;
+            color: #888;
+            margin-top: 2px;
+        }
+
+        .rp-meta {
+            text-align: right;
+            font-size: 10.5px;
+            color: #555;
+            line-height: 1.7;
+        }
+
+            .rp-meta strong {
+                color: #1a1a2e;
+            }
+
+        /* ── Filters strip ── */
+        .rp-filters {
+            background: #f8f5f4;
+            border-left: 3px solid #A36A66;
+            padding: 7px 14px;
+            font-size: 10.5px;
+            color: #555;
+            margin-bottom: 24px;
+            border-radius: 0 4px 4px 0;
+        }
+
+            .rp-filters strong {
+                color: #A36A66;
+            }
+
+        /* ── KPI grid ── */
+        .rp-kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 28px;
+        }
+
+        .rp-kpi {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 12px 14px;
+        }
+
+        .rp-kpi-label {
+            font-size: 9px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+            margin-bottom: 4px;
+        }
+
+        .rp-kpi-value {
+            font-size: 17px;
+            font-weight: 700;
+        }
+
+        .rp-kpi-sub {
+            font-size: 9px;
+            margin-top: 2px;
+            opacity: 0.7;
+        }
+
+        .kpi-total {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+        }
+
+            .kpi-total .rp-kpi-label, .kpi-total .rp-kpi-value {
+                color: #3730a3;
+            }
+
+        .kpi-green {
+            border-color: #bbf7d0;
+            background: #f0fdf4;
+        }
+
+            .kpi-green .rp-kpi-label, .kpi-green .rp-kpi-value {
+                color: #15803d;
+            }
+
+        .kpi-yellow {
+            border-color: #fde68a;
+            background: #fefce8;
+        }
+
+            .kpi-yellow .rp-kpi-label, .kpi-yellow .rp-kpi-value {
+                color: #92400e;
+            }
+
+        .kpi-red {
+            border-color: #fecaca;
+            background: #fef2f2;
+        }
+
+            .kpi-red .rp-kpi-label, .kpi-red .rp-kpi-value {
+                color: #991b1b;
+            }
+
+        /* ── Section heading ── */
+        .rp-section-title {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.09em;
+            color: #A36A66;
+            border-bottom: 1px solid #e5c9c7;
+            padding-bottom: 4px;
+            margin-bottom: 12px;
+            margin-top: 28px;
+        }
+
+        /* ── Department ranking table ── */
+        .rp-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+            margin-bottom: 6px;
+        }
+
+            .rp-table thead tr {
+                background: #fdf0ef;
+            }
+
+            .rp-table th {
+                padding: 7px 10px;
+                text-align: left;
+                font-size: 9.5px;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 0.06em;
+                color: #A36A66;
+                border-bottom: 2px solid #e5c9c7;
+            }
+
+                .rp-table th.right, .rp-table td.right {
+                    text-align: right;
+                }
+
+            .rp-table tbody tr {
+                border-bottom: 1px solid #f3f0ef;
+            }
+
+                .rp-table tbody tr:last-child {
+                    border-bottom: none;
+                }
+
+            .rp-table td {
+                padding: 7px 10px;
+                vertical-align: top;
+            }
+
+            .rp-table tbody tr:nth-child(even) td {
+                background: #fdf8f7;
+            }
+
+        /* ── Status badge ── */
+        .badge {
+            display: inline-block;
+            padding: 2px 7px;
+            border-radius: 999px;
+            font-size: 9.5px;
+            font-weight: 700;
+        }
+
+        .badge-green {
+            background: #dcfce7;
+            color: #15803d;
+        }
+
+        .badge-yellow {
+            background: #fef9c3;
+            color: #854d0e;
+        }
+
+        .badge-red {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .badge-blue {
+            background: #dbeafe;
+            color: #1d4ed8;
+        }
+
+        /* ── Department detail block ── */
+        .dept-block {
+            margin-bottom: 20px;
+            page-break-inside: avoid;
+        }
+
+        .dept-block-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            background: #fdf0ef;
+            border-left: 4px solid #A36A66;
+            padding: 8px 12px;
+            border-radius: 0 6px 6px 0;
+            margin-bottom: 6px;
+        }
+
+        .dept-block-name {
+            font-size: 12px;
+            font-weight: 700;
+            color: #A36A66;
+        }
+
+        .dept-block-total {
+            font-size: 13px;
+            font-weight: 700;
+            color: #1a1a2e;
+        }
+
+        .dept-stat-row {
+            display: flex;
+            gap: 16px;
+            font-size: 10px;
+            color: #555;
+            padding: 0 12px 8px;
+        }
+
+            .dept-stat-row span {
+            }
+
+        .ds-green {
+            color: #15803d;
+            font-weight: 600;
+        }
+
+        .ds-yellow {
+            color: #92400e;
+            font-weight: 600;
+        }
+
+        .ds-red {
+            color: #991b1b;
+            font-weight: 600;
+        }
+
+        /* ── Expense item rows inside dept ── */
+        .exp-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            padding: 5px 12px;
+            border-bottom: 1px dashed #f0e8e7;
+            font-size: 10.5px;
+        }
+
+            .exp-item:last-child {
+                border-bottom: none;
+            }
+
+        .exp-item-left {
+            flex: 1;
+        }
+
+        .exp-item-type {
+            font-weight: 600;
+            color: #1a1a2e;
+        }
+
+        .exp-item-by {
+            color: #888;
+            font-size: 9.5px;
+            margin-top: 1px;
+        }
+
+        .exp-item-right {
+            text-align: right;
+            white-space: nowrap;
+            margin-left: 12px;
+        }
+
+        .exp-item-amt {
+            font-weight: 700;
+            color: #1a1a2e;
+        }
+
+        .exp-item-date {
+            color: #aaa;
+            font-size: 9px;
+            margin-top: 1px;
+        }
+
+        /* ── Insight card ── */
+        .insight-card {
+            border-left: 3px solid #A36A66;
+            background: #fdf8f7;
+            padding: 9px 14px;
+            margin-bottom: 10px;
+            border-radius: 0 6px 6px 0;
+            page-break-inside: avoid;
+        }
+
+        .insight-label {
+            font-size: 9px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+            color: #A36A66;
+            margin-bottom: 3px;
+        }
+
+        .insight-text {
+            font-size: 11px;
+            color: #374151;
+        }
+
+            .insight-text strong {
+                color: #1a1a2e;
+            }
+
+        /* ── Other panels ── */
+        .panel-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 12px 14px;
+            margin-bottom: 10px;
+            page-break-inside: avoid;
+        }
+
+        .panel-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 6px;
+        }
+
+        .panel-card-title {
+            font-size: 11px;
+            font-weight: 700;
+            color: #1a1a2e;
+        }
+
+        .panel-card-amount {
+            font-size: 13px;
+            font-weight: 700;
+            color: #A36A66;
+        }
+
+        /* ── Footer ── */
+        .rp-footer {
+            margin-top: 48px;
+            padding-top: 12px;
+            border-top: 1px solid #e5e7eb;
+            font-size: 9.5px;
+            color: #aaa;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        /* ── Print tweaks ── */
+        @@page {
+            margin: 0.5cm;
+            size: A4;
+        }
+
+        @@media print {
+            body {
+                padding: 24px 32px 40px;
+            }
+
+            .no-print {
+                display: none !important;
+            }
+        }
+        }
+    </style>
+</head>
+<body onload="window.print()">
+
+    <!-- ══ HEADER ══ -->
+    <div class="rp-header">
+        <div class="rp-brand">
+            <div class="rp-brand-name">Sheessential</div>
+            <div class="rp-brand-sub">Sales &amp; Finance &mdash; Expense Report by Department</div>
+        </div>
+        <div class="rp-meta">
+            <div><strong>Generated:</strong> @dateStr &nbsp;@timeStr</div>
+            <div><strong>Filter:</strong> @(filterStatus == "all" ? "All Statuses" : filterStatus)</div>
+            <div><strong>Sorted by:</strong> @(sortBy == "amount" ? "Amount" : sortBy == "count" ? "Count" : "Name")</div>
+            <div><strong>Current Balance:</strong> &#8369;@balance.ToString("N2")</div>
+        </div>
+    </div>
+
+    <!-- ══ FILTER STRIP ══ -->
+    <div class="rp-filters">
+        Showing <strong>@filteredExpenses.Count</strong> expense request(s) across
+        <strong>@byDept.Count</strong> department(s) &nbsp;&bull;&nbsp;
+        Grand total: <strong>&#8369;@grandTotal.ToString("N2")</strong>
+    </div>
+
+    <!-- ══ KPI SUMMARY ══ -->
+    <div class="rp-kpi-grid">
+        <div class="rp-kpi kpi-total">
+            <div class="rp-kpi-label">Total Expenses</div>
+            <div class="rp-kpi-value">&#8369;@grandTotal.ToString("N2")</div>
+            <div class="rp-kpi-sub">@filteredExpenses.Count request(s)</div>
+        </div>
+        <div class="rp-kpi kpi-green">
+            <div class="rp-kpi-label">Approved</div>
+            <div class="rp-kpi-value">&#8369;@totalApproved.ToString("N2")</div>
+            <div class="rp-kpi-sub">@filteredExpenses.Count(e => e.Status == "Approved") request(s)</div>
+        </div>
+        <div class="rp-kpi kpi-yellow">
+            <div class="rp-kpi-label">Pending</div>
+            <div class="rp-kpi-value">&#8369;@totalPending.ToString("N2")</div>
+            <div class="rp-kpi-sub">@filteredExpenses.Count(e => e.Status == "Pending") request(s)</div>
+        </div>
+        <div class="rp-kpi kpi-red">
+            <div class="rp-kpi-label">Declined</div>
+            <div class="rp-kpi-value">&#8369;@totalDeclined.ToString("N2")</div>
+            <div class="rp-kpi-sub">@filteredExpenses.Count(e => e.Status == "Declined") request(s)</div>
+        </div>
+    </div>
+
+    <!-- ══ DEPARTMENT RANKING TABLE ══ -->
+    <div class="rp-section-title">Department Ranking</div>
+    <table class="rp-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Department</th>
+                <th class="right">Total</th>
+                <th class="right">Approved</th>
+                <th class="right">Pending</th>
+                <th class="right">Declined</th>
+                <th class="right">Requests</th>
+            </tr>
+        </thead>
+        <tbody>
+            @{
+                int rankIdx = 1;
+            }
+            @foreach (var grp in byDept)
+            {
+                var dTotal = grp.Sum(e => e.Amount);
+                var dApproved = grp.Where(e => e.Status == "Approved").Sum(e => e.Amount);
+                var dPending = grp.Where(e => e.Status == "Pending").Sum(e => e.Amount);
+                var dDeclined = grp.Where(e => e.Status == "Declined").Sum(e => e.Amount);
+                <tr>
+                    <td>@rankIdx</td>
+                    <td><strong>@grp.Key</strong></td>
+                    <td class="right"><strong>&#8369;@dTotal.ToString("N2")</strong></td>
+                    <td class="right" style="color:#15803d;">&#8369;@dApproved.ToString("N2")</td>
+                    <td class="right" style="color:#92400e;">&#8369;@dPending.ToString("N2")</td>
+                    <td class="right" style="color:#991b1b;">&#8369;@dDeclined.ToString("N2")</td>
+                    <td class="right">@grp.Count()</td>
+                </tr>
+                rankIdx++;
+            }
+        </tbody>
+    </table>
+
+    <!-- ══ DEPARTMENT DETAIL BREAKDOWN ══ -->
+    <div class="rp-section-title">Expense Detail by Department</div>
+
+    @foreach (var grp in byDept)
+    {
+        var dTotal = grp.Sum(e => e.Amount);
+        var dApproved = grp.Where(e => e.Status == "Approved").Sum(e => e.Amount);
+        var dPending = grp.Where(e => e.Status == "Pending").Sum(e => e.Amount);
+        var dDeclined = grp.Where(e => e.Status == "Declined").Sum(e => e.Amount);
+        var items = grp.OrderByDescending(e => e.Amount).ToList();
+
+        <div class="dept-block">
+            <div class="dept-block-header">
+                <span class="dept-block-name">@grp.Key</span>
+                <span class="dept-block-total">&#8369;@dTotal.ToString("N2")</span>
+            </div>
+            <div class="dept-stat-row">
+                <span>&#10003; Approved: <span class="ds-green">&#8369;@dApproved.ToString("N2")</span></span>
+                <span>&#9203; Pending: <span class="ds-yellow">&#8369;@dPending.ToString("N2")</span></span>
+                <span>&#10007; Declined: <span class="ds-red">&#8369;@dDeclined.ToString("N2")</span></span>
+                <span>@items.Count request(s)</span>
+            </div>
+
+            @foreach (var exp in items)
+            {
+                var badgeClass = exp.Status == "Approved" ? "badge-green"
+                : exp.Status == "Pending" ? "badge-yellow"
+                : "badge-red";
+                <div class="exp-item">
+                    <div class="exp-item-left">
+                        <div class="exp-item-type">
+                            @(exp.ExpenseType ?? "—")
+                            @if (!string.IsNullOrWhiteSpace(exp.Description))
+                            {
+                                <span style="font-weight:400;color:#666;"> &mdash; @exp.Description</span>
+                            }
+                        </div>
+                        <div class="exp-item-by">
+                            @exp.RequestedBy &nbsp;&bull;&nbsp; @exp.ExpenseId
+                            &nbsp;&bull;&nbsp; <span class="badge @badgeClass">@exp.Status</span>
+                        </div>
+                    </div>
+                    <div class="exp-item-right">
+                        <div class="exp-item-amt">&#8369;@exp.Amount.ToString("N2")</div>
+                        <div class="exp-item-date">@exp.RequestedAt.ToString("MMM dd, yyyy")</div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+    @if (!byDept.Any())
+    {
+        <p style="color:#aaa;text-align:center;padding:24px 0;">No expense data matches the selected filter.</p>
+    }
+
+    <!-- ══ INGREDIENTS / INVENTORY ══ -->
+    @if (stockRequests.Any())
+    {
+        <div class="rp-section-title">Inventory / Ingredient Requests</div>
+        <table class="rp-table">
+            <thead>
+                <tr>
+                    <th>Ingredient</th>
+                    <th>Supplier</th>
+                    <th>Requested By</th>
+                    <th class="right">Qty</th>
+                    <th class="right">Total Cost</th>
+                    <th>Status</th>
+                    <th>Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var r in stockRequests.OrderByDescending(r => r.TotalCost))
+                {
+                    var bc = r.RequestStatus != null && r.RequestStatus.StartsWith("Approved") ? "badge-green"
+                    : r.RequestStatus == "Pending" ? "badge-yellow"
+                    : "badge-red";
+                    <tr>
+                        <td><strong>@r.IngredientName</strong></td>
+                        <td>@r.SupplierName</td>
+                        <td>@r.RequestedBy</td>
+                        <td class="right">@r.QuantityRequested @r.Unit</td>
+                        <td class="right"><strong>&#8369;@r.TotalCost.ToString("N2")</strong></td>
+                        <td><span class="badge @bc">@r.RequestStatus</span></td>
+                        <td>@(r.RequestDate.HasValue? r.RequestDate.Value.ToString("MMM dd, yyyy") : "—")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        <div style="text-align:right;font-size:11px;font-weight:700;color:#A36A66;margin-top:4px;">
+            Total: &#8369;@totalIngredients.ToString("N2")
+        </div>
+    }
+
+    <!-- ══ PAYROLL ══ -->
+    @if (payrollSnaps.Any())
+    {
+        var payrollCutoffs = payrollSnaps
+        .GroupBy(p => new { p.PayPeriodStart, p.PayPeriodEnd })
+        .OrderByDescending(g => g.Key.PayPeriodStart)
+        .ToList();
+
+        <div class="rp-section-title">Payroll Summary</div>
+        <table class="rp-table">
+            <thead>
+                <tr>
+                    <th>Pay Period</th>
+                    <th class="right">Employees</th>
+                    <th class="right">Gross Pay</th>
+                    <th class="right">Deductions</th>
+                    <th class="right">Net Pay</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var cutoff in payrollCutoffs)
+                {
+                    var cGross = cutoff.Sum(p => p.GrossPay);
+                    var cNet = cutoff.Sum(p => p.NetPay);
+                    var cDed = cutoff.Sum(p => p.TotalDeductions);
+                    var cEmp = cutoff.Count();
+                    var cStatus = cutoff.All(p => p.Status == "Completed") ? "Completed"
+                    : cutoff.FirstOrDefault()?.Status ?? "—";
+                    var sbc = cStatus == "Completed" ? "badge-green"
+                    : cStatus == "Declined" ? "badge-red"
+                    : "badge-blue";
+                    <tr>
+                        <td><strong>@cutoff.Key.PayPeriodStart.ToString("MMM dd") &ndash; @cutoff.Key.PayPeriodEnd.ToString("MMM dd, yyyy")</strong></td>
+                        <td class="right">@cEmp</td>
+                        <td class="right"><strong>&#8369;@cGross.ToString("N2")</strong></td>
+                        <td class="right" style="color:#991b1b;">&#8369;@cDed.ToString("N2")</td>
+                        <td class="right" style="color:#15803d;">&#8369;@cNet.ToString("N2")</td>
+                        <td><span class="badge @sbc">@cStatus</span></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        <div style="text-align:right;font-size:11px;font-weight:700;color:#A36A66;margin-top:4px;">
+            Total Gross: &#8369;@totalPayroll.ToString("N2")
+        </div>
+    }
+
+    <!-- ══ INSIGHTS ══ -->
+    @{
+        var allDepts = byDept.ToList();
+        if (allDepts.Any())
+        {
+            var topDept = allDepts.First();
+            var topTotal = topDept.Sum(e => e.Amount);
+            var topPct = grandTotal > 0 ? Math.Round(topTotal / grandTotal * 100, 1) : 0;
+            var pendingTotal = filteredExpenses.Where(e => e.Status == "Pending").Sum(e => e.Amount);
+            var approvedCount = filteredExpenses.Count(e => e.Status == "Approved");
+            var appRate = filteredExpenses.Count > 0 ? Math.Round((double)approvedCount / filteredExpenses.Count * 100, 1) : 0;
+            var typeMap = filteredExpenses.GroupBy(e => e.ExpenseType ?? "Other")
+            .OrderByDescending(g => g.Sum(e => e.Amount))
+            .FirstOrDefault();
+
+            <div class="rp-section-title">Insights</div>
+
+            <div class="insight-card">
+                <div class="insight-label">Top Spender</div>
+                <div class="insight-text">
+                    <strong>@topDept.Key</strong> accounts for <strong>@topPct%</strong> of total spending at
+                    <strong>&#8369;@topTotal.ToString("N2")</strong>.
+                    @if (topPct > 40)
+                    {
+                        <text> This is a disproportionately large share — consider reviewing its budget.</text>
+                    }
+                </div>
+            </div>
+
+            <div class="insight-card">
+                <div class="insight-label">Approval Rate</div>
+                <div class="insight-text">
+                    Overall approval rate is <strong>@appRate%</strong> (@approvedCount of @filteredExpenses.Count requests approved).
+                    @if (appRate < 70)
+                    {
+                        <text> The approval pipeline may need attention.</text>
+                    }
+                    else
+                    {
+
+                        <text> The pipeline looks healthy.</text>
+                    }
+                </div>
+            </div>
+
+            @if (pendingTotal > 0)
+            {
+                var highPendingDept = allDepts
+                .Select(g => new { name = g.Key, amt = g.Where(e => e.Status == "Pending").Sum(e => e.Amount) })
+                .OrderByDescending(x => x.amt).First();
+                <div class="insight-card">
+                    <div class="insight-label">Highest Pending</div>
+                    <div class="insight-text">
+                        <strong>@highPendingDept.name</strong> has the most unresolved expenses at
+                        <strong>&#8369;@highPendingDept.amt.ToString("N2")</strong>.
+                    </div>
+                </div>
+            }
+
+            @if (typeMap != null)
+            {
+                var typeTotal = typeMap.Sum(e => e.Amount);
+                var typePct = grandTotal > 0 ? Math.Round(typeTotal / grandTotal * 100, 1) : 0;
+                <div class="insight-card">
+                    <div class="insight-label">Dominant Category</div>
+                    <div class="insight-text">
+                        <strong>@typeMap.Key</strong> is the highest expense type at
+                        <strong>&#8369;@typeTotal.ToString("N2")</strong> (@typePct% of total spending).
+                    </div>
+                </div>
+            }
+        }
+    }
+
+    <!-- ══ FOOTER ══ -->
+    <div class="rp-footer">
+        <span>Sheessential Sales &amp; Finance &mdash; Expense Report by Department</span>
+        <span>Generated @dateStr &nbsp;@timeStr &nbsp;&bull;&nbsp; CONFIDENTIAL</span>
+    </div>
+
+</body>
+</html>

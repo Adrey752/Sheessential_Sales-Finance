@@ -198,9 +198,9 @@
                         <li class="mb-1">
                             @{
                                 // Check for Expenses route
-                                string expensesClass = currentPath.StartsWith("/Sales_Finance/Expenses", StringComparison.OrdinalIgnoreCase) ? activeClasses : "";
+                                string expensesClass = currentPath.StartsWith("/Sales_Finance/ExpensesByDepartment", StringComparison.OrdinalIgnoreCase) ? activeClasses : "";
                             }
-                            <a asp-controller="Sales_Finance" asp-action="Expenses" class="nav-link flex items-center py-3 px-6 text-primary no-underline font-medium text-sm ml-25px hover:bg-sidebar-hover hover:text-primary hover:rounded-xl hover:mr-25px @expensesClass">
+                            <a asp-controller="Sales_Finance" asp-action="ExpensesByDepartment" class="nav-link flex items-center py-3 px-6 text-primary no-underline font-medium text-sm ml-25px hover:bg-sidebar-hover hover:text-primary hover:rounded-xl hover:mr-25px @expensesClass">
                                 <i class="fas fa-file-invoice-dollar mr-4 text-lg w-5 text-center"></i>
                                 <span class="nav-text">Expenses</span>
                             </a>
