@@ -9,44 +9,50 @@
         Payment Management
     </h1>
 
+   
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div class="bg-white rounded-2xl shadow-sm p-5 flex items-center gap-4 border border-gray-100">
+        <div class="bg-white rounded-2xl shadow-sm p-5 flex items-center gap-4 border border-gray-100 cursor-default transition-all duration-200 hover:border-[#A36A66] hover:shadow-md">
             <i class="fa-solid fa-hourglass-half text-[#A36A66] text-3xl"></i>
             <div>
                 <p class="text-sm text-gray-500">Overdue Amount</p>
-                <h2 class="text-xl font-semibold text-gray-800">₱@Model.OverdueAmount.ToString("N2")</h2>
+                <h2 class="text-xl font-semibold text-gray-800">&#8369;@Model.OverdueAmount.ToString("N2")</h2>
+                <p class="text-xs mt-0.5" style="color:#A36A66;">+3 this month</p>
             </div>
         </div>
-        <div class="bg-white rounded-2xl shadow-sm p-5 flex items-center gap-4 border border-gray-100">
+        <div class="bg-white rounded-2xl shadow-sm p-5 flex items-center gap-4 border border-gray-100 cursor-default transition-all duration-200 hover:border-[#A36A66] hover:shadow-md">
             <i class="fa-solid fa-cart-shopping text-[#A36A66] text-3xl"></i>
             <div>
                 <p class="text-sm text-gray-500">Open Amount</p>
-                <h2 class="text-xl font-semibold text-gray-800">₱@Model.OpenAmount.ToString("N2")</h2>
+                <h2 class="text-xl font-semibold text-gray-800">&#8369;@Model.OpenAmount.ToString("N2")</h2>
+                <p class="text-xs mt-0.5" style="color:#A36A66;">+8 this month</p>
             </div>
         </div>
-        <div class="bg-white rounded-2xl shadow-sm p-5 flex items-center gap-4 border border-gray-100">
+        <div class="bg-white rounded-2xl shadow-sm p-5 flex items-center gap-4 border border-gray-100 cursor-default transition-all duration-200 hover:border-[#A36A66] hover:shadow-md">
             <i class="fa-solid fa-pen-to-square text-[#A36A66] text-3xl"></i>
             <div>
                 <p class="text-sm text-gray-500">Drafted Amount</p>
-                <h2 class="text-xl font-semibold text-gray-800">₱@Model.DraftedAmount.ToString("N2")</h2>
+                <h2 class="text-xl font-semibold text-gray-800">&#8369;@Model.DraftedAmount.ToString("N2")</h2>
+                <p class="text-xs mt-0.5" style="color:#A36A66;">2 drafts pending</p>
             </div>
         </div>
-        <div class="bg-white rounded-2xl shadow-sm p-5 flex items-center gap-4 border border-gray-100">
+        <div class="bg-white rounded-2xl shadow-sm p-5 flex items-center gap-4 border border-gray-100 cursor-default transition-all duration-200 hover:border-[#A36A66] hover:shadow-md">
             <i class="fa-solid fa-user-group text-[#A36A66] text-3xl"></i>
             <div>
                 <p class="text-sm text-gray-500">Active Customer</p>
                 <h2 class="text-xl font-semibold text-gray-800">@ViewBag.ActiveUsers</h2>
+                <p class="text-xs mt-0.5" style="color:#A36A66;">+4 this month</p>
             </div>
         </div>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <!-- Left: Orders table -->
+
+        
         <div class="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-            <div class="flex justify-between items-center mb-4">
+            <div class="flex justify-between items-center mb-3 flex-wrap gap-3">
                 <h2 class="text-lg font-semibold text-gray-700">All Orders</h2>
 
-                <div class="flex items-center gap-3">
+                <div class="flex items-center gap-3 flex-wrap">
                     <a class="bg-[#A36A66] hover:bg-[#935F5B] text-white text-sm font-medium px-4 py-2 rounded-xl shadow-md transition cursor-pointer"
                        data-modal-target="newInvoiceModal">
                         <i class="fa-solid fa-plus mr-1"></i> New Order
@@ -62,6 +68,28 @@
                 </div>
             </div>
 
+           
+            <div class="flex flex-wrap gap-2 mb-4">
+                <select id="statusFilter"
+                        onchange="applyInvoiceFilters()"
+                        class="text-sm border border-gray-200 rounded-xl px-3 py-2 bg-gray-50 text-gray-600 focus:ring-2 focus:ring-pink-300 outline-none transition cursor-pointer">
+                    <option value="">All Statuses</option>
+                    <option value="Paid">Paid</option>
+                    <option value="Unpaid">Unpaid</option>
+                    <option value="Overdue">Overdue</option>
+                    <option value="Pending">Pending</option>
+                    <option value="Failed">Failed</option>
+                </select>
+                <select id="dateFilter"
+                        onchange="applyInvoiceFilters()"
+                        class="text-sm border border-gray-200 rounded-xl px-3 py-2 bg-gray-50 text-gray-600 focus:ring-2 focus:ring-pink-300 outline-none transition cursor-pointer">
+                    <option value="">All Dates</option>
+                    <option value="7">Last 7 days</option>
+                    <option value="30">Last 30 days</option>
+                    <option value="90">Last 90 days</option>
+                </select>
+            </div>
+
             <div class="overflow-x-auto">
                 <table id="invoiceTable" class="min-w-full text-sm text-left border-t border-gray-100">
                     <thead class="bg-gray-50 text-gray-600 font-medium">
@@ -74,7 +102,7 @@
                             <th class="py-3 px-4 text-center">Actions</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody id="invoiceTableBody">
                         @foreach (var order in Model.Orders)
                         {
                             var statusColor = order.PaymentStatus switch
@@ -87,13 +115,22 @@
                                 _ => "bg-gray-100 text-gray-600"
                             };
 
-                            var fullName = $"{order.ShippingAddress.FirstName} {order.ShippingAddress.LastName}";
+                            // Fix: Null-safe access to ShippingAddress
+                            var fullName = order.ShippingAddress != null
+                                ? $"{order.ShippingAddress.FirstName} {order.ShippingAddress.LastName}"
+                                : "";
 
+                            // Fix: Null-safe access to OrderNumber
+                            var invoiceNumber = order.OrderNumber != null ? order.OrderNumber.ToLower() : "";
+
+                            <!-- Added data - status and data-date - ts for the filter bar -->
                             <tr class="border-t transition cursor-pointer hover:bg-pink-50"
                                 data-id="@order.Id"
-                                data-invoice-number="@order.OrderNumber.ToLower()"
+                                data-invoice-number="@invoiceNumber"
                                 data-billed-to="@fullName.ToLower()"
                                 data-due-date="@order.CreatedAt.ToString("dd MMM yyyy").ToLower()"
+                                data-status="@order.PaymentStatus"
+                                data-date-ts="@(new DateTimeOffset(order.CreatedAt).ToUnixTimeSeconds())"
                                 onclick="selectInvoice('@order.Id')">
 
                                 <td class="py-3 px-4">
@@ -102,15 +139,18 @@
                                 <td class="py-3 px-4 font-medium text-gray-700">@order.OrderNumber</td>
                                 <td class="py-3 px-4 text-gray-600">@order.CreatedAt.ToString("dd MMM yyyy")</td>
                                 <td class="py-3 px-4 text-gray-700">@fullName</td>
-                                <td class="py-3 px-4 text-right font-semibold text-gray-800">₱@order.TotalAmount.ToString("N2")</td>
+                                <td class="py-3 px-4 text-right font-semibold text-gray-800">&#8369;@order.TotalAmount.ToString("N2")</td>
 
-                                <td class="py-3 px-4 text-center space-x-2">
-                                    <button class="text-blue-500 hover:text-blue-700"
-                                            onclick="openUpdateModal('@order.Id', '@order.OrderNumber', '@order.PaymentStatus')">
+                               
+                                <td class="py-3 px-4 text-center space-x-3">
+                                    <button class="text-blue-500 hover:text-blue-700 p-1 rounded hover:bg-blue-50 transition"
+                                            title="Update status"
+                                            onclick="event.stopPropagation(); openUpdateModal('@order.Id', '@order.OrderNumber', '@order.PaymentStatus')">
                                         <i class="fa-solid fa-pen-to-square"></i>
                                     </button>
-                                    <button class="text-red-500 hover:text-red-700"
-                                            onclick="openDeleteModal('@order.Id', '@order.OrderNumber')">
+                                    <button class="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 transition"
+                                            title="Archive order"
+                                            onclick="event.stopPropagation(); openDeleteModal('@order.Id', '@order.OrderNumber')">
                                         <i class="fa-solid fa-box-archive"></i>
                                     </button>
                                 </td>
@@ -118,17 +158,23 @@
                         }
                     </tbody>
                 </table>
+
+               
+                <div id="invoiceEmptyState" class="hidden text-center py-12 text-gray-400">
+                    <i class="fa-solid fa-clipboard-list text-4xl mb-3 block"></i>
+                    <p class="text-sm">No orders found matching your filters.</p>
+                </div>
             </div>
 
-            <!-- Pagination Controls -->
-            <div class="flex justify-between items-center mt-6 border-t border-gray-100 pt-4">
+            
+            <div class="flex justify-between items-center mt-6 border-t border-gray-100 pt-4 flex-wrap gap-3">
                 <div class="text-sm text-gray-600">
                     Showing <span class="font-medium">@(((ViewBag.CurrentPage - 1) * ViewBag.PageSize) + 1)</span>
                     to <span class="font-medium">@Math.Min(ViewBag.CurrentPage * ViewBag.PageSize, ViewBag.TotalOrders)</span>
                     of <span class="font-medium">@ViewBag.TotalOrders</span> orders
                 </div>
 
-                <div class="flex space-x-2">
+                <div class="flex space-x-2 flex-wrap">
                     @if (ViewBag.CurrentPage > 1)
                     {
                         <a href="@Url.Action("Invoices", new { page = ViewBag.CurrentPage - 1 })"
@@ -143,28 +189,22 @@
                         int maxVisiblePages = 5;
                         int startPage = Math.Max(1, currentPage - (maxVisiblePages / 2));
                         int endPage = Math.Min(totalPages, startPage + maxVisiblePages - 1);
-
-                        // Adjust start if we're near the end
                         if (endPage - startPage < maxVisiblePages - 1)
                         {
                             startPage = Math.Max(1, endPage - maxVisiblePages + 1);
                         }
                     }
 
-                    @* First page + ellipsis *@
                     @if (startPage > 1)
                     {
                         <a href="@Url.Action("Invoices", new { page = 1 })"
-                           class="px-4 py-2 bg-gray-200 rounded-lg text-gray-700 hover:bg-gray-300 text-sm transition">
-                            1
-                        </a>
+                           class="px-4 py-2 bg-gray-200 rounded-lg text-gray-700 hover:bg-gray-300 text-sm transition">1</a>
                         if (startPage > 2)
                         {
                             <span class="px-2 py-2 text-gray-500">...</span>
                         }
                     }
 
-                    @* Page numbers *@
                     @for (int i = startPage; i <= endPage; i++)
                     {
                         if (i == currentPage)
@@ -174,13 +214,10 @@
                         else
                         {
                             <a href="@Url.Action("Invoices", new { page = i })"
-                               class="px-4 py-2 bg-gray-200 rounded-lg text-gray-700 hover:bg-gray-300 text-sm transition">
-                                @i
-                            </a>
+                               class="px-4 py-2 bg-gray-200 rounded-lg text-gray-700 hover:bg-gray-300 text-sm transition">@i</a>
                         }
                     }
 
-                    @* Last page + ellipsis *@
                     @if (endPage < totalPages)
                     {
                         if (endPage < totalPages - 1)
@@ -188,9 +225,7 @@
                             <span class="px-2 py-2 text-gray-500">...</span>
                         }
                         <a href="@Url.Action("Invoices", new { page = totalPages })"
-                           class="px-4 py-2 bg-gray-200 rounded-lg text-gray-700 hover:bg-gray-300 text-sm transition">
-                            @totalPages
-                        </a>
+                           class="px-4 py-2 bg-gray-200 rounded-lg text-gray-700 hover:bg-gray-300 text-sm transition">@totalPages</a>
                     }
 
                     @if (ViewBag.CurrentPage < ViewBag.TotalPages)
@@ -204,44 +239,45 @@
             </div>
         </div>
 
-        <!-- Right: Invoice detail -->
+       
         <div class="lg:col-span-1">
+           
             <div id="invoiceDetailContainer"
                  class="w-full bg-white rounded-2xl shadow-sm border border-gray-100 p-5 text-sm text-gray-700
-                    min-h-[300px] max-h-[600px] overflow-y-auto sticky top-24">
-                <p class="text-gray-500 text-center py-10">Select an order to view details</p>
+                        min-h-[300px] max-h-[600px] overflow-y-auto sticky top-24
+                        flex flex-col items-center justify-center">
+                <div id="detailPlaceholder" class="text-center text-gray-400 py-6">
+                    <i class="fa-regular fa-file-lines text-4xl mb-3 block"></i>
+                    <p>Select an order to view details</p>
+                </div>
+                <div id="detailContent" class="hidden w-full"></div>
             </div>
         </div>
     </div>
-
-    <!-- NEW Invoice MODAL (rest of your modal code remains the same) -->
-    @* ... keep all your existing modal code ... *@
 </div>
 
-@* ... rest of your existing code for modals and scripts ... *@
 
 
-                    @* NEW Invoice MODAL *@
-<div id="newInvoiceModal" class="fixed inset-0 bg-black bg-opacity-30 hidden items-center justify-center z-50"> 
-     <div class="bg-[#fffafc] rounded-3xl shadow-lg w-[800px] max-h-[90vh] overflow-y-auto relative border border-[#D6AO9C]"> 
+<div id="newInvoiceModal" class="fixed inset-0 bg-black bg-opacity-30 hidden items-center justify-center z-50 px-4">
+    <div class="bg-[#fffafc] rounded-3xl shadow-lg w-full max-w-[800px] max-h-[90vh] overflow-y-auto relative border border-[#D6A09C]">
 
-         <div class="sticky top-0 bg-gradient-to-r from-pink-100 to-pink-50 border-b border-[#F8C4Co] rounded-t-3xl z-20 px-6 py-4 flex justify-between items-center shadow-sm"> 
-             <h1 class="text-2xl font-semibold text-gray-800 flex items-center gap-2"> 
-                 <i class="fa-solid fa-file-invoice text-[#A36A66]"></i> 
-                 New Invoice 
-             </h1> 
-             <div class="flex items-center gap-3"> 
-                 <span id="autoInvoiceNumber" 
-                       class="text-sm font-medium text-gray-700 bg-white px-3 py-1 rounded-lg border border-pink-300 shadow-sm"> 
-                     @ViewBag.NextInvoiceNumber 
-                 </span> 
-                 <button type="button" 
-                         class="text-gray-500 hover:text-gray-800 text-2xl font-bold leading-none" 
-                         data-modal-close> 
-                     &times; 
-                 </button> 
-             </div> 
-         </div>
+        <div class="sticky top-0 bg-gradient-to-r from-pink-100 to-pink-50 border-b border-[#F8C4C0] rounded-t-3xl z-20 px-6 py-4 flex justify-between items-center shadow-sm">
+            <h1 class="text-2xl font-semibold text-gray-800 flex items-center gap-2">
+                <i class="fa-solid fa-file-invoice text-[#A36A66]"></i>
+                New Invoice
+            </h1>
+            <div class="flex items-center gap-3">
+                <span id="autoInvoiceNumber"
+                      class="text-sm font-medium text-gray-700 bg-white px-3 py-1 rounded-lg border border-pink-300 shadow-sm">
+                    @ViewBag.NextInvoiceNumber
+                </span>
+                <button type="button"
+                        class="text-gray-500 hover:text-gray-800 text-2xl font-bold leading-none"
+                        data-modal-close>
+                    &times;
+                </button>
+            </div>
+        </div>
 
         <form asp-controller="Sales_Finance" asp-action="CreateInvoice" method="post" id="createInvoiceForm" class="p-6">
 
@@ -301,6 +337,7 @@
                      class="absolute mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-md hidden max-h-48 overflow-y-auto z-10"></div>
             </div>
 
+            {{-- Product table kept exactly as original so Invoice.js continues to work --}}
             <div class="border border-gray-200 rounded-xl bg-white max-h-60 overflow-y-auto shadow-inner">
                 <table class="w-full border-collapse text-sm">
                     <thead class="bg-pink-50 text-gray-600 sticky top-0 z-10">
@@ -316,9 +353,7 @@
                         {
                             var product = Model.AvailableProducts[i];
                             <tr id="product-@product.Id" class="hover:bg-pink-50 transition">
-
                                 <td class="p-2">@product.VariantName</td>
-
                                 <td class="p-2">
                                     <input type="number"
                                            name="Items[@i].Quantity"
@@ -327,15 +362,12 @@
                                            class="qtyInput w-16 border border-gray-300 rounded-lg p-1 text-center focus:ring-1 focus:ring-pink-400"
                                            data-price="@product.Price"
                                            data-stock="@product.StockQuantity" />
-
                                     <input type="hidden" name="Items[@i].ProductId" value="@product.Id" />
-                                    <input type="hidden" name="Items[@i].ProductName" value="@product.VariantName" /> <input type="hidden" name="Items[@i].Price" value="@product.Price" />
-
+                                    <input type="hidden" name="Items[@i].ProductName" value="@product.VariantName" />
+                                    <input type="hidden" name="Items[@i].Price" value="@product.Price" />
                                 </td>
-
-                                <td class="p-2">₱@product.Price.ToString("N2")</td>
-
-                                <td class="p-2 text-right font-medium text-gray-800 amountCell">₱0.00</td>
+                                <td class="p-2">&#8369;@product.Price.ToString("N2")</td>
+                                <td class="p-2 text-right font-medium text-gray-800 amountCell">&#8369;0.00</td>
                             </tr>
                         }
                     </tbody>
@@ -343,9 +375,9 @@
             </div>
 
             <div class="text-sm space-y-1 text-right mt-4 border-t border-gray-200 pt-3">
-                <p><span class="text-gray-500">Subtotal</span> <span id="invoiceSubtotal" class="font-medium">₱0.00</span></p>
-                <p><span class="text-gray-500">Tax</span> <span class="font-medium">₱0.00</span></p>
-                <p class="font-bold text-gray-800 text-lg">TOTAL <span id="invoiceTotal">₱0.00</span></p>
+                <p><span class="text-gray-500">Subtotal</span> <span id="invoiceSubtotal" class="font-medium">&#8369;0.00</span></p>
+                <p><span class="text-gray-500">Tax</span> <span class="font-medium">&#8369;0.00</span></p>
+                <p class="font-bold text-gray-800 text-lg">TOTAL <span id="invoiceTotal">&#8369;0.00</span></p>
             </div>
 
             <h2 class="text-lg font-bold mt-6 mb-2 text-gray-800">NOTES</h2>
@@ -369,11 +401,17 @@
                 </button>
             </div>
         </form>
-       </div>
     </div>
+</div>
+
+
+
 <div id="updateModal" class="fixed inset-0 bg-black bg-opacity-40 hidden items-center justify-center z-50">
     <div class="bg-white rounded-2xl shadow-lg w-[400px] p-6 relative">
-        <button type="button" class="absolute top-3 right-4 text-gray-500 hover:text-gray-800 text-xl font-bold" onclick="closeModal('updateModal')">&times;</button>
+        <button type="button" class="absolute top-3 right-4 text-gray-500 hover:text-gray-800 text-xl font-bold"
+                onclick="closeModal('updateModal')">
+            &times;
+        </button>
 
         <h2 class="text-lg font-semibold mb-4">Update Invoice Status</h2>
 
@@ -385,49 +423,276 @@
             <select id="updateStatus" class="w-full border border-gray-300 rounded-xl p-2 mt-1 text-sm focus:ring-1 focus:ring-pink-400">
                 <option value="Paid">Paid</option>
                 <option value="Unpaid">Unpaid</option>
+                <option value="Overdue">Overdue</option>
+                <option value="Pending">Pending</option>
+                <option value="Failed">Failed</option>
             </select>
 
             <div class="flex justify-end gap-3 mt-6">
-                <button type="button" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-xl" onclick="closeModal('updateModal')">Cancel</button>
-                <button type="submit" class="px-4 py-2 bg-[#A36A66] hover:bg-pink-600 text-white rounded-xl">Update</button>
+                <button type="button" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-xl"
+                        onclick="closeModal('updateModal')">
+                    Cancel
+                </button>
+                <button type="submit" class="px-4 py-2 bg-[#A36A66] hover:bg-[#935F5B] text-white rounded-xl">Update</button>
             </div>
         </form>
     </div>
 </div>
 
+
 <div id="deleteModal" class="fixed inset-0 bg-black bg-opacity-40 hidden items-center justify-center z-50">
     <div class="bg-white rounded-2xl shadow-lg w-[400px] p-6 relative">
-        <button type="button" class="absolute top-3 right-4 text-gray-500 hover:text-gray-800 text-xl font-bold" onclick="closeModal('deleteModal')">&times;</button>
+        <button type="button" class="absolute top-3 right-4 text-gray-500 hover:text-gray-800 text-xl font-bold"
+                onclick="closeModal('deleteModal')">
+            &times;
+        </button>
 
         <h2 class="text-lg font-semibold mb-4 text-red-600">Delete Invoice</h2>
         <p class="text-sm text-gray-600 mb-2">To confirm deletion, type:</p>
-        <p class="text-sm font-semibold mb-4 text-gray-800">delete_<span id="deleteInvoiceNumber"></span></p>
+        <p class="text-sm font-semibold mb-4">
+            <span class="inline-block bg-red-50 border border-red-100 text-red-800 rounded-lg px-3 py-1.5">
+                delete_<span id="deleteInvoiceNumber"></span>
+            </span>
+        </p>
 
         <input type="hidden" id="deleteInvoiceId" />
-        <input id="deleteConfirmInput" type="text" class="w-full border border-gray-300 rounded-xl p-2 text-sm mb-4 focus:ring-1 focus:ring-pink-400" placeholder="Type confirmation..." />
+        <input id="deleteConfirmInput" type="text"
+               class="w-full border border-gray-300 rounded-xl p-2 text-sm mb-4 focus:ring-1 focus:ring-pink-400 outline-none transition"
+               placeholder="Type confirmation..." />
 
         <div class="flex justify-end gap-3">
-            <button type="button" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-xl" onclick="closeModal('deleteModal')">Cancel</button>
-            <button id="confirmDeleteBtn" type="submit" disabled class="px-4 py-2 bg-red-400 text-white rounded-xl opacity-70 cursor-not-allowed">Delete</button>
+            <button type="button" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-xl"
+                    onclick="closeModal('deleteModal')">
+                Cancel
+            </button>
+            <button id="confirmDeleteBtn" type="button" disabled
+                    class="px-4 py-2 rounded-xl font-medium transition-all duration-200 bg-red-200 text-red-400 cursor-not-allowed"
+                    onclick="submitDelete()">
+                Delete
+            </button>
         </div>
     </div>
 </div>
+
+
 @{
     var ordersJson = System.Text.Json.JsonSerializer.Serialize(Model.Orders);
     var customersJson = System.Text.Json.JsonSerializer.Serialize(Model.Customers);
     var productsJson = System.Text.Json.JsonSerializer.Serialize(Model.AvailableProducts);
 }
 
-
 <script>
     window.appData = {
-        invoices: @Html.Raw(ViewBag.OrdersJson ?? "[]"),
-        customers: @Html.Raw(ViewBag.CustomersJson ?? "[]"),
+        invoices:          @Html.Raw(ViewBag.OrdersJson ?? "[]"),
+        customers:         @Html.Raw(ViewBag.CustomersJson ?? "[]"),
         availableProducts: @Html.Raw(ViewBag.ProductsJson ?? "[]")
     };
 </script>
 <script>
     window.logoPath = '@Url.Content("~/images/Logo.jpg")';
+</script>
+
+<script>
+    (function () {
+
+        /* ── Modal open/close (data-modal-target & data-modal-close attributes) ── */
+        document.addEventListener('click', function (e) {
+            var t = e.target.closest('[data-modal-target]');
+            if (t) {
+                var m = document.getElementById(t.dataset.modalTarget);
+                if (m) { m.classList.remove('hidden'); m.classList.add('flex'); }
+            }
+            var c = e.target.closest('[data-modal-close]');
+            if (c) {
+                var modal = c.closest('.fixed');
+                if (modal) { modal.classList.add('hidden'); modal.classList.remove('flex'); }
+            }
+        });
+
+        window.closeModal = function (id) {
+            var el = document.getElementById(id);
+            if (el) { el.classList.add('hidden'); el.classList.remove('flex'); }
+        };
+
+        /* ── Update modal ── */
+        window.openUpdateModal = function (id, number, status) {
+            document.getElementById('updateInvoiceId').value           = id;
+            document.getElementById('updateInvoiceNumber').textContent  = number;
+            document.getElementById('updateStatus').value               = status;
+            var m = document.getElementById('updateModal');
+            m.classList.remove('hidden'); m.classList.add('flex');
+        };
+
+        /* ── Delete modal ── */
+        window.openDeleteModal = function (id, number) {
+            document.getElementById('deleteInvoiceId').value                = id;
+            document.getElementById('deleteInvoiceNumber').textContent       = number;
+            document.getElementById('deleteConfirmInput').value              = '';
+            var btn = document.getElementById('confirmDeleteBtn');
+            btn.disabled  = true;
+            btn.className = 'px-4 py-2 rounded-xl font-medium transition-all duration-200 bg-red-200 text-red-400 cursor-not-allowed';
+            var m = document.getElementById('deleteModal');
+            m.classList.remove('hidden'); m.classList.add('flex');
+        };
+
+        /* Toggle delete button when typed text matches */
+        var deleteInput = document.getElementById('deleteConfirmInput');
+        if (deleteInput) {
+            deleteInput.addEventListener('input', function () {
+                var expected = 'delete_' + document.getElementById('deleteInvoiceNumber').textContent;
+                var btn      = document.getElementById('confirmDeleteBtn');
+                if (this.value === expected) {
+                    btn.disabled  = false;
+                    btn.className = 'px-4 py-2 rounded-xl font-medium transition-all duration-200 bg-red-500 hover:bg-red-600 text-white cursor-pointer';
+                } else {
+                    btn.disabled  = true;
+                    btn.className = 'px-4 py-2 rounded-xl font-medium transition-all duration-200 bg-red-200 text-red-400 cursor-not-allowed';
+                }
+            });
+        }
+
+        /* Wire up submitDelete — replace the fetch URL with your actual endpoint */
+        window.submitDelete = function () {
+            var id = document.getElementById('deleteInvoiceId').value;
+            /* Example:
+               fetch('/Sales_Finance/DeleteOrder/' + id, { method: 'POST' })
+                 .then(function () { location.reload(); });
+            */
+            closeModal('deleteModal');
+        };
+
+        /* ── Filter bar ── */
+        window.applyInvoiceFilters = function () {
+            var q      = (document.getElementById('searchBox').value || '').toLowerCase();
+            var status = document.getElementById('statusFilter').value;
+            var days   = parseInt(document.getElementById('dateFilter').value) || 0;
+            var now    = Math.floor(Date.now() / 1000);
+            var rows   = document.querySelectorAll('#invoiceTableBody tr[data-id]');
+            var visible = 0;
+
+            rows.forEach(function (row) {
+                var matchQ = !q      || row.dataset.invoiceNumber.includes(q) || row.dataset.billedTo.includes(q);
+                var matchS = !status || row.dataset.status === status;
+                var ts     = parseInt(row.dataset.dateTs || '0');
+                var matchD = !days   || (now - ts) <= days * 86400;
+                var show   = matchQ && matchS && matchD;
+                row.style.display = show ? '' : 'none';
+                if (show) visible++;
+            });
+
+            var empty = document.getElementById('invoiceEmptyState');
+            if (empty) empty.classList.toggle('hidden', visible > 0);
+        };
+
+        /* Hook the existing search box into the same filter */
+        var searchBox = document.getElementById('searchBox');
+        if (searchBox) {
+            searchBox.addEventListener('input', window.applyInvoiceFilters);
+        }
+
+        /* ── Detail panel ── */
+        window.selectInvoice = function (id) {
+            /* Highlight active row */
+            document.querySelectorAll('#invoiceTableBody tr[data-id]').forEach(function (r) {
+                if (r.dataset.id === String(id)) {
+                    r.classList.add('bg-pink-100');
+                    r.classList.remove('hover:bg-pink-50');
+                } else {
+                    r.classList.remove('bg-pink-100');
+                    r.classList.add('hover:bg-pink-50');
+                }
+            });
+
+            var invoice = (window.appData.invoices || []).find(function (o) {
+                return String(o.Id) === String(id);
+            });
+            if (!invoice) return;
+
+            var placeholder = document.getElementById('detailPlaceholder');
+            var content     = document.getElementById('detailContent');
+            var container   = document.getElementById('invoiceDetailContainer');
+
+            if (placeholder) placeholder.classList.add('hidden');
+            container.classList.remove('items-center', 'justify-center');
+
+            var statusColors = {
+                'Paid':    'bg-[#763F62] text-white',
+                'Unpaid':  'bg-[#A36A66] text-white',
+                'Overdue': 'bg-yellow-100 text-yellow-600',
+                'Pending': 'bg-blue-100 text-blue-600',
+                'Failed':  'bg-red-100 text-red-600'
+            };
+            var badge    = statusColors[invoice.PaymentStatus] || 'bg-gray-100 text-gray-600';
+            var addr     = invoice.ShippingAddress || {};
+            var fullName = ((addr.FirstName || '') + ' ' + (addr.LastName || '')).trim();
+            var dateStr  = invoice.CreatedAt
+                ? new Date(invoice.CreatedAt).toLocaleDateString('en-PH', { day: '2-digit', month: 'short', year: 'numeric' })
+                : '—';
+            var amount   = parseFloat(invoice.TotalAmount || 0)
+                .toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+            /* Build items section if data is available */
+            var itemsHtml = '';
+            if (Array.isArray(invoice.OrderItems) && invoice.OrderItems.length) {
+                itemsHtml += '<div class="bg-pink-50 rounded-xl p-3 mt-3">'
+                    + '<p class="text-xs font-semibold mb-2 uppercase tracking-wide" style="color:#A36A66;">Items</p>';
+                invoice.OrderItems.forEach(function (item) {
+                    var line = parseFloat((item.Price || 0) * (item.Quantity || 0))
+                        .toLocaleString('en-PH', { minimumFractionDigits: 2 });
+                    itemsHtml += '<div class="flex justify-between text-xs text-gray-600 mb-1">'
+                        + '<span>' + (item.ProductName || '') + ' &times; ' + (item.Quantity || 0) + '</span>'
+                        + '<span class="font-medium text-gray-800">&#8369;' + line + '</span>'
+                        + '</div>';
+                });
+                itemsHtml += '</div>';
+            }
+
+            content.classList.remove('hidden');
+            content.style.opacity    = '0';
+            content.style.transform  = 'translateX(10px)';
+            content.style.transition = 'opacity 0.18s ease, transform 0.18s ease';
+
+            content.innerHTML =
+                '<div class="flex justify-between items-center mb-4">'
+                +   '<span class="text-base font-semibold text-gray-800">' + invoice.OrderNumber + '</span>'
+                +   '<span class="text-xs px-3 py-1 rounded-full font-medium ' + badge + '">' + invoice.PaymentStatus + '</span>'
+                + '</div>'
+                + '<div class="space-y-2 text-sm">'
+                +   '<div class="flex justify-between border-b border-gray-100 pb-2">'
+                +     '<span class="text-gray-500">Customer</span>'
+                +     '<span class="font-medium text-gray-800">' + fullName + '</span>'
+                +   '</div>'
+                +   '<div class="flex justify-between border-b border-gray-100 pb-2">'
+                +     '<span class="text-gray-500">Date</span>'
+                +     '<span class="text-gray-700">' + dateStr + '</span>'
+                +   '</div>'
+                +   '<div class="flex justify-between border-b border-gray-100 pb-2">'
+                +     '<span class="text-gray-500">Amount</span>'
+                +     '<span class="font-semibold" style="color:#A36A66;">&#8369;' + amount + '</span>'
+                +   '</div>'
+                + '</div>'
+                + itemsHtml
+                + '<div class="flex gap-2 mt-5">'
+                +   '<button onclick="openUpdateModal(\'' + invoice.Id + '\',\'' + invoice.OrderNumber + '\',\'' + invoice.PaymentStatus + '\')" '
+                +           'style="background:#A36A66;" '
+                +           'onmouseover="this.style.background=\'#935F5B\'" '
+                +           'onmouseout="this.style.background=\'#A36A66\'" '
+                +           'class="flex-1 text-white text-xs font-medium py-2 rounded-xl transition">'
+                +     'Update Status'
+                +   '</button>'
+                +   '<button onclick="openDeleteModal(\'' + invoice.Id + '\',\'' + invoice.OrderNumber + '\')" '
+                +           'class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-medium py-2 rounded-xl transition">'
+                +     'Archive'
+                +   '</button>'
+                + '</div>';
+
+            requestAnimationFrame(function () {
+                content.style.opacity   = '1';
+                content.style.transform = 'translateX(0)';
+            });
+        };
+
+    })();
 </script>
 
 <script src="~/js/Invoice.js"></script>
