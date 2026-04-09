@@ -265,7 +265,7 @@
             </button>
             <!-- ═══ GENERATE REPORT BUTTON ═══ -->
             <button onclick="openReport()"
-                    class="px-5 py-2.5 bg-indigo-600 text-white rounded-xl hover:opacity-90 transition-all shadow-md flex items-center gap-2 text-sm font-medium">
+                    class="px-5 py-2.5 bg-green-500 text-white  text-white rounded-xl hover:opacity-90 transition-all shadow-md flex items-center gap-2 text-sm font-medium">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                 </svg>
@@ -383,15 +383,13 @@
         }
 
         <!-- ═══ UTILITIES CARD ═══ -->
-        <div class="bg-white rounded-2xl shadow-md hover:shadow-lg transition-shadow border border-cyan-100 flex flex-col cursor-pointer"
+        <div class="bg-white rounded-2xl shadow-md hover:shadow-lg transition-shadow border border-gray-100 flex flex-col cursor-pointer"
              onclick="openUtilitiesPanel()">
-            <div class="p-5 border-b border-cyan-50">
+            <div class="p-5 border-b border-gray-100">
                 <div class="flex items-start justify-between mb-3">
                     <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 bg-cyan-100 rounded-lg flex items-center justify-center">
-                            <svg class="w-5 h-5 text-cyan-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                            </svg>
+                        <div class="w-10 h-10 bg-[#A36A66]/10 rounded-lg flex items-center justify-center">
+                            <span class="text-[#A36A66] font-bold text-sm">UT</span>
                         </div>
                         <div>
                             <h3 class="text-lg font-semibold text-gray-900">Utilities</h3>
@@ -407,7 +405,7 @@
                         Compare
                     </button>
                 </div>
-                <p class="text-2xl font-bold text-cyan-600">₱@utilityTotal.ToString("N2")</p>
+                <p class="text-2xl font-bold text-[#A36A66]">₱@utilityTotal.ToString("N2")</p>
                 <p class="text-xs text-gray-400 mt-1">Total utility expenses</p>
             </div>
 
@@ -450,9 +448,9 @@
                 </div>
             </div>
 
-            <div class="px-5 py-3 mt-auto border-t border-cyan-100 bg-cyan-50/50 rounded-b-2xl">
-                <span class="text-sm text-cyan-600 font-medium flex items-center gap-1">
-                    Click to view all utility expenses
+            <div class="px-5 py-3 mt-auto border-t border-gray-100 bg-gray-50 rounded-b-2xl">
+                <span class="text-sm text-[#A36A66] font-medium flex items-center gap-1">
+                    Click to view all requests
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
                 </span>
             </div>
@@ -471,15 +469,15 @@
              onclick='openDeptPanel("ingredient", "Inventory / Ingredients", [], @Html.Raw(JsonConvert.SerializeObject(stockRequestsJson)))'>
             <div class="p-5 border-b border-gray-100">
                 <div class="flex items-center gap-3 mb-3">
-                    <div class="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
-                        <svg class="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+                    <div class="w-10 h-10 bg-[#A36A66]/10 rounded-lg flex items-center justify-center">
+                        <span class="text-[#A36A66] font-bold text-sm">IN</span>
                     </div>
                     <div>
                         <h3 class="text-lg font-semibold text-gray-900">Inventory / Ingredients</h3>
                         <p class="text-xs text-gray-400">@stockRequests.Count request(s)</p>
                     </div>
                 </div>
-                <p class="text-2xl font-bold text-orange-600">₱@ingredientTotal.ToString("N2")</p>
+                <p class="text-2xl font-bold text-[#A36A66]">₱@ingredientTotal.ToString("N2")</p>
             </div>
             <div class="px-5 py-4 space-y-2">
                 <div class="flex items-center justify-between text-sm">
@@ -496,7 +494,10 @@
                 </div>
             </div>
             <div class="px-5 py-3 mt-auto border-t border-gray-100 bg-gray-50 rounded-b-2xl">
-                <span class="text-sm text-orange-600 font-medium flex items-center gap-1">Click to view all requests <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg></span>
+                <span class="text-sm text-[#A36A66] font-medium flex items-center gap-1">
+                    Click to view all requests
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                </span>
             </div>
         </div>
 
@@ -511,15 +512,15 @@
                  onclick='openDeptPanel("payroll", "Payroll", [], @Html.Raw(JsonConvert.SerializeObject(payrollCutoffs)))'>
                 <div class="p-5 border-b border-gray-100">
                     <div class="flex items-center gap-3 mb-3">
-                        <div class="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
-                            <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                        <div class="w-10 h-10 bg-[#A36A66]/10 rounded-lg flex items-center justify-center">
+                            <span class="text-[#A36A66] font-bold text-sm">PA</span>
                         </div>
                         <div>
                             <h3 class="text-lg font-semibold text-gray-900">Payroll</h3>
                             <p class="text-xs text-gray-400">@payrollCutoffs.Count cutoff(s)</p>
                         </div>
                     </div>
-                    <p class="text-2xl font-bold text-indigo-600">₱@payrollTotal.ToString("N2")</p>
+                    <p class="text-2xl font-bold text-[#A36A66]">₱@payrollTotal.ToString("N2")</p>
                     <p class="text-xs text-gray-400 mt-1">Total gross salary</p>
                 </div>
                 <div class="px-5 py-4 space-y-2">
@@ -534,7 +535,10 @@
                     </div>
                 </div>
                 <div class="px-5 py-3 mt-auto border-t border-gray-100 bg-gray-50 rounded-b-2xl">
-                    <span class="text-sm text-indigo-600 font-medium flex items-center gap-1">Click to view all cutoffs & breakdowns <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg></span>
+                    <span class="text-sm text-[#A36A66] font-medium flex items-center gap-1">
+                        Click to view all cutoffs & breakdowns
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                    </span>
                 </div>
             </div>
         }
