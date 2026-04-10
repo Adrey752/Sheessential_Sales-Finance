@@ -1539,6 +1539,13 @@ namespace Sheessential_Sales_Finance.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error loading ExpensesByDepartment view.");
+
+                // TEMP DEBUG: show full exception in browser during development
+                if (_env != null && _env.EnvironmentName == "Development")
+                {
+                    return Content(ex.ToString(), "text/plain");
+                }
+
                 return View(new ExpensesWithBalanceViewModel());
             }
         }

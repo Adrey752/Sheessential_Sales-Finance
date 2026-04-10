@@ -10,7 +10,7 @@
         // Document ID (Primary Key)
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
-        public string Id { get; set; }
+        public required string Id { get; set; }
 
         [BsonElement("payslipsGeneratedAt")]
         public DateTime? PayrollDate { get; set; }        
@@ -33,20 +33,20 @@
 
         // Run Metadata
         [BsonElement("payPeriodType")]
-        public string PayPeriodType { get; set; } // e.g., "Semi-Monthly", "Monthly"
+        public required string PayPeriodType { get; set; } // e.g., "Semi-Monthly", "Monthly"
 
         [BsonElement("payRunNumber")]
-        public string PayRunNumber { get; set; }        
+        public required string PayRunNumber { get; set; }        
         
         [BsonElement("paidBy")]
-        public string PaidBy { get; set; }        
+        public required string PaidBy { get; set; }        
         
         
         [BsonElement("paidAt")]
-        public string PaidAt { get; set; }
+        public required string PaidAt { get; set; }
 
         [BsonElement("description")]
-        public string Description { get; set; }
+        public required string Description { get; set; }
 
         [BsonElement("totalEmployees")]
         public int TotalEmployees { get; set; }    
@@ -128,13 +128,13 @@
         // Employee References
         [BsonElement("employeeId")]
         [BsonRepresentation(BsonType.ObjectId)]
-        public string EmployeeId { get; set; }
+        public required string EmployeeId { get; set; }
 
         [BsonElement("employeeName")]
-        public string EmployeeName { get; set; }
+        public required string EmployeeName { get; set; }
 
         [BsonElement("department")]
-        public string Department { get; set; }        
+        public required string Department { get; set; }        
         
         [BsonElement("daysLate")]
         public int DaystLate { get; set; }        [
@@ -143,7 +143,7 @@
         public int MinutesLate { get; set; }
 
         [BsonElement("position")]
-        public string Position { get; set; }        
+        public required string Position { get; set; }        
         
 
 
