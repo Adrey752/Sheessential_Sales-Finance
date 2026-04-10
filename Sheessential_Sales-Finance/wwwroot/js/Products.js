@@ -325,7 +325,6 @@ async function loadProductSales(period, startDate, endDate) {
 
         var data = await response.json();
 
-        // Update total units sold for the selected product based on the period
         var totalUnitsSold = 0;
         if (Array.isArray(data)) {
             totalUnitsSold = data.reduce(function (sum, x) {
@@ -343,7 +342,6 @@ async function loadProductSales(period, startDate, endDate) {
             return;
         }
 
-        // Rebuild gradient for current canvas size
         var chartCtx = productChart.ctx;
         var gradient = createGradient(chartCtx, THEME.primaryGradientStart, THEME.primaryGradientEnd);
 
@@ -610,7 +608,6 @@ function updateTopProductsChart(topProducts) {
 
     var listContainer = document.getElementById("topProductsList");
 
-    // Handle empty state
     if (!topProducts || topProducts.length === 0) {
         topProductsChart = new Chart(canvas.getContext('2d'), {
             type: "doughnut",
@@ -665,7 +662,6 @@ function updateTopProductsChart(topProducts) {
         }
     });
 
-    // Render legend list
     if (listContainer) {
         var legendHtml = '<h3 class="font-semibold mb-4 text-gray-800 text-sm">Top ' + topProducts.length + ' Products</h3>'
             + '<div class="space-y-3">';
@@ -693,60 +689,391 @@ function updateTopProductsChart(topProducts) {
 
 /* ============================================================
     PDF GENERATION
+    Renders charts fresh onto offscreen canvases (no html2canvas
+    needed for charts), builds a professional printable report.
     ============================================================ */
 async function generatePdfReport() {
     showLoader();
     try {
-        var period = selectedPeriod;
-        var sel = document.getElementById("dateRangeSelect");
-        var periodText = sel.options[sel.selectedIndex].text;
+        var BRAND = '#A36A66';
+        var LIGHT = '#FBEAEB';
+        var DCOLORS = ["#EC4899", "#3B82F6", "#10B981", "#F59E0B", "#8B5CF6", "#EF4444", "#06B6D4"];
 
-        if (period === "custom" && customStartDate && customEndDate) {
-            periodText = formatDate(new Date(customStartDate)) + ' - ' + formatDate(new Date(customEndDate));
+        // ── 1. Period label ──────────────────────────────────────
+        var sel = document.getElementById("dateRangeSelect");
+        var periodLabel = sel ? sel.options[sel.selectedIndex].text : "All Time";
+        if (selectedPeriod === "custom" && customStartDate && customEndDate)
+            periodLabel = formatDate(new Date(customStartDate)) + " – " + formatDate(new Date(customEndDate));
+
+        // ── 2. Summary ───────────────────────────────────────────
+        var summaryUrl = '/Sales_Finance/GetSalesSummaryByPeriod?period=' + selectedPeriod;
+        if (customStartDate && customEndDate)
+            summaryUrl += '&startDate=' + customStartDate + '&endDate=' + customEndDate;
+        var summaryResp = await fetch(summaryUrl);
+        if (!summaryResp.ok) throw new Error("Summary fetch failed (" + summaryResp.status + ")");
+        var summary = await summaryResp.json();
+
+        // ── 3. Report data ───────────────────────────────────────
+        var reportUrl = '/Sales_Finance/SalesReportData?period=' + selectedPeriod;
+        if (customStartDate && customEndDate)
+            reportUrl += '&startDate=' + customStartDate + '&endDate=' + customEndDate;
+        var reportResp = await fetch(reportUrl);
+        if (!reportResp.ok) throw new Error("Report fetch failed (" + reportResp.status + ")");
+        var reportData = await reportResp.json();
+
+        var chartLabels = (reportData && reportData.chartLabels) || [];
+        var chartValues = (reportData && reportData.chartValues) || [];
+        var topProducts = (reportData && reportData.topProducts) || [];
+
+        // ── 4. Render revenue line chart onto offscreen canvas ───
+        var revenueImg = await (function () {
+            return new Promise(function (resolve) {
+                var c = document.createElement('canvas');
+                c.width = 1100; c.height = 340;
+                var ctx = c.getContext('2d');
+
+                if (!chartLabels.length) {
+                    ctx.fillStyle = '#f9fafb';
+                    ctx.fillRect(0, 0, c.width, c.height);
+                    ctx.fillStyle = '#9ca3af';
+                    ctx.font = '16px Segoe UI';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('No revenue data for this period', c.width / 2, c.height / 2);
+                    return resolve(c.toDataURL('image/png'));
+                }
+
+                var tempChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: chartLabels,
+                        datasets: [{
+                            label: 'Revenue',
+                            data: chartValues,
+                            borderColor: BRAND,
+                            backgroundColor: 'rgba(163,106,102,0.12)',
+                            fill: true,
+                            tension: 0.4,
+                            borderWidth: 2.5,
+                            pointRadius: chartValues.length > 20 ? 0 : 4,
+                            pointBackgroundColor: '#fff',
+                            pointBorderColor: BRAND,
+                            pointBorderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: false,
+                        animation: { duration: 0 },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                grid: { color: 'rgba(0,0,0,0.04)' },
+                                ticks: {
+                                    callback: function (v) { return '₱' + Number(v).toLocaleString('en-PH'); },
+                                    maxTicksLimit: 6
+                                }
+                            },
+                            x: { grid: { display: false }, ticks: { maxRotation: 45, autoSkip: true, maxTicksLimit: 12 } }
+                        },
+                        plugins: { legend: { display: false } }
+                    }
+                });
+
+                // Give Chart.js one tick to paint
+                setTimeout(function () {
+                    var img = c.toDataURL('image/png');
+                    tempChart.destroy();
+                    resolve(img);
+                }, 100);
+            });
+        })();
+
+        // ── 5. Render doughnut chart onto offscreen canvas ───────
+        var doughnutImg = await (function () {
+            return new Promise(function (resolve) {
+                var c = document.createElement('canvas');
+                c.width = 320; c.height = 320;
+                var ctx = c.getContext('2d');
+
+                if (!topProducts.length) return resolve('');
+
+                var vals = topProducts.map(function (p) { return p.totalAmount; });
+                var labels = topProducts.map(function (p) { return p.productName; });
+                var colors = DCOLORS.slice(0, topProducts.length);
+
+                var tempChart = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: { labels: labels, datasets: [{ data: vals, backgroundColor: colors, borderWidth: 3, borderColor: '#fff' }] },
+                    options: {
+                        responsive: false,
+                        animation: { duration: 0 },
+                        cutout: '62%',
+                        plugins: { legend: { display: false } }
+                    }
+                });
+
+                setTimeout(function () {
+                    var img = c.toDataURL('image/png');
+                    tempChart.destroy();
+                    resolve(img);
+                }, 100);
+            });
+        })();
+
+        // ── 6. Build top-products table rows ─────────────────────
+        var totalRev = topProducts.reduce(function (a, p) { return a + p.totalAmount; }, 0);
+        var DCOLORS2 = ["#EC4899", "#3B82F6", "#10B981", "#F59E0B", "#8B5CF6", "#EF4444", "#06B6D4"];
+
+        var topProductsRows = topProducts.length
+            ? topProducts.map(function (p, i) {
+                var pct = totalRev > 0 ? ((p.totalAmount / totalRev) * 100).toFixed(1) : '0.0';
+                var barW = totalRev > 0 ? Math.max(4, (p.totalAmount / totalRev) * 100) : 4;
+                var col = DCOLORS2[i % DCOLORS2.length];
+                return [
+                    '<tr style="border-bottom:1px solid #f5f0ef;">',
+                    '  <td style="padding:11px 14px; display:flex; align-items:center; gap:10px;">',
+                    '    <span style="width:10px;height:10px;border-radius:50%;background:' + col + ';flex-shrink:0;display:inline-block;"></span>',
+                    '    <span style="color:#374151; font-size:13px;">' + p.productName + '</span>',
+                    '  </td>',
+                    '  <td style="padding:11px 14px; text-align:center; color:#6b7280; font-size:12px;">' + pct + '%</td>',
+                    '  <td style="padding:11px 14px;">',
+                    '    <div style="height:6px;background:#f3f4f6;border-radius:99px;overflow:hidden;width:120px;">',
+                    '      <div style="height:6px;border-radius:99px;background:' + col + ';width:' + barW + '%;"></div>',
+                    '    </div>',
+                    '  </td>',
+                    '  <td style="padding:11px 14px; text-align:right; font-weight:600; color:' + BRAND + '; font-size:13px;">' + formatCurrency(p.totalAmount) + '</td>',
+                    '</tr>'
+                ].join('');
+            }).join('')
+            : '<tr><td colspan="4" style="padding:20px; text-align:center; color:#9ca3af;">No product data available</td></tr>';
+
+        // ── 7. Sales summary table rows ──────────────────────────
+        var salesUrl = '/Sales_Finance/GetAllProductSalesDataPaginated?page=1&pageSize=20';
+        var salesResp = await fetch(salesUrl);
+        var salesData = salesResp.ok ? await salesResp.json() : null;
+        var salesRows = '';
+        if (salesData && salesData.success && salesData.data && salesData.data.length) {
+            salesRows = salesData.data.map(function (s, i) {
+                var bg = i % 2 === 0 ? '#fff' : '#fdf9f8';
+                return [
+                    '<tr style="background:' + bg + '; border-bottom:1px solid #f5f0ef;">',
+                    '  <td style="padding:10px 14px; color:#374151;">' + s.variantName + '</td>',
+                    '  <td style="padding:10px 14px; text-align:center; color:#6b7280;">' + s.quantity + '</td>',
+                    '  <td style="padding:10px 14px; text-align:right; color:#6b7280;">' + formatCurrency(s.price) + '</td>',
+                    '  <td style="padding:10px 14px; text-align:right; font-weight:600; color:#1f2937;">' + formatCurrency(s.total) + '</td>',
+                    '  <td style="padding:10px 14px; color:#9ca3af; font-size:12px;">' + s.transactionDate + '</td>',
+                    '</tr>'
+                ].join('');
+            }).join('');
+        } else {
+            salesRows = '<tr><td colspan="5" style="padding:20px; text-align:center; color:#9ca3af;">No sales records</td></tr>';
         }
 
-        var url = '/Sales_Finance/GetSalesReportDatatry?period=' + period;
-        if (customStartDate && customEndDate) url += '&startDate=' + customStartDate + '&endDate=' + customEndDate;
+        // ── 8. Assemble report HTML ──────────────────────────────
+        var printId = 'sheessentials-print-report';
+        var old = document.getElementById(printId);
+        if (old) old.remove();
 
-        var response = await fetch(url);
-        if (!response.ok) throw new Error("Server error loading report data.");
-        var data = await response.json();
+        var now = new Date().toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' });
+        var avgOrder = summary.totalOrders > 0
+            ? formatCurrency(parseFloat((summary.totalSalesFormatted || '0').replace(/[^0-9.]/g, '')) / summary.totalOrders)
+            : '₱0.00';
 
-        var revenueImg = await htmlToImage(document.getElementById("revenueCard"));
-        var topProductsImg = await htmlToImage(document.getElementById("topProductsCard"));
+        var S = function (s) { return s; }; // passthrough for readability
 
-        var payload = {
-            ReportPeriod: periodText,
-            Summary: data.summary,
-            SalesTrendChartBase64: revenueImg,
-            TopProductsChartBase64: topProductsImg,
-            TopProductsTable: data.topProductsTable
-        };
+        var html = S([
+            // ── wrapper ──
+            '<div id="' + printId + '" style="position:fixed;inset:0;z-index:99999;background:#F8F6F5;overflow-y:auto;',
+            'font-family:Segoe UI,sans-serif;font-size:13px;color:#374151;">',
 
-        var pdfResponse = await fetch("/Sales_Finance/ExportProductSalesPdf", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-        });
+            // ── action bar (screen only, hidden on print) ──
+            '<div class="no-print" style="position:sticky;top:0;z-index:100000;background:#fff;',
+            'border-bottom:1px solid #e5e7eb;padding:12px 40px;display:flex;justify-content:space-between;align-items:center;">',
+            '  <div style="display:flex;align-items:center;gap:10px;">',
+            '    <div style="width:8px;height:8px;border-radius:50%;background:#A36A66;"></div>',
+            '    <span style="font-weight:600;color:#374151;font-size:14px;">Sheessentials Sales Report</span>',
+            '    <span style="background:#FBEAEB;color:#A36A66;font-size:11px;font-weight:600;',
+            '          padding:3px 10px;border-radius:99px;">' + periodLabel + '</span>',
+            '  </div>',
+            '  <div style="display:flex;gap:10px;">',
+            '    <button onclick="window.print()" style="background:#22c55e;color:#fff;border:none;border-radius:8px;',
+            '            padding:9px 20px;cursor:pointer;font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;">',
+            '      <span>🖨</span> Print / Save as PDF',
+            '    </button>',
+            '    <button onclick="document.getElementById(\'' + printId + '\').remove()" ',
+            '            style="background:#f3f4f6;color:#374151;border:none;border-radius:8px;',
+            '                   padding:9px 20px;cursor:pointer;font-size:13px;font-weight:600;">',
+            '      ✕ Close',
+            '    </button>',
+            '  </div>',
+            '</div>',
 
-        if (!pdfResponse.ok) throw new Error("PDF creation failed.");
+            // ── page body ──
+            '<div style="max-width:960px;margin:0 auto;padding:40px 40px 60px;">',
 
-        var blob = await pdfResponse.blob();
-        var link = URL.createObjectURL(blob);
-        window.open(link, "_blank");
-        URL.revokeObjectURL(link);
-        showToast("PDF Report generated! ✅", "success");
+            // ── report header ──
+            '<div style="background:#fff;border-radius:18px;padding:32px 36px;margin-bottom:24px;',
+            'border:1px solid #f0e8e7;display:flex;justify-content:space-between;align-items:flex-start;">',
+            '  <div>',
+            '    <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px;">',
+            '      <div style="width:40px;height:40px;background:#FBEAEB;border-radius:10px;',
+            '                  display:flex;align-items:center;justify-content:center;">',
+            '        <span style="font-size:18px;">🌸</span>',
+            '      </div>',
+            '      <div>',
+            '        <h1 style="margin:0;font-size:24px;font-weight:700;color:#A36A66;line-height:1;">Sheessentials</h1>',
+            '        <p style="margin:2px 0 0;font-size:12px;color:#9ca3af;">Beauty & Wellness Products</p>',
+            '      </div>',
+            '    </div>',
+            '    <h2 style="margin:16px 0 4px;font-size:20px;font-weight:700;color:#1f2937;">Sales Performance Report</h2>',
+            '    <p style="margin:0;font-size:13px;color:#6b7280;">Comprehensive overview of sales activity and revenue</p>',
+            '  </div>',
+            '  <div style="text-align:right;">',
+            '    <p style="margin:0 0 4px;font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em;">Report Period</p>',
+            '    <p style="margin:0 0 8px;font-weight:700;color:#374151;font-size:15px;">' + periodLabel + '</p>',
+            '    <p style="margin:0 0 2px;font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em;">Generated</p>',
+            '    <p style="margin:0;font-weight:600;color:#374151;font-size:13px;">' + now + '</p>',
+            '  </div>',
+            '</div>',
+
+            // ── KPI cards ──
+            '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:24px;">',
+
+            // card 1 — total sales
+            '  <div style="background:#fff;border-radius:16px;padding:24px;border:1px solid #f0e8e7;position:relative;overflow:hidden;">',
+            '    <div style="position:absolute;top:0;right:0;width:60px;height:60px;',
+            '                background:radial-gradient(circle at top right,rgba(163,106,102,.08),transparent 70%);"></div>',
+            '    <div style="width:38px;height:38px;background:#FBEAEB;border-radius:10px;',
+            '                display:flex;align-items:center;justify-content:center;margin-bottom:12px;">',
+            '      <span style="font-size:16px;">💰</span>',
+            '    </div>',
+            '    <p style="margin:0 0 4px;font-size:10px;font-weight:600;color:#A36A66;text-transform:uppercase;letter-spacing:.06em;">Total Sales</p>',
+            '    <p style="margin:0;font-size:26px;font-weight:700;color:#111827;">' + (summary.totalSalesFormatted || '₱0.00') + '</p>',
+            '  </div>',
+
+            // card 2 — total orders
+            '  <div style="background:#fff;border-radius:16px;padding:24px;border:1px solid #f0e8e7;position:relative;overflow:hidden;">',
+            '    <div style="position:absolute;top:0;right:0;width:60px;height:60px;',
+            '                background:radial-gradient(circle at top right,rgba(163,106,102,.08),transparent 70%);"></div>',
+            '    <div style="width:38px;height:38px;background:#FBEAEB;border-radius:10px;',
+            '                display:flex;align-items:center;justify-content:center;margin-bottom:12px;">',
+            '      <span style="font-size:16px;">🛍</span>',
+            '    </div>',
+            '    <p style="margin:0 0 4px;font-size:10px;font-weight:600;color:#A36A66;text-transform:uppercase;letter-spacing:.06em;">Total Orders</p>',
+            '    <p style="margin:0;font-size:26px;font-weight:700;color:#111827;">' + (summary.totalOrders || 0) + '</p>',
+            '  </div>',
+
+            // card 3 — avg order value
+            '  <div style="background:#fff;border-radius:16px;padding:24px;border:1px solid #f0e8e7;position:relative;overflow:hidden;">',
+            '    <div style="position:absolute;top:0;right:0;width:60px;height:60px;',
+            '                background:radial-gradient(circle at top right,rgba(163,106,102,.08),transparent 70%);"></div>',
+            '    <div style="width:38px;height:38px;background:#FBEAEB;border-radius:10px;',
+            '                display:flex;align-items:center;justify-content:center;margin-bottom:12px;">',
+            '      <span style="font-size:16px;">📈</span>',
+            '    </div>',
+            '    <p style="margin:0 0 4px;font-size:10px;font-weight:600;color:#A36A66;text-transform:uppercase;letter-spacing:.06em;">Avg. Order Value</p>',
+            '    <p style="margin:0;font-size:26px;font-weight:700;color:#111827;">' + avgOrder + '</p>',
+            '  </div>',
+
+            '</div>',
+
+            // ── revenue trend chart ──
+            '<div style="background:#fff;border-radius:18px;padding:28px 32px;margin-bottom:24px;border:1px solid #f0e8e7;">',
+            '  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">',
+            '    <div>',
+            '      <p style="margin:0 0 2px;font-size:14px;font-weight:700;color:#1f2937;">Total Revenue Trend</p>',
+            '      <p style="margin:0;font-size:12px;color:#9ca3af;">Revenue over the selected period</p>',
+            '    </div>',
+            '    <span style="background:#FBEAEB;color:#A36A66;font-size:11px;font-weight:600;padding:4px 12px;border-radius:99px;">' + periodLabel + '</span>',
+            '  </div>',
+            '  <img src="' + revenueImg + '" style="width:100%;border-radius:10px;display:block;" />',
+            '</div>',
+
+            // ── top products: doughnut + table side by side ──
+            '<div style="display:grid;grid-template-columns:260px 1fr;gap:20px;margin-bottom:24px;">',
+
+            // doughnut
+            '  <div style="background:#fff;border-radius:18px;padding:24px;border:1px solid #f0e8e7;',
+            '               display:flex;flex-direction:column;align-items:center;justify-content:center;">',
+            '    <p style="margin:0 0 16px;font-size:13px;font-weight:700;color:#1f2937;align-self:flex-start;">Top Products</p>',
+            doughnutImg
+                ? '    <img src="' + doughnutImg + '" style="width:200px;height:200px;object-fit:contain;" />'
+                : '    <p style="color:#9ca3af;font-size:12px;text-align:center;">No data</p>',
+            '  </div>',
+
+            // breakdown table
+            '  <div style="background:#fff;border-radius:18px;padding:24px;border:1px solid #f0e8e7;">',
+            '    <p style="margin:0 0 16px;font-size:13px;font-weight:700;color:#1f2937;">Revenue Breakdown</p>',
+            '    <table style="width:100%;border-collapse:collapse;font-size:12px;">',
+            '      <thead>',
+            '        <tr style="background:#FBEAEB;border-radius:8px;">',
+            '          <th style="padding:10px 14px;text-align:left;font-size:10px;text-transform:uppercase;',
+            '                     letter-spacing:.06em;color:#A36A66;font-weight:600;border-radius:8px 0 0 8px;">Product</th>',
+            '          <th style="padding:10px 14px;text-align:center;font-size:10px;text-transform:uppercase;',
+            '                     letter-spacing:.06em;color:#A36A66;font-weight:600;">Share</th>',
+            '          <th style="padding:10px 14px;font-size:10px;text-transform:uppercase;',
+            '                     letter-spacing:.06em;color:#A36A66;font-weight:600;">Distribution</th>',
+            '          <th style="padding:10px 14px;text-align:right;font-size:10px;text-transform:uppercase;',
+            '                     letter-spacing:.06em;color:#A36A66;font-weight:600;border-radius:0 8px 8px 0;">Revenue</th>',
+            '        </tr>',
+            '      </thead>',
+            '      <tbody>' + topProductsRows + '</tbody>',
+            '    </table>',
+            '  </div>',
+
+            '</div>',
+
+            // ── recent sales table ──
+            '<div style="background:#fff;border-radius:18px;padding:28px 32px;margin-bottom:24px;border:1px solid #f0e8e7;">',
+            '  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">',
+            '    <div>',
+            '      <p style="margin:0 0 2px;font-size:14px;font-weight:700;color:#1f2937;">Recent Sales Transactions</p>',
+            '      <p style="margin:0;font-size:12px;color:#9ca3af;">Latest 20 recorded sales</p>',
+            '    </div>',
+            '  </div>',
+            '  <table style="width:100%;border-collapse:collapse;font-size:12px;">',
+            '    <thead>',
+            '      <tr style="background:#FBEAEB;">',
+            '        <th style="padding:10px 14px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#A36A66;font-weight:600;">Product Variant</th>',
+            '        <th style="padding:10px 14px;text-align:center;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#A36A66;font-weight:600;">Qty</th>',
+            '        <th style="padding:10px 14px;text-align:right;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#A36A66;font-weight:600;">Unit Price</th>',
+            '        <th style="padding:10px 14px;text-align:right;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#A36A66;font-weight:600;">Total</th>',
+            '        <th style="padding:10px 14px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#A36A66;font-weight:600;">Date</th>',
+            '      </tr>',
+            '    </thead>',
+            '    <tbody>' + salesRows + '</tbody>',
+            '  </table>',
+            '</div>',
+
+            // ── footer ──
+            '<div style="text-align:center;padding:20px 0 0;border-top:1px solid #f0e8e7;">',
+            '  <p style="margin:0;font-size:11px;color:#9ca3af;">',
+            '    Sheessentials &bull; Sales Performance Report &bull; ' + periodLabel + ' &bull; Generated ' + now,
+            '  </p>',
+            '  <p style="margin:4px 0 0;font-size:10px;color:#d1d5db;">Confidential — For internal use only</p>',
+            '</div>',
+
+            '</div>', // end page body
+            '</div>'  // end wrapper
+        ].join(''));
+
+        // ── inject print styles ──────────────────────────────────
+        var styleId = 'report-print-styles';
+        var oldStyle = document.getElementById(styleId);
+        if (oldStyle) oldStyle.remove();
+        var style = document.createElement('style');
+        style.id = styleId;
+        style.textContent = '@media print { .no-print { display:none !important; } body > *:not(#' + printId + ') { display:none !important; } #' + printId + ' { position:static !important; overflow:visible !important; } }';
+        document.head.appendChild(style);
+
+        document.body.insertAdjacentHTML('beforeend', html);
+        hideLoader();
+        showToast("Report ready! Click 'Print / Save PDF' to export ✅", "success");
+
     } catch (err) {
         console.error("PDF Generation Error:", err);
-        showToast("Failed to generate PDF", "error");
-    } finally {
         hideLoader();
+        showToast("Failed to generate report: " + err.message, "error");
     }
-}
-
-async function htmlToImage(element) {
-    var canvas = await html2canvas(element, { scale: 2, backgroundColor: "#fff" });
-    return canvas.toDataURL("image/png");
 }
 
 function showLoader() {
