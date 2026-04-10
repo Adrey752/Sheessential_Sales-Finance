@@ -117,6 +117,25 @@
         requestedAt = e.RequestedAt.ToString("yyyy-MM-dd")
     }).ToList();
 
+    // New request feed (last 48 hours, pending only)
+    var newRequestCutoff = DateTime.UtcNow.AddDays(-2);
+    var newExpenseRequests = expenses
+        .Where(e => e.Status == "Pending" && e.RequestedAt >= newRequestCutoff)
+        .OrderByDescending(e => e.RequestedAt)
+        .Select(e => new
+        {
+            id = e.Id,
+            expenseId = e.ExpenseId,
+            department = string.IsNullOrWhiteSpace(e.Department) ? "Unassigned" : e.Department.Trim(),
+            requestedBy = e.RequestedBy,
+            expenseType = e.ExpenseType,
+            description = e.Description,
+            amount = e.Amount,
+            requestedAt = e.RequestedAt.ToString("yyyy-MM-dd"),
+            requestedAtDisplay = e.RequestedAt.ToString("MMM dd, yyyy hh:mm tt")
+        })
+        .ToList();
+
     // ── 3. Payroll snapshots ──
     var payrollCutoffs = payrollSnapshots
         .GroupBy(p => new { p.PayPeriodStart, p.PayPeriodEnd })
@@ -265,6 +284,11 @@
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
                 <span id="agingBadgeCount">0</span> Aging
             </button>
+            <button onclick="openNewRequestPanel()" id="newReqBadgeBtn"
+                    class="hidden px-4 py-2.5 bg-rose-500 text-white rounded-xl hover:opacity-90 transition-all shadow-md items-center gap-2 text-sm font-medium">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <span id="newReqBadgeCount">0</span> New Requests
+            </button>
             <button onclick="openAddExpenseModal()"
                     class="px-5 py-2.5 bg-blue-600 text-white rounded-xl hover:opacity-90 transition-all shadow-md flex items-center gap-2 text-sm font-medium">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -337,6 +361,7 @@
             }).ToList();
 
             <div class="bg-white rounded-2xl shadow-md hover:shadow-lg transition-shadow border border-gray-100 flex flex-col cursor-pointer"
+                 data-dept-card="@deptName"
                  onclick='openDeptPanel("department", @Html.Raw(JsonConvert.SerializeObject(deptName)), @Html.Raw(JsonConvert.SerializeObject(deptExpJson)), [])'>
                 <div class="p-5 border-b border-gray-100">
                     <div class="flex items-start justify-between mb-3">
@@ -359,6 +384,14 @@
                     <p class="text-xs text-gray-400 mt-1">Expense requests total</p>
                     @{
                         var agingCount = deptExpenses.Count(e => e.Status == "Pending" && (DateTime.Now - e.RequestedAt).TotalDays >= 3);
+                        var newReqCount = deptExpenses.Count(e => e.Status == "Pending" && e.RequestedAt >= newRequestCutoff);
+                    }
+                    @if (newReqCount > 0)
+                    {
+                        <div class="mt-2 flex items-center gap-1.5 text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-200 rounded-lg px-2 py-1 w-fit">
+                            <span class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-rose-600 text-white text-[10px]">@newReqCount</span>
+                            New request@(newReqCount > 1 ? "s" : "")
+                        </div>
                     }
                     @if (agingCount > 0)
                     {
@@ -584,6 +617,30 @@
             </div>
         </div>
         <div class="flex-1 overflow-y-auto p-6" id="agingPanelBody"></div>
+    </div>
+</div>
+
+<!-- ═══ NEW REQUESTS PANEL ═══ -->
+<div id="newReqPanel" class="fixed inset-0 z-[75] hidden">
+    <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick="closeNewRequestPanel()"></div>
+    <div id="newReqPanelContent" class="absolute right-0 top-0 h-full w-full max-w-2xl bg-white shadow-2xl transform translate-x-full transition-transform duration-300 ease-in-out flex flex-col">
+        <div class="p-6 border-b border-rose-100 bg-gradient-to-r from-rose-50 to-white shrink-0">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-rose-500 rounded-xl flex items-center justify-center">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    </div>
+                    <div>
+                        <h2 class="text-xl font-bold text-rose-900">New Requests</h2>
+                        <p class="text-sm text-rose-600">Pending requests received in the last 48 hours</p>
+                    </div>
+                </div>
+                <button onclick="closeNewRequestPanel()" class="text-gray-400 hover:text-gray-600 p-2 rounded-lg hover:bg-gray-100">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+        </div>
+        <div class="flex-1 overflow-y-auto p-6" id="newReqPanelBody"></div>
     </div>
 </div>
 
@@ -982,6 +1039,7 @@
     const REPORT_DEPT_DATA   = @Html.Raw(JsonConvert.SerializeObject(deptDataForReport));
     const UTILITY_EXPENSES   = @Html.Raw(JsonConvert.SerializeObject(utilityExpensesJson));
     const ALL_EXPENSES_CMP   = @Html.Raw(JsonConvert.SerializeObject(allExpensesForCompare));
+    const NEW_EXPENSE_REQUESTS = @Html.Raw(JsonConvert.SerializeObject(newExpenseRequests));
     const availableBalance   = @currentBalance;
 
     window.STOCK_REQUESTS_DATA = @Html.Raw(JsonConvert.SerializeObject(stockRequestsJson));
@@ -997,7 +1055,7 @@
     let rActiveTab = 'overview', cmpActiveTab = 'monthly';
     let rSelectedPayrollCutoffId = null;
 
-    function fmt(n){ return '₱'+n.toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+    function fmt(n){ return '\u20B1'+n.toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2}); }
     function esc(s){ if(!s)return ''; const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
     function pctChange(a,b){ if(!a) return b>0?'+100%':'—'; const p=((b-a)/a*100).toFixed(1); return (p>0?'+':'')+p+'%'; }
     function trendColor(a,b){ return b>a?'text-red-600':b<a?'text-green-600':'text-gray-500'; }
@@ -2287,6 +2345,66 @@
         return Math.floor((Date.now() - d.getTime()) / 86400000);
     }
 
+    function openDepartmentFromNewRequest(deptName){
+        const dept = (REPORT_DEPT_DATA || []).find(d => (d.name || '').toLowerCase() === (deptName || '').toLowerCase());
+        if(!dept) return;
+
+        closeNewRequestPanel();
+        openDeptPanel('department', dept.name, dept.expenses || [], []);
+
+        const card = document.querySelector(`[data-dept-card="${CSS.escape(dept.name)}"]`);
+        if(card){
+            card.scrollIntoView({ behavior:'smooth', block:'center' });
+            card.classList.add('ring-2','ring-rose-300');
+            setTimeout(()=>card.classList.remove('ring-2','ring-rose-300'), 1200);
+        }
+    }
+
+    function initNewRequestBadge(){
+        const count = (NEW_EXPENSE_REQUESTS || []).length;
+        const btn = document.getElementById('newReqBadgeBtn');
+        const badge = document.getElementById('newReqBadgeCount');
+        if(btn && badge && count > 0){
+            btn.classList.remove('hidden');
+            btn.classList.add('flex');
+            badge.textContent = count;
+        }
+    }
+
+    function openNewRequestPanel(){
+        const panel = document.getElementById('newReqPanel');
+        const content = document.getElementById('newReqPanelContent');
+        buildNewRequestPanel();
+        panel.classList.remove('hidden');
+        requestAnimationFrame(()=>{ content.classList.remove('translate-x-full'); content.classList.add('translate-x-0'); });
+    }
+
+    function closeNewRequestPanel(){
+        const c = document.getElementById('newReqPanelContent');
+        c.classList.remove('translate-x-0'); c.classList.add('translate-x-full');
+        setTimeout(()=>document.getElementById('newReqPanel').classList.add('hidden'), 300);
+    }
+
+    function buildNewRequestPanel(){
+        const body = document.getElementById('newReqPanelBody');
+        const list = (NEW_EXPENSE_REQUESTS || []).slice().sort((a,b)=> (a.requestedAt < b.requestedAt ? 1 : -1));
+        if(!list.length){ body.innerHTML = '<p class="text-gray-400 text-center py-12">No new pending requests.</p>'; return; }
+
+        const grouped = {};
+        list.forEach(r => { if(!grouped[r.department]) grouped[r.department] = []; grouped[r.department].push(r); });
+
+        let html = `<div class="mb-4 p-3 bg-rose-50 border border-rose-200 rounded-xl text-sm text-rose-800"><strong>${list.length} new request${list.length>1?'s':''}</strong> across ${Object.keys(grouped).length} department(s).</div>`;
+        Object.keys(grouped).sort().forEach(dept => {
+            html += `<div class="mb-5"><h3 class="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2"><span class="w-2 h-2 bg-rose-400 rounded-full"></span>${esc(dept)} (${grouped[dept].length})</h3><div class="space-y-2">`;
+            grouped[dept].forEach(r => {
+                html += `<button type="button" onclick="openDepartmentFromNewRequest(decodeURIComponent('${encodeURIComponent(r.department || '')}'))" class="w-full text-left border-l-4 border-rose-300 rounded-r-xl p-4 bg-rose-50/40 hover:bg-rose-100/60 transition"><div class="flex items-start justify-between"><div class="flex-1 mr-3"><p class="text-xs font-semibold text-rose-700">${esc(r.expenseId || '')}</p><p class="text-sm font-medium text-gray-800">${esc(r.requestedBy || '')}</p><p class="text-xs text-gray-600 mt-0.5"><span class="font-semibold">Requested for:</span> ${esc(r.description || r.expenseType || 'No details provided')}</p><p class="text-[11px] text-gray-400 mt-1">${esc(r.requestedAtDisplay || '')}</p><p class="text-[11px] text-rose-700 mt-1 font-medium">Open ${esc(r.department)} requests</p></div><p class="text-sm font-bold text-gray-900 shrink-0">${fmt(Number(r.amount || 0))}</p></div></button>`;
+            });
+            html += '</div></div>';
+        });
+
+        body.innerHTML = html;
+    }
+
     function initAgingBadge(){
         let agingCount = 0;
         REPORT_DEPT_DATA.forEach(dept => {
@@ -2667,6 +2785,7 @@
             closeReport();
             closeUtilitiesComparison();
             closeAgingPanel();
+            closeNewRequestPanel();
             closeSupplierPanel();
             closeHeadcountPanel();
             closeCapsModal();
@@ -2678,6 +2797,7 @@
     // ─── INIT ───
     document.addEventListener('DOMContentLoaded', ()=>{
         applyPinnedState();
+        initNewRequestBadge();
         initAgingBadge();
 
         const addExpenseModal = document.getElementById('addExpenseModal');
@@ -2719,7 +2839,7 @@
                 if(!custom){
                     alert('Please specify the expense category.');
                     typeOther?.focus();
-                    return;
+                    return; 
                 }
                 finalCategory = custom;
             }
@@ -2731,7 +2851,7 @@
                 const data = await res.json();
                 if(data.success){
                     alert('Expense request submitted successfully!');
-                    location.reload();
+                    location.reload();  
                 } else {
                     alert(data.message || 'Failed to submit expense request.');
                 }
