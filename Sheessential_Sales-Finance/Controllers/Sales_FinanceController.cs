@@ -94,16 +94,18 @@ namespace Sheessential_Sales_Finance.Controllers
         {
             var userName = HttpContext.Session.GetString("UserName") ?? "User";
 
-            // --- Fetch Orders from TbOrder ---
+            // --- Fetch non-archived orders from TbOrder ---
             var allOrders = await _mongo.TbOrder
-     .Find(_ => true)
-     .SortByDescending(o => o.CreatedAt)
-     .ToListAsync();
+                .Find(o => !o.IsArchive)
+                .SortByDescending(o => o.CreatedAt)
+                .ToListAsync();
 
-            // --- Calculate Revenue from TbOrder (Paid orders only) ---
-            double revenue = (double)allOrders
-     .Where(o => o.PaymentStatus == "Paid")
-     .Sum(o => o.TotalAmount);
+            // --- Use one consistent sales definition across views ---
+            var paidOrders = allOrders
+                .Where(o => o.PaymentStatus == "Paid")
+                .ToList();
+
+            double revenue = (double)paidOrders.Sum(o => o.TotalAmount);
 
             // --- Fetch Expenses ---
             var expenses = await _mongo.Expenses
@@ -144,13 +146,13 @@ namespace Sheessential_Sales_Finance.Controllers
                 Revenue = revenue,
                 Expense = expense,
                 NetProfit = revenue - expense,
-                SalesCount = allOrders.Count,
+                SalesCount = paidOrders.Count,
                 UserName = userName,
                 TotalOrders = allOrders.Count,
-                PaidOrders = allOrders.Count(o => o.PaymentStatus == "Paid"),
+                PaidOrders = paidOrders.Count,
                 UnpaidOrders = allOrders.Count(o => o.PaymentStatus == "Unpaid"),
                 ProcessingOrders = allOrders.Count(o => o.OrderStatus == "Processing"),
-                OrderRevenue = allOrders.Where(o => o.PaymentStatus == "Paid").Sum(o => o.TotalAmount),
+                OrderRevenue = paidOrders.Sum(o => o.TotalAmount),
                 RecentOrders = allOrders.Take(5).ToList()
             };
 
@@ -311,9 +313,9 @@ namespace Sheessential_Sales_Finance.Controllers
                 .ToList()
                 .ToDictionary(p => p.Id, p => p);
 
-            // --- 2. FETCH ALL PAID ORDERS (including archived) ---
+            // --- 2. FETCH ALL PAID NON-ARCHIVED ORDERS ---
             var paidOrders = _mongo.TbOrder
-                .Find(o => o.PaymentStatus == "Paid")
+                .Find(o => o.PaymentStatus == "Paid" && !o.IsArchive)
                 .ToList();
 
             // Flatten order items from all paid orders
@@ -987,6 +989,7 @@ namespace Sheessential_Sales_Finance.Controllers
             // Fetch paid orders from TbOrder within the date range
             var orders = _mongo.TbOrder
                    .Find(o => o.PaymentStatus == "Paid"
+                       && !o.IsArchive
                        && o.CreatedAt >= start && o.CreatedAt <= end)
                    .ToList();
 
