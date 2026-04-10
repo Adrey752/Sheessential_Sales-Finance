@@ -351,6 +351,7 @@ namespace Sheessential_Sales_Finance.Controllers
                 {
                     variant.Category = product.ProductCategory;
                     variant.Description = product.ProductDesc;
+                    variant.VariantImg = $"/Sales_Finance/GetProductImage/{product.Id}"; // ✅ ADDED
                 }
                 else
                 {
@@ -377,7 +378,27 @@ namespace Sheessential_Sales_Finance.Controllers
             return View(pagedVariants);
         }
 
+        [HttpGet]
+        public IActionResult GetProductImage(string id)
+        {
+                var product = _mongo.ProductInventory
+                .Find(p => p.Id == id)
+                .FirstOrDefault();
 
+            if (product == null || product.ProductImgRaw == null || product.ProductImgRaw.IsBsonNull)
+                return NotFound();
+
+            byte[] imageBytes;
+
+            if (product.ProductImgRaw.IsBsonBinaryData)
+                imageBytes = product.ProductImgRaw.AsBsonBinaryData.Bytes;
+            else if (product.ProductImgRaw.IsString)
+                imageBytes = Convert.FromBase64String(product.ProductImgRaw.AsString);
+            else
+                return NotFound();
+
+            return File(imageBytes, "image/png");
+        }
 
 
 
