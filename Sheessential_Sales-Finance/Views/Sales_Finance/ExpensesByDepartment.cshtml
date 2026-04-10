@@ -265,9 +265,16 @@
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
                 <span id="agingBadgeCount">0</span> Aging
             </button>
+            <button onclick="openAddExpenseModal()"
+                    class="px-5 py-2.5 bg-blue-600 text-white rounded-xl hover:opacity-90 transition-all shadow-md flex items-center gap-2 text-sm font-medium">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                </svg>
+                Add New Expense
+            </button>
             <!-- ═══ GENERATE REPORT BUTTON ═══ -->
             <button onclick="openReport()"
-                    class="px-5 py-2.5 bg-green-500 text-white  text-white rounded-xl hover:opacity-90 transition-all shadow-md flex items-center gap-2 text-sm font-medium">
+                    class="px-5 py-2.5 bg-green-500 text-white rounded-xl hover:opacity-90 transition-all shadow-md flex items-center gap-2 text-sm font-medium">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                 </svg>
@@ -771,6 +778,65 @@
     </div>
 </div>
 
+<!-- ═══ ADD NEW EXPENSE MODAL ═══ -->
+<div id="addExpenseModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-[65] backdrop-blur-sm p-4">
+    <div class="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+            <h2 class="text-xl font-bold text-gray-900">Add New Expense</h2>
+            <button type="button" onclick="closeAddExpenseModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+        </div>
+
+        <form id="quickExpenseForm" class="p-6 space-y-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Department *</label>
+                    <select id="quickDepartment" name="Department" required class="w-full border rounded-xl px-4 py-2.5 text-sm">
+                        <option value="">Select department</option>
+                        <option value="HR">HR</option>
+                        <option value="Accounting">Accounting</option>
+                        <option value="Website">Website</option>
+                        <option value="Marketing">Marketing</option>
+                        <option value="Inventory">Inventory</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Expense Category *</label>
+                    <select id="quickExpenseType" name="ExpenseType" required class="w-full border rounded-xl px-4 py-2.5 text-sm">
+                        <option value="">Select category</option>
+                    </select>
+                    <input id="quickExpenseTypeOther" type="text" class="hidden mt-2 w-full border rounded-xl px-4 py-2.5 text-sm" placeholder="Specify category" />
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Requested By *</label>
+                    <input name="RequestedBy" required value="@(Context.Session.GetString("UserName") ?? "")" class="w-full border rounded-xl px-4 py-2.5 text-sm" />
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Amount (₱) *</label>
+                    <input type="number" name="Amount" step="0.01" required class="w-full border rounded-xl px-4 py-2.5 text-sm" placeholder="0.00" />
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Description *</label>
+                <textarea name="Description" rows="3" required class="w-full border rounded-xl px-4 py-2.5 text-sm" placeholder="Describe the request purpose..."></textarea>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                <textarea name="Notes" rows="2" class="w-full border rounded-xl px-4 py-2.5 text-sm" placeholder="Optional notes"></textarea>
+            </div>
+
+            <div class="pt-4 border-t border-gray-100 flex justify-end gap-3">
+                <button type="button" onclick="closeAddExpenseModal()" class="px-5 py-2 bg-gray-100 text-gray-700 rounded-xl text-sm font-medium">Cancel</button>
+                <button type="submit" class="px-5 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium">Submit Request</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <!-- ═══ APPROVE MODAL ═══ -->
 <div id="deptApproveModal" class="fixed inset-0 bg-black/50 hidden flex items-center justify-center z-[60] backdrop-blur-sm">
     <div class="bg-white w-full max-w-lg rounded-2xl shadow-2xl p-6 m-4 max-h-[90vh] overflow-y-auto">
@@ -935,6 +1001,46 @@
     function esc(s){ if(!s)return ''; const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
     function pctChange(a,b){ if(!a) return b>0?'+100%':'—'; const p=((b-a)/a*100).toFixed(1); return (p>0?'+':'')+p+'%'; }
     function trendColor(a,b){ return b>a?'text-red-600':b<a?'text-green-600':'text-gray-500'; }
+
+    // --- Quick Add Expense modal (same behavior as Expenses page) ---
+    const OPEX_CATEGORIES = ['Office Supplies','Maintenance','Software Subscription','Equipment Purchases'];
+    const WEBSITE_CATEGORIES = ['Hosting Services','Domain Renewal','Website Maintenance','Security and Backup'];
+
+    function getExpenseCategoriesByDepartment(dept){
+        const base = [...OPEX_CATEGORIES];
+        if((dept||'').toLowerCase()==='website') base.push(...WEBSITE_CATEGORIES);
+        return [...new Set(base)];
+    }
+
+    function renderQuickExpenseCategories(){
+        const deptSel = document.getElementById('quickDepartment');
+        const typeSel = document.getElementById('quickExpenseType');
+        const other = document.getElementById('quickExpenseTypeOther');
+        if(!typeSel) return;
+
+        const categories = getExpenseCategoriesByDepartment(deptSel?.value || '');
+        typeSel.innerHTML = '<option value="">Select category</option>'
+            + categories.map(c => `<option value="${c}">${c}</option>`).join('')
+            + '<option value="__other__">Other (Specify)</option>';
+
+        if(other){ other.value=''; other.classList.add('hidden'); }
+    }
+
+    function openAddExpenseModal(){
+        const modal = document.getElementById('addExpenseModal');
+        const form = document.getElementById('quickExpenseForm');
+        form?.reset();
+        renderQuickExpenseCategories();
+        modal?.classList.remove('hidden');
+        modal?.classList.add('flex');
+    }
+
+    function closeAddExpenseModal(){
+        const modal = document.getElementById('addExpenseModal');
+        modal?.classList.add('hidden');
+        modal?.classList.remove('flex');
+    }
+
 
     // ─── Utility category classifier ───
     function classifyUtility(exp) {
@@ -2564,6 +2670,7 @@
             closeSupplierPanel();
             closeHeadcountPanel();
             closeCapsModal();
+            closeAddExpenseModal();
             document.getElementById('searchDropdown').classList.add('hidden');
         }
     });
@@ -2572,6 +2679,66 @@
     document.addEventListener('DOMContentLoaded', ()=>{
         applyPinnedState();
         initAgingBadge();
+
+        const addExpenseModal = document.getElementById('addExpenseModal');
+        const quickForm = document.getElementById('quickExpenseForm');
+        const deptSel = document.getElementById('quickDepartment');
+        const typeSel = document.getElementById('quickExpenseType');
+        const typeOther = document.getElementById('quickExpenseTypeOther');
+
+        deptSel?.addEventListener('change', renderQuickExpenseCategories);
+        typeSel?.addEventListener('change', ()=>{
+            if(!typeOther) return;
+            if(typeSel.value === '__other__'){
+                typeOther.classList.remove('hidden');
+                typeOther.focus();
+            } else {
+                typeOther.classList.add('hidden');
+                typeOther.value = '';
+            }
+        });
+
+        addExpenseModal?.addEventListener('click', (e)=>{
+            if(e.target === addExpenseModal) closeAddExpenseModal();
+        });
+
+        quickForm?.addEventListener('submit', async (e)=>{
+            e.preventDefault();
+
+            const formData = new FormData(quickForm);
+            const selectedCategory = typeSel?.value || '';
+            if(!selectedCategory){
+                alert('Please select an expense category.');
+                typeSel?.focus();
+                return;
+            }
+
+            let finalCategory = selectedCategory;
+            if(selectedCategory === '__other__'){
+                const custom = (typeOther?.value || '').trim();
+                if(!custom){
+                    alert('Please specify the expense category.');
+                    typeOther?.focus();
+                    return;
+                }
+                finalCategory = custom;
+            }
+
+            formData.set('ExpenseType', finalCategory);
+
+            try {
+                const res = await fetch('/Sales_Finance/AddExpense', { method:'POST', body: formData });
+                const data = await res.json();
+                if(data.success){
+                    alert('Expense request submitted successfully!');
+                    location.reload();
+                } else {
+                    alert(data.message || 'Failed to submit expense request.');
+                }
+            } catch(err){
+                alert(err.message || 'An error occurred while submitting the request.');
+            }
+        });
     });
 
 </script>
