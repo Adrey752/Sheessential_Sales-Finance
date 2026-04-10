@@ -113,32 +113,8 @@ namespace Sheessential_Sales_Finance.Controllers
                 .ToListAsync();
             double expense = (double)expenses.Sum(e => e.Amount);
 
-            // --- Fetch Recent Logs ---
-            var logs = await _mongo.ActionLog
-                .Find(_ => true)
-                .SortByDescending(l => l.TimeStamp)
-                .Limit(10)
-                .ToListAsync();
+            // Activity log has been moved to ExecutivePayrollApproval view.
 
-            var userIds = logs.Select(l => l.UserId).Distinct().ToList();
-            var users = await _mongo.Users
-                .Find(u => userIds.Contains(u.Id!))
-                .ToListAsync();
-
-            var enrichedLogs = logs.Select(log =>
-            {
-                var user = users.FirstOrDefault(u => u.Id == log.UserId);
-                return new
-                {
-                    UserName = user != null ? $"{user.FirstName} {user.LastName}" : "Unknown User",
-                    log.Action,
-                    log.Entity,
-                    log.Description,
-                    log.TimeStamp
-                };
-            }).ToList();
-
-            ViewBag.ActionLogs = enrichedLogs;
 
             // --- Build ViewModel ---
             var viewModel = new DashboardViewModel
@@ -2587,6 +2563,31 @@ namespace Sheessential_Sales_Finance.Controllers
                 Balance = _mongo.Balance.Find(_ => true).FirstOrDefault()
             };
 
+            // Activity log for executive payroll view
+            var logs = _mongo.ActionLog
+                .Find(_ => true)
+                .SortByDescending(l => l.TimeStamp)
+                .Limit(15)
+                .ToList();
+
+            var userIds = logs.Select(l => l.UserId).Distinct().ToList();
+            var users = _mongo.Users
+                .Find(u => userIds.Contains(u.Id!))
+                .ToList();
+
+            ViewBag.ActionLogs = logs.Select(log =>
+            {
+                var user = users.FirstOrDefault(u => u.Id == log.UserId);
+                return new
+                {
+                    UserName = user != null ? $"{user.FirstName} {user.LastName}" : "Unknown User",
+                    log.Action,
+                    log.Entity,
+                    log.Description,
+                    log.TimeStamp
+                };
+            }).ToList();
+
             return View(model);
         }
 
@@ -2683,6 +2684,46 @@ namespace Sheessential_Sales_Finance.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "ReleasePayroll failed. Id: {Id}, Status: {Status}, DeclineReason: {DeclineReason}", id, status, declineReason);
+                return Json(new { success = false, message = ex.Message });
+            }
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> ReleasePayrollEmployee(string snapshotId, string status, string? declineReason = null)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(snapshotId) || string.IsNullOrWhiteSpace(status))
+                    return Json(new { success = false, message = "Invalid request." });
+
+                var normalizedStatus = status.Trim();
+                if (normalizedStatus.Equals("Approved", StringComparison.OrdinalIgnoreCase))
+                    normalizedStatus = "Completed";
+
+                if (normalizedStatus.Equals("Declined", StringComparison.OrdinalIgnoreCase) && string.IsNullOrWhiteSpace(declineReason))
+                    return Json(new { success = false, message = "Please provide a reason for declining payroll." });
+
+                var update = Builders<PayrollSnapshot>.Update
+                    .Set(x => x.Status, normalizedStatus)
+                    .Set(x => x.ProcessedAt, DateTime.UtcNow);
+
+                if (normalizedStatus.Equals("Declined", StringComparison.OrdinalIgnoreCase))
+                    update = update.Set(x => x.Remarks, declineReason!.Trim());
+                else
+                    update = update.Set(x => x.Remarks, null);
+
+                var result = await _mongo.PayrollSnapshots.UpdateOneAsync(
+                    Builders<PayrollSnapshot>.Filter.Eq(x => x.Id, snapshotId),
+                    update);
+
+                if (result.MatchedCount == 0)
+                    return Json(new { success = false, message = "Employee payroll snapshot not found." });
+
+                return Json(new { success = true, message = $"Employee payroll marked as {normalizedStatus}." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "ReleasePayrollEmployee failed. SnapshotId: {SnapshotId}, Status: {Status}", snapshotId, status);
                 return Json(new { success = false, message = ex.Message });
             }
         }

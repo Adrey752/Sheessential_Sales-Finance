@@ -167,6 +167,7 @@
                     nightDiff = 0m,
                     employees = d.Select(e => new
                     {
+                        snapshotId = e.Id,
                         employeeId = e.EmployeeId,
                         employeeName = e.FullName,
                         position = "",
@@ -200,7 +201,8 @@
                         regularOT = 0m,
                         holidayOT = 0m,
                         nightDiffHours = 0m,
-                        status = e.Status ?? ""
+                        status = e.Status ?? "",
+                        remarks = e.Remarks ?? ""
                     }).OrderBy(e => e.employeeName).ToList()
                 }).ToList()
         }).ToList();
@@ -292,6 +294,43 @@
                 <div><p class="text-xs text-gray-400">Balance</p><p class="text-xl font-bold text-green-600">₱@currentBalance.ToString("N2")</p></div>
             </div>
         </div>
+    </div>
+
+    <!-- Executive Activity Log -->
+    <div class="bg-white rounded-2xl shadow-md p-6 mb-8 border border-gray-100">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+                <svg class="w-5 h-5 text-[#A36A66]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                Activity Log
+            </h2>
+            <span class="text-xs text-gray-400">Latest 15 actions</span>
+        </div>
+
+        @if (ViewBag.ActionLogs != null && ((IEnumerable<dynamic>)ViewBag.ActionLogs).Any())
+        {
+            <div class="space-y-2 max-h-72 overflow-y-auto pr-1">
+                @foreach (var log in (IEnumerable<dynamic>)ViewBag.ActionLogs)
+                {
+                    <div class="p-3 rounded-xl border border-gray-100 bg-gray-50">
+                        <div class="flex items-start justify-between gap-3">
+                            <div>
+                                <p class="text-sm font-semibold text-gray-800">@log.UserName</p>
+                                <p class="text-xs text-gray-500 mt-0.5">
+                                    <span class="font-medium text-[#A36A66]">@log.Action</span>
+                                    • @log.Entity
+                                </p>
+                                <p class="text-sm text-gray-600 mt-1">@(string.IsNullOrWhiteSpace((string?)log.Description) ? "No description" : log.Description)</p>
+                            </div>
+                            <span class="text-[11px] text-gray-400 whitespace-nowrap">@(((DateTime)log.TimeStamp).ToLocalTime().ToString("MMM dd, yyyy hh:mm tt"))</span>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <p class="text-sm text-gray-400 text-center py-6">No recent activity yet.</p>
+        }
     </div>
 
     <!-- ═══ DEPARTMENT CARDS ═══ -->
@@ -878,8 +917,9 @@
                 <button id="rTab-ranking" onclick="switchReportTab('ranking',this)" class="flex-1 px-4 py-2 rounded-lg text-sm font-medium text-gray-500 hover:text-gray-700 transition-all">Dept Ranking</button>
                 <button id="rTab-breakdown" onclick="switchReportTab('breakdown',this)" class="flex-1 px-4 py-2 rounded-lg text-sm font-medium text-gray-500 hover:text-gray-700 transition-all">Status Breakdown</button>
                 <button id="rTab-insights" onclick="switchReportTab('insights',this)" class="flex-1 px-4 py-2 rounded-lg text-sm font-medium text-gray-500 hover:text-gray-700 transition-all">Insights</button>
+                <button id="rTab-payroll" onclick="switchReportTab('payroll',this)" class="flex-1 px-4 py-2 rounded-lg text-sm font-medium text-gray-500 hover:text-gray-700 transition-all">Payroll Analysis</button>
             </div>
-            <div class="flex flex-wrap gap-3 mb-5">
+            <div id="rExpenseFilters" class="flex flex-wrap gap-3 mb-5">
                 <select id="rFilterStatus" onchange="renderReportActive()" class="px-4 py-2 rounded-xl border border-gray-200 text-sm bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-300">
                     <option value="all">All Statuses</option>
                     <option value="Pending">Pending</option>
@@ -897,6 +937,7 @@
             <div id="rPanel-ranking" style="display:none"></div>
             <div id="rPanel-breakdown" style="display:none"></div>
             <div id="rPanel-insights" style="display:none"></div>
+            <div id="rPanel-payroll" style="display:none"></div>
         </div>
     </div>
 </div>
@@ -921,6 +962,7 @@
 
     let rCharts = {}, cmpCharts = {};
     let rActiveTab = 'overview', cmpActiveTab = 'monthly';
+    let rSelectedPayrollCutoffId = null;
 
     function fmt(n){ return '₱'+n.toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2}); }
     function esc(s){ if(!s)return ''; const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
@@ -1623,7 +1665,6 @@
     // ═══════════════════════════════
     // REPORT FUNCTIONS
     // ═══════════════════════════════
-    let rActiveTab2 = 'overview';
 
     function openReport() {
         const modal = document.getElementById('reportModal');
@@ -1690,10 +1731,175 @@
         document.getElementById('rPanel-insights').innerHTML=html||'<p class="text-gray-400 text-center py-8">No data to analyse.</p>';
     }
 
+    function getPayrollCutoffsSorted() {
+        return (window.PAYROLL_DEPT_DATA || [])
+            .slice()
+            .sort((a, b) => Number((b.id || '').split('-')[0] || 0) - Number((a.id || '').split('-')[0] || 0));
+    }
+
+    function payrollPct(part, total) {
+        if (!total) return '0.0%';
+        return ((part / total) * 100).toFixed(1) + '%';
+    }
+
+    function payrollDelta(curr, prev) {
+        const diff = curr - prev;
+        const pct = prev ? ((diff / prev) * 100).toFixed(1) : (curr > 0 ? '100.0' : '0.0');
+        return {
+            diff,
+            pctText: `${diff >= 0 ? '+' : ''}${pct}%`,
+            cls: diff > 0 ? 'text-red-600' : diff < 0 ? 'text-green-600' : 'text-gray-500'
+        };
+    }
+
+    function renderPayrollAnalysis() {
+        const panel = document.getElementById('rPanel-payroll');
+        const cutoffs = getPayrollCutoffsSorted();
+
+        if (!cutoffs.length) {
+            document.getElementById('rSummaryGrid').innerHTML = '';
+            panel.innerHTML = '<p class="text-gray-400 text-center py-8">No payroll snapshots available for analysis.</p>';
+            return;
+        }
+
+        if (!rSelectedPayrollCutoffId || !cutoffs.some(c => c.id === rSelectedPayrollCutoffId)) {
+            rSelectedPayrollCutoffId = cutoffs[0].id;
+        }
+
+        const current = cutoffs.find(c => c.id === rSelectedPayrollCutoffId) || cutoffs[0];
+        const currentIndex = cutoffs.findIndex(c => c.id === current.id);
+        const previous = currentIndex >= 0 && currentIndex < cutoffs.length - 1 ? cutoffs[currentIndex + 1] : null;
+
+        const gross = current.grossSalary || current.fullGross || 0;
+        const net = current.netSalary || current.fullNet || 0;
+        const deductions = current.totalDeductions || 0;
+        const employees = current.totalEmployees || 0;
+        const avgNet = employees ? net / employees : 0;
+
+        const prevGross = previous ? (previous.grossSalary || previous.fullGross || 0) : 0;
+        const prevNet = previous ? (previous.netSalary || previous.fullNet || 0) : 0;
+        const prevEmployees = previous ? (previous.totalEmployees || 0) : 0;
+
+        const dGross = payrollDelta(gross, prevGross);
+        const dNet = payrollDelta(net, prevNet);
+        const dHead = payrollDelta(employees, prevEmployees);
+
+        document.getElementById('rSummaryGrid').innerHTML = `
+            <div class="bg-indigo-50 rounded-xl p-4 border border-indigo-100"><p class="text-xs text-indigo-600 font-medium mb-1">Gross Payroll</p><p class="text-xl font-bold text-indigo-700">${fmt(gross)}</p><p class="text-xs ${dGross.cls} mt-1">${previous ? dGross.pctText + ' vs previous cutoff' : 'No previous cutoff'}</p></div>
+            <div class="bg-green-50 rounded-xl p-4 border border-green-100"><p class="text-xs text-green-600 font-medium mb-1">Net Payroll</p><p class="text-xl font-bold text-green-700">${fmt(net)}</p><p class="text-xs ${dNet.cls} mt-1">${previous ? dNet.pctText + ' vs previous cutoff' : 'No previous cutoff'}</p></div>
+            <div class="bg-gray-50 rounded-xl p-4 border border-gray-200"><p class="text-xs text-gray-500 font-medium mb-1">Headcount</p><p class="text-xl font-bold text-gray-700">${employees}</p><p class="text-xs ${dHead.cls} mt-1">${previous ? dHead.pctText + ' vs previous cutoff' : 'No previous cutoff'}</p></div>
+            <div class="bg-amber-50 rounded-xl p-4 border border-amber-100"><p class="text-xs text-amber-600 font-medium mb-1">Avg Net / Employee</p><p class="text-xl font-bold text-amber-700">${fmt(avgNet)}</p><p class="text-xs text-amber-500 mt-1">Deductions: ${fmt(deductions)}</p></div>`;
+
+        const departments = (current.departments || []).slice().sort((a, b) => (b.grossSalary || 0) - (a.grossSalary || 0));
+        const allEmployees = departments.flatMap(d => d.employees || []);
+
+        const highDeductionEmployees = allEmployees
+            .map(e => {
+                const ratio = e.grossSalary > 0 ? (e.totalDeductions / e.grossSalary) : 0;
+                return { ...e, ratio };
+            })
+            .filter(e => e.ratio >= 0.35 || e.netSalary <= 0)
+            .sort((a, b) => b.ratio - a.ratio)
+            .slice(0, 8);
+
+        const topPenaltyDept = departments
+            .map(d => ({ name: d.name, penalty: (d.latePenalty || 0) + (d.absencePenalty || 0) }))
+            .sort((a, b) => b.penalty - a.penalty)[0];
+
+        const cutoffOptions = cutoffs.map(c => `<option value="${c.id}" ${c.id === current.id ? 'selected' : ''}>${esc(c.cutoffLabel || c.payPeriod || c.id)}</option>`).join('');
+
+        panel.innerHTML = `
+            <div class="mb-5 p-4 bg-indigo-50 border border-indigo-200 rounded-xl flex flex-wrap items-end gap-3">
+                <div class="min-w-[260px]">
+                    <label class="block text-xs font-semibold text-indigo-700 uppercase tracking-wider mb-1">Payroll Cutoff</label>
+                    <select id="rPayrollCutoffSelect" onchange="rSelectedPayrollCutoffId=this.value; renderReportActive();" class="px-3 py-2 rounded-lg border border-indigo-200 text-sm bg-white text-gray-700 w-full">
+                        ${cutoffOptions}
+                    </select>
+                </div>
+                <div class="text-xs text-indigo-700">
+                    <p><strong>Period:</strong> ${esc(current.payPeriod || 'N/A')}</p>
+                    <p><strong>Status:</strong> ${esc(current.status || 'N/A')}</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
+                <div class="bg-white border border-gray-200 rounded-xl p-4">
+                    <p class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Department Cost Distribution</p>
+                    <div class="space-y-3">
+                        ${departments.map((d, i) => {
+                            const share = payrollPct(d.grossSalary || 0, gross);
+                            const avg = d.employeeCount ? ((d.grossSalary || 0) / d.employeeCount) : 0;
+                            const color = RPALETTE[i % RPALETTE.length];
+                            return `<div>
+                                <div class="flex justify-between text-sm mb-1"><span class="font-medium text-gray-800">${esc(d.name)}</span><span class="font-semibold" style="color:${color}">${fmt(d.grossSalary || 0)} (${share})</span></div>
+                                <div class="h-2 bg-gray-100 rounded-full mb-1"><div class="h-2 rounded-full" style="width:${share};background:${color}"></div></div>
+                                <p class="text-[11px] text-gray-400">${d.employeeCount || 0} employee(s) • Avg Gross: ${fmt(avg)}</p>
+                            </div>`;
+                        }).join('') || '<p class="text-sm text-gray-400">No departments found.</p>'}
+                    </div>
+                </div>
+
+                <div class="bg-white border border-gray-200 rounded-xl p-4">
+                    <p class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Key Insights</p>
+                    <div class="space-y-3 text-sm text-gray-700">
+                        <div class="p-3 rounded-lg bg-gray-50 border border-gray-100">
+                            <p><strong>Net Payout Ratio:</strong> ${payrollPct(net, gross)} of gross payroll.</p>
+                            <p><strong>Deduction Ratio:</strong> ${payrollPct(deductions, gross)} of gross payroll.</p>
+                        </div>
+                        <div class="p-3 rounded-lg bg-gray-50 border border-gray-100">
+                            <p><strong>Highest Penalty Impact Dept:</strong> ${topPenaltyDept ? esc(topPenaltyDept.name) : 'N/A'}</p>
+                            <p><strong>Penalty Total:</strong> ${topPenaltyDept ? fmt(topPenaltyDept.penalty) : '₱0.00'}</p>
+                        </div>
+                        <div class="p-3 rounded-lg bg-gray-50 border border-gray-100">
+                            <p><strong>Variance vs Previous:</strong> Gross ${previous ? dGross.pctText : 'N/A'}, Net ${previous ? dNet.pctText : 'N/A'}, Headcount ${previous ? dHead.pctText : 'N/A'}.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white border border-gray-200 rounded-xl p-4">
+                <p class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Exception Monitoring (High Deductions / Low Net)</p>
+                ${highDeductionEmployees.length ? `
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="text-left border-b border-gray-200">
+                                <th class="py-2 pr-3">Employee</th>
+                                <th class="py-2 pr-3">Gross</th>
+                                <th class="py-2 pr-3">Deductions</th>
+                                <th class="py-2 pr-3">Net</th>
+                                <th class="py-2 pr-0">Deduction Ratio</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${highDeductionEmployees.map(e => `
+                                <tr class="border-b border-gray-100">
+                                    <td class="py-2 pr-3 font-medium text-gray-800">${esc(e.employeeName || '')}</td>
+                                    <td class="py-2 pr-3">${fmt(e.grossSalary || 0)}</td>
+                                    <td class="py-2 pr-3 text-red-600">${fmt(e.totalDeductions || 0)}</td>
+                                    <td class="py-2 pr-3 ${e.netSalary <= 0 ? 'text-red-600 font-semibold' : ''}">${fmt(e.netSalary || 0)}</td>
+                                    <td class="py-2 pr-0 font-semibold ${e.ratio >= 0.5 ? 'text-red-600' : 'text-amber-600'}">${(e.ratio * 100).toFixed(1)}%</td>
+                                </tr>`).join('')}
+                        </tbody>
+                    </table>
+                </div>` : '<p class="text-sm text-gray-400">No high-risk deduction outliers in selected cutoff.</p>'}
+            </div>`;
+    }
+
     function rDestroyChart(id) { if(rCharts[id]){try{rCharts[id].destroy();}catch(e){}delete rCharts[id];} }
 
     function renderReportActive() {
-        const data=rFilteredData(); rBuildSummary(data);
+        const data=rFilteredData();
+        const expenseFilters=document.getElementById('rExpenseFilters');
+
+        if(rActiveTab==='payroll'){
+            if(expenseFilters) expenseFilters.classList.add('hidden');
+            renderPayrollAnalysis();
+            return;
+        }
+
+        if(expenseFilters) expenseFilters.classList.remove('hidden');
+        rBuildSummary(data);
         if(rActiveTab==='overview')rRenderOverview(data);
         else if(rActiveTab==='ranking')rRenderRanking(data);
         else if(rActiveTab==='breakdown')rRenderBreakdown(data);
@@ -1702,7 +1908,7 @@
 
     function switchReportTab(tab,btn) {
         rActiveTab=tab;
-        ['overview','ranking','breakdown','insights'].forEach(t=>{document.getElementById('rTab-'+t).className='flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all '+(t===tab?'bg-white shadow text-indigo-600':'text-gray-500 hover:text-gray-700');document.getElementById('rPanel-'+t).style.display=t===tab?'block':'none';});
+        ['overview','ranking','breakdown','insights','payroll'].forEach(t=>{document.getElementById('rTab-'+t).className='flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all '+(t===tab?'bg-white shadow text-indigo-600':'text-gray-500 hover:text-gray-700');document.getElementById('rPanel-'+t).style.display=t===tab?'block':'none';});
         renderReportActive();
     }
 
@@ -2270,6 +2476,103 @@
         html += `</div>`;
 
         body.innerHTML = html;
+    }
+
+    async function updateEmployeePayrollStatus(snapshotId, status, declineReason = '') {
+        try {
+            const body = `snapshotId=${encodeURIComponent(snapshotId)}&status=${encodeURIComponent(status)}&declineReason=${encodeURIComponent(declineReason || '')}`;
+            const res = await fetch('/Sales_Finance/ReleasePayrollEmployee', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body
+            });
+
+            const raw = await res.text();
+            let data;
+            try { data = JSON.parse(raw); }
+            catch { alert('❌ Server error: ' + raw); return; }
+
+            if (res.ok && data.success) {
+                closeEmployeeModal();
+                if (typeof showUndoToast === 'function') {
+                    showUndoToast('✓ ' + (data.message || 'Employee payroll updated.'), () => { });
+                    setTimeout(() => location.reload(), 1100);
+                } else {
+                    alert('✅ ' + (data.message || 'Employee payroll updated.'));
+                    location.reload();
+                }
+            } else {
+                alert('❌ ' + (data.message || 'Error updating employee payroll.'));
+            }
+        } catch (err) {
+            alert('❌ ' + err.message);
+        }
+    }
+
+    function approveEmployeePayroll(snapshotId) {
+        if (!snapshotId) return alert('❌ Missing employee payroll snapshot ID.');
+        if (!confirm('Approve this employee payroll?')) return;
+        updateEmployeePayrollStatus(snapshotId, 'Completed', '');
+    }
+
+    function declineEmployeePayroll(snapshotId) {
+        if (!snapshotId) return alert('❌ Missing employee payroll snapshot ID.');
+        const reason = prompt('Please enter reason for declining this employee payroll:');
+        if (reason === null) return;
+        const trimmed = reason.trim();
+        if (!trimmed) return alert('❌ Decline reason is required.');
+        updateEmployeePayrollStatus(snapshotId, 'Declined', trimmed);
+    }
+
+    // Override with per-employee actions enabled
+    function showEmployeeBreakdown(emp){
+        document.getElementById('empModalName').textContent=emp.employeeName;
+        document.getElementById('empModalPosition').textContent=emp.position||'Position not set';
+
+        const statusRaw = (emp.status || '').trim();
+        const statusLower = statusRaw.toLowerCase();
+        const isCompleted = statusLower === 'completed' || statusLower === 'approved';
+        const isDeclined = statusLower === 'declined';
+        const canApprove = !isCompleted;
+        const canDecline = !isDeclined && !isCompleted;
+
+        const remarksHtml = emp.remarks
+            ? `<div class="mb-4 bg-red-50 border border-red-200 rounded-xl p-3"><p class="text-xs font-bold text-red-700 uppercase mb-1">Decline Reason</p><p class="text-sm text-red-800">${esc(emp.remarks)}</p></div>`
+            : '';
+
+        const statusBadge = isCompleted
+            ? '<span class="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">Completed</span>'
+            : isDeclined
+                ? '<span class="px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">Declined</span>'
+                : `<span class="px-2 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">${esc(statusRaw || 'Pending')}</span>`;
+
+        const actionButtons = emp.snapshotId
+            ? `<div class="flex gap-2 mb-4">
+                    <button onclick="approveEmployeePayroll('${emp.snapshotId}')" ${canApprove ? '' : 'disabled'} class="px-3 py-2 rounded-lg text-sm font-medium ${canApprove ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}">Approve</button>
+                    <button onclick="declineEmployeePayroll('${emp.snapshotId}')" ${canDecline ? '' : 'disabled'} class="px-3 py-2 rounded-lg text-sm font-medium ${canDecline ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}">Decline</button>
+               </div>`
+            : '<p class="text-xs text-red-500 mb-4">Snapshot ID missing. Cannot update status.</p>';
+
+        const body=document.getElementById('empModalBody');
+        body.innerHTML=`
+            <div class="flex items-center justify-between mb-4">${statusBadge}</div>
+            ${remarksHtml}
+            ${actionButtons}
+            <div class="grid grid-cols-3 gap-3 mb-5">
+                <div class="bg-indigo-50 p-3 rounded-xl border border-indigo-200"><p class="text-[10px] text-indigo-700 font-medium">Gross</p><p class="text-sm font-bold text-indigo-900">${fmt(emp.grossSalary)}</p></div>
+                <div class="bg-red-50 p-3 rounded-xl border border-red-200"><p class="text-[10px] text-red-700 font-medium">Deductions</p><p class="text-sm font-bold text-red-900">${fmt(emp.totalDeductions)}</p></div>
+                <div class="bg-green-50 p-3 rounded-xl border border-green-200"><p class="text-[10px] text-green-700 font-medium">Net Pay</p><p class="text-sm font-bold text-green-900">${fmt(emp.netSalary)}</p></div>
+            </div>
+            <div class="bg-gray-50 rounded-xl p-4 border mb-4">
+                <h4 class="text-xs font-bold text-gray-700 uppercase mb-2">Attendance</h4>
+                <div class="grid grid-cols-3 gap-3 text-xs">
+                    <div class="flex justify-between"><span class="text-gray-500">Present</span><span class="font-medium">${emp.daysPresent} / ${emp.totalWorkingDays}</span></div>
+                    <div class="flex justify-between"><span class="text-gray-500">Absent</span><span class="font-medium">${emp.daysAbsent}</span></div>
+                    <div class="flex justify-between"><span class="text-gray-500">Late</span><span class="font-medium">${emp.daysLate}x (${emp.minutesLate} min)</span></div>
+                </div>
+            </div>`;
+
+        document.getElementById('employeeModal').classList.remove('hidden');
     }
 
     // ─── PRINT / PDF ───
