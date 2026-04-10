@@ -2592,11 +2592,11 @@ namespace Sheessential_Sales_Finance.Controllers
 
 
         [HttpPost]
-        public async Task<IActionResult> ReleasePayroll(string id, string status)
+        public async Task<IActionResult> ReleasePayroll(string id, string status, string? declineReason = null)
         {
             try
             {
-                _logger.LogInformation("ReleasePayroll triggered for Id: {Id}, Status: {Status}", id, status);
+                _logger.LogInformation("ReleasePayroll triggered for Id: {Id}, Status: {Status}, DeclineReason: {DeclineReason}", id, status, declineReason);
 
                 if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(status))
                     return Json(new { success = false, message = "Invalid request." });
@@ -2604,6 +2604,9 @@ namespace Sheessential_Sales_Finance.Controllers
                 var normalizedStatus = status.Trim();
                 if (normalizedStatus.Equals("Approved", StringComparison.OrdinalIgnoreCase))
                     normalizedStatus = "Completed";
+
+                if (normalizedStatus.Equals("Declined", StringComparison.OrdinalIgnoreCase) && string.IsNullOrWhiteSpace(declineReason))
+                    return Json(new { success = false, message = "Please provide a reason for declining payroll." });
 
                 // 1) Find target snapshots by the same cutoff key used by the UI
                 var allSnapshots = await _mongo.PayrollSnapshots.Find(_ => true).ToListAsync();
@@ -2658,17 +2661,28 @@ namespace Sheessential_Sales_Finance.Controllers
                 }
 
                 // 3) Update matched snapshots by Id
+                var payrollUpdate = Builders<PayrollSnapshot>.Update
+                    .Set(x => x.Status, normalizedStatus)
+                    .Set(x => x.ProcessedAt, DateTime.UtcNow);
+
+                if (normalizedStatus.Equals("Declined", StringComparison.OrdinalIgnoreCase))
+                {
+                    payrollUpdate = payrollUpdate.Set(x => x.Remarks, declineReason!.Trim());
+                }
+                else
+                {
+                    payrollUpdate = payrollUpdate.Set(x => x.Remarks, null);
+                }
+
                 await _mongo.PayrollSnapshots.UpdateManyAsync(
                     Builders<PayrollSnapshot>.Filter.In(x => x.Id, snapshotIds),
-                    Builders<PayrollSnapshot>.Update
-                        .Set(x => x.Status, normalizedStatus)
-                        .Set(x => x.ProcessedAt, DateTime.UtcNow));
+                    payrollUpdate);
 
                 return Json(new { success = true, message = $"Payroll marked as {normalizedStatus}." });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "ReleasePayroll failed. Id: {Id}, Status: {Status}", id, status);
+                _logger.LogError(ex, "ReleasePayroll failed. Id: {Id}, Status: {Status}, DeclineReason: {DeclineReason}", id, status, declineReason);
                 return Json(new { success = false, message = ex.Message });
             }
         }

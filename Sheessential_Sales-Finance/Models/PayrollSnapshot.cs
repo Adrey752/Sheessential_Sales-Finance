@@ -120,5 +120,8 @@ namespace Sheessential_Sales_Finance.Models
 
         [BsonElement("status")]
         public string Status { get; set; } = string.Empty;
+
+        [BsonElement("remarks")]
+        public string? Remarks { get; set; }
     }
 }
