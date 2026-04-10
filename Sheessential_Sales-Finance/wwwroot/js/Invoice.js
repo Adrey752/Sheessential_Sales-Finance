@@ -33,22 +33,14 @@ document.querySelector("#createInvoiceForm")?.addEventListener("submit", functio
     if (!billedTo) {
         e.preventDefault();
 
-        // Show error styles
         customerError.classList.remove("hidden");
         customerDetails.classList.add("border-red-400");
         customerSearchInput.classList.add("border-red-400", "ring-2", "ring-red-300");
 
-        // scroll to the customer section
-        customerSearchInput.scrollIntoView({
-            behavior: "smooth",
-            block: "center"
-        });
-
-        //focus the search input for convenience
+        customerSearchInput.scrollIntoView({ behavior: "smooth", block: "center" });
         customerSearchInput.focus();
 
     } else {
-        // Remove error styles if valid
         customerError.classList.add("hidden");
         customerDetails.classList.remove("border-red-400");
         customerSearchInput.classList.remove("border-red-400", "ring-2", "ring-red-300");
@@ -56,14 +48,13 @@ document.querySelector("#createInvoiceForm")?.addEventListener("submit", functio
 });
 
 
-// 2. SEARCHING PRODUCTS IN NEW INVOICE MODAL      
+// 2. SEARCHING PRODUCTS IN NEW INVOICE MODAL
 document.addEventListener("DOMContentLoaded", () => {
     const searchInput = document.getElementById("productSearchInput");
     const suggestions = document.getElementById("productSuggestions");
-    // Note: This targets the table inside the modal
     const rows = Array.from(document.querySelectorAll("#productTableBody tr"));
 
-    if (!searchInput) return; // Guard clause if modal not present
+    if (!searchInput) return;
 
     function showSuggestions(term) {
         suggestions.innerHTML = "";
@@ -84,9 +75,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         matches.slice(0, 8).forEach(row => {
             const el = document.createElement("div");
-            el.className =
-                "p-2 hover:bg-pink-50 cursor-pointer text-sm border-b border-gray-100";
-            // Assuming first cell has product name
+            el.className = "p-2 hover:bg-pink-50 cursor-pointer text-sm border-b border-gray-100";
             el.textContent = row.children[0].textContent.trim();
             el.addEventListener("click", () => scrollToRow(row));
             suggestions.appendChild(el);
@@ -96,7 +85,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function scrollToRow(row) {
-        // Find the scrolling container
         const container = document.querySelector(".max-h-60.overflow-y-auto") || document.querySelector(".border.border-gray-200.rounded-xl.bg-white.max-h-60");
 
         if (!container) {
@@ -104,7 +92,6 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        // Calculate scroll position
         const containerRect = container.getBoundingClientRect();
         const rowRect = row.getBoundingClientRect();
         const currentScroll = container.scrollTop;
@@ -115,7 +102,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
         container.scrollTo({ top: finalScroll, behavior: "smooth" });
 
-        // Visual feedback
         row.classList.add("bg-pink-50");
         setTimeout(() => row.classList.remove("bg-pink-50"), 900);
 
@@ -140,7 +126,7 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 
-// 3. CUSTOMER SEARCHING (UPDATED FOR TbUser Model)
+// 3. CUSTOMER SEARCHING
 document.addEventListener("DOMContentLoaded", () => {
     const searchInput = document.getElementById("customerSearchInput");
     const suggestions = document.getElementById("customerSuggestions");
@@ -158,7 +144,6 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        // Filter customers (TbUser)
         const matches = customers.filter(c =>
             c.FirstName.toLowerCase().includes(query) ||
             c.LastName.toLowerCase().includes(query) ||
@@ -186,7 +171,6 @@ document.addEventListener("DOMContentLoaded", () => {
         hiddenCustomerId.value = c.Id;
         suggestions.classList.add("hidden");
 
-        // Safe access to nested Address object
         const addressStr = c.Address
             ? `${c.Address.Street || ""}, ${c.Address.City || ""}`
             : "No Address";
@@ -227,36 +211,31 @@ if (searchBox && tableBody) {
             return;
         }
 
-        // Search in data attributes
         const matches = rows.filter(row => {
             const inv = row.dataset.invoiceNumber || "";
             const cust = row.dataset.billedTo || "";
-            const date = row.dataset.dueDate || ""; // Using 'dueDate' attr even though it stores CreatedAt in View
+            const date = row.dataset.dueDate || "";
             const match = inv.includes(term) || cust.includes(term) || date.includes(term);
             row.style.display = match ? "" : "none";
             return match;
         });
 
-        // Dropdown Suggestions
         if (matches.length > 0) {
             searchSuggestions.innerHTML = matches.slice(0, 5).map(row => `
                 <div class="p-3 hover:bg-pink-50 cursor-pointer transition border-b border-gray-100"
                      data-id="${row.dataset.id}">
                     <div class="text-gray-700 font-medium">${row.dataset.invoiceNumber.toUpperCase()}</div>
-                    <div class="text-xs text-gray-500">
-                        ${row.dataset.billedTo}
-                    </div>
+                    <div class="text-xs text-gray-500">${row.dataset.billedTo}</div>
                 </div>
             `).join("");
             searchSuggestions.classList.remove("hidden");
 
-            // Click handler for suggestions
             searchSuggestions.querySelectorAll("[data-id]").forEach(el => {
                 el.addEventListener("click", () => {
                     const targetRow = rows.find(r => r.dataset.id === el.dataset.id);
                     if (targetRow) {
-                        targetRow.style.display = ""; // Ensure it's visible
-                        tableBody.prepend(targetRow); // Move to top
+                        targetRow.style.display = "";
+                        tableBody.prepend(targetRow);
                         targetRow.scrollIntoView({ behavior: "smooth", block: "center" });
                         setTimeout(() => selectInvoice(el.dataset.id), 300);
                     }
@@ -277,7 +256,7 @@ if (searchBox && tableBody) {
 }
 
 
-// -- ===== RECEIPT VIEW (RIGHT PANEL) - UPDATED FOR TbOrder ===== -->
+// -- ===== RECEIPT VIEW (RIGHT PANEL) ===== -->
 
 function formatDate(dateStr) {
     if (!dateStr) return "—";
@@ -290,8 +269,21 @@ function getProductName(productId) {
     return product ? product.Item : "(Unknown Product)";
 }
 
+function getStatusBadgeClass(status) {
+    switch (status) {
+        case "Paid":
+        case "Completed":   return "background:#763F62; color:#fff;";
+        case "Unpaid":      return "background:#A36A66; color:#fff;";
+        case "Overdue":     return "background:#fef9c3; color:#ca8a04;";
+        case "Pending":
+        case "Processing":  return "background:#dbeafe; color:#2563eb;";
+        case "Failed":
+        case "Cancelled":   return "background:#fee2e2; color:#dc2626;";
+        default:            return "background:#f3f4f6; color:#4b5563;";
+    }
+}
+
 function selectInvoice(id) {
-    // Note: 'invoices' here refers to the list of TbOrder objects passed from C#
     const order = invoices.find(i => i.Id === id);
 
     if (!order) {
@@ -307,70 +299,111 @@ function selectInvoice(id) {
     const container = document.getElementById("invoiceDetailContainer");
     if (!container) return;
 
-    // Construct Name safely
+    // Align detail panel content to top-left once an order is selected
+    container.classList.remove("items-center", "justify-center");
+    container.classList.add("items-start", "justify-start");
+
     const customerName = order.ShippingAddress
         ? `${order.ShippingAddress.FirstName} ${order.ShippingAddress.LastName}`
         : "Unknown";
 
-    // TbOrder uses CreatedAt, and usually no DueDate. 
-    // We will hide DueDate if it doesn't exist.
     const dateIssued = formatDate(order.CreatedAt);
+    const statusStyle = getStatusBadgeClass(order.PaymentStatus || order.OrderStatus);
+
+    // Build items rows
+    const itemRows = (order.Items || []).map(item => `
+        <tr class="border-b border-gray-100">
+            <td class="py-1.5 pr-2 text-gray-700">${item.ProductName || '—'}</td>
+            <td class="py-1.5 text-center text-gray-600">${item.Quantity}</td>
+            <td class="py-1.5 text-right text-gray-600">&#8369;${Number(item.Price).toFixed(2)}</td>
+            <td class="py-1.5 text-right font-medium text-gray-800">&#8369;${(item.Quantity * item.Price).toFixed(2)}</td>
+        </tr>
+    `).join('');
 
     container.innerHTML = `
-                <div class="flex justify-between mb-3">
-                    <div>
-                        <h3 class="text-xl font-semibold text-gray-800">Order</h3>
-                        <p class="text-gray-500 text-sm"># <span class="font-medium text-gray-700">${order.OrderNumber}</span></p>
-                    </div>
-                    <img src="${window.logoPath || '/images/Logo.jpg'}" alt="Logo" class="w-20 opacity-80 object-contain">
-                </div>
+        <div class="w-full text-left text-[13px] text-gray-700" style="font-family:sans-serif;">
 
-                <div class="flex justify-between text-xs text-gray-600 mb-3">
-                    <div>
-                        <p class="font-medium text-gray-700 mb-1">From:</p>
-                        <p>Sheessentials</p>
-                    </div>
-                    <div>
-                        <p class="font-medium text-gray-700 mb-1">To:</p>
-                        <p>${customerName}</p>
-                    </div>
+            <!-- Header: Order title + logo -->
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
+                <div>
+                    <p style="font-size:18px; font-weight:700; color:#1f2937; margin:0;">Order</p>
+                    <p style="font-size:12px; color:#6b7280; margin:4px 0 0;"># <span style="font-weight:600; color:#374151;">${order.OrderNumber}</span></p>
                 </div>
+                <img src="${window.logoPath || '/images/Logo.jpg'}" alt="Logo"
+                     style="width:70px; opacity:0.85; object-fit:contain;" />
+            </div>
 
-                <div class="flex justify-between text-xs mb-3">
-                    <p><span class="font-medium text-gray-700">Date:</span> ${dateIssued}</p>
-                    <p><span class="font-medium text-gray-700">Status:</span> ${order.PaymentStatus || order.OrderStatus}</p>
+            <!-- From / To -->
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; padding:10px 0; border-top:1px solid #f3f4f6; border-bottom:1px solid #f3f4f6; margin-bottom:10px;">
+                <div>
+                    <p style="font-size:10px; font-weight:600; color:#9ca3af; text-transform:uppercase; letter-spacing:0.05em; margin:0 0 4px;">From</p>
+                    <p style="font-size:13px; font-weight:500; color:#1f2937; margin:0;">Sheessentials</p>
                 </div>
+                <div>
+                    <p style="font-size:10px; font-weight:600; color:#9ca3af; text-transform:uppercase; letter-spacing:0.05em; margin:0 0 4px;">To</p>
+                    <p style="font-size:13px; font-weight:500; color:#1f2937; margin:0;">${customerName}</p>
+                </div>
+            </div>
 
-                <table class="w-full text-xs border-t border-b border-gray-200 mb-3">
-                    <thead>
-                        <tr class="text-gray-600 text-left">
-                            <th class="py-2">Product</th>
-                            <th class="py-2">Qty</th>
-                            <th class="py-2">Price</th>
-                            <th class="py-2 text-right">Total</th>
+            <!-- Date / Status -->
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; padding-bottom:10px; border-bottom:1px solid #f3f4f6; margin-bottom:12px;">
+                <div>
+                    <p style="font-size:10px; font-weight:600; color:#9ca3af; text-transform:uppercase; letter-spacing:0.05em; margin:0 0 4px;">Date</p>
+                    <p style="font-size:13px; color:#374151; margin:0;">${dateIssued}</p>
+                </div>
+                <div>
+                    <p style="font-size:10px; font-weight:600; color:#9ca3af; text-transform:uppercase; letter-spacing:0.05em; margin:0 0 4px;">Status</p>
+                    <span style="display:inline-block; font-size:11px; font-weight:600; padding:2px 10px; border-radius:999px; ${statusStyle}">
+                        ${order.PaymentStatus || order.OrderStatus}
+                    </span>
+                </div>
+            </div>
+
+            <!-- Items Table -->
+            <table style="width:100%; border-collapse:collapse; font-size:12px; margin-bottom:12px;">
+                <thead>
+                    <tr style="border-bottom:1px solid #e5e7eb;">
+                        <th style="text-align:left; padding:6px 8px 6px 0; color:#9ca3af; font-weight:600; text-transform:uppercase; font-size:10px; letter-spacing:0.05em;">Product</th>
+                        <th style="text-align:center; padding:6px 4px; color:#9ca3af; font-weight:600; text-transform:uppercase; font-size:10px; letter-spacing:0.05em;">Qty</th>
+                        <th style="text-align:right; padding:6px 4px; color:#9ca3af; font-weight:600; text-transform:uppercase; font-size:10px; letter-spacing:0.05em;">Price</th>
+                        <th style="text-align:right; padding:6px 0 6px 4px; color:#9ca3af; font-weight:600; text-transform:uppercase; font-size:10px; letter-spacing:0.05em;">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${(order.Items || []).map(item => `
+                        <tr style="border-bottom:1px solid #f9fafb;">
+                            <td style="padding:6px 8px 6px 0; color:#374151;">${item.ProductName || '—'}</td>
+                            <td style="padding:6px 4px; text-align:center; color:#6b7280;">${item.Quantity}</td>
+                            <td style="padding:6px 4px; text-align:right; color:#6b7280;">&#8369;${Number(item.Price).toFixed(2)}</td>
+                            <td style="padding:6px 0 6px 4px; text-align:right; font-weight:600; color:#1f2937;">&#8369;${(item.Quantity * item.Price).toFixed(2)}</td>
                         </tr>
-                    </thead>
-                    <tbody>
-                        ${(order.Items || []).map(item => `
-                            <tr>
-                                <td class="py-1">${item.ProductName}</td>
-                                <td>${item.Quantity}</td>
-                                <td>₱${Number(item.Price).toFixed(2)}</td> <td class="text-right">₱${(item.Quantity * item.Price).toFixed(2)}</td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
+                    `).join('')}
+                </tbody>
+            </table>
 
-                <div class="text-right space-y-1 text-gray-700">
-                    <p>Subtotal: <span class="font-semibold">₱${Number(order.Subtotal).toFixed(2)}</span></p>
-                    <p>Tax: <span class="font-semibold">₱${Number(order.Tax).toFixed(2)}</span></p>
-                    <p>Shipping: <span class="font-semibold">₱${Number(order.ShippingFee || 0).toFixed(2)}</span></p>
-                    <hr class="my-1 border-gray-100"/>
-                    <p class="text-lg font-semibold">Total: ₱${Number(order.TotalAmount).toFixed(2)}</p>
+            <!-- Totals -->
+            <div style="font-size:13px; color:#374151; border-top:1px solid #e5e7eb; padding-top:10px;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                    <span style="color:#6b7280;">Subtotal</span>
+                    <span style="font-weight:500;">&#8369;${Number(order.Subtotal || 0).toFixed(2)}</span>
                 </div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                    <span style="color:#6b7280;">Tax</span>
+                    <span style="font-weight:500;">&#8369;${Number(order.Tax || 0).toFixed(2)}</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+                    <span style="color:#6b7280;">Shipping</span>
+                    <span style="font-weight:500;">&#8369;${Number(order.ShippingFee || 0).toFixed(2)}</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; border-top:2px solid #e5e7eb; padding-top:8px;">
+                    <span style="font-size:15px; font-weight:700; color:#1f2937;">Total</span>
+                    <span style="font-size:15px; font-weight:700; color:#A36A66;">&#8369;${Number(order.TotalAmount || 0).toFixed(2)}</span>
+                </div>
+            </div>
+
+        </div>
     `;
 
-    // Smooth scroll mobile/tablet
     if (window.innerWidth < 1024) {
         container.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
@@ -390,7 +423,6 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById('updateInvoiceId').value = id;
         document.getElementById('updateInvoiceNumber').textContent = number;
 
-        // Ensure the select matches available options in HTML
         const statusSelect = document.getElementById('updateStatus');
         if (statusSelect) statusSelect.value = status;
     }
@@ -443,16 +475,13 @@ document.addEventListener("DOMContentLoaded", () => {
             const newStatus = document.getElementById("updateStatus").value;
 
             try {
-                const response = await fetch("/Sales_Finance/UpdateStatus", {
+                await fetch("/Sales_Finance/UpdateStatus", {
                     method: "POST",
                     headers: { "Content-Type": "application/x-www-form-urlencoded" },
                     body: new URLSearchParams({ id, newStatus })
                 });
 
-
                 closeModal("updateModal");
-
-                // 2. Refresh the current page
                 window.location.reload();
             } catch (err) {
                 console.error(err);
@@ -461,44 +490,6 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    function getStatusColorClass(status) {
-        switch (status) {
-            // C# Equivalent: "Paid" => "bg-[#763F62] text-white"
-            case "Paid":
-                return "bg-[#763F62] text-white";
-
-            // Note: C# logic does not include "Completed" in this list, 
-            // but if you want it to match "Paid", you can keep it separate or merge. 
-            // For now, I'll map "Completed" to the Paid color for consistency.
-            case "Completed":
-                return "bg-[#763F62] text-white";
-
-            // C# Equivalent: "Unpaid" => "bg-[#A36A66] text-white"
-            case "Unpaid":
-                return "bg-[#A36A66] text-white";
-
-            // C# Equivalent: "Overdue" => "bg-yellow-100 text-yellow-600"
-            case "Overdue":
-                return "bg-yellow-100 text-yellow-600";
-
-            // C# Equivalent: "Pending" => "bg-blue-100 text-blue-600"
-            case "Pending":
-            // C# logic does not include "Processing" but it's typically Pending's sibling
-            case "Processing":
-                return "bg-blue-100 text-blue-600";
-
-            // C# Equivalent: "Failed" => "bg-red-100 text-red-600"
-            case "Failed":
-            // Note: C# logic does not include "Cancelled" in this list, 
-            // but it's typically grouped with "Failed"
-            case "Cancelled":
-                return "bg-red-100 text-red-600";
-
-            // C# Equivalent: _ => "bg-gray-100 text-gray-600"
-            default:
-                return "bg-gray-100 text-gray-600";
-        }
-    }
     // === HANDLE DELETE SUBMIT ===
     const deleteBtn = document.getElementById('confirmDeleteBtn');
     if (deleteBtn) {
@@ -514,7 +505,6 @@ document.addEventListener("DOMContentLoaded", () => {
                     closeModal('deleteModal');
                     const row = document.querySelector(`[data-id="${id}"]`);
                     if (row) row.remove();
-                    // Clear detail view if deleted item was selected
                     const detailContainer = document.getElementById("invoiceDetailContainer");
                     if (detailContainer) detailContainer.innerHTML = '<p class="text-gray-500 text-center py-10">Select an order to view details</p>';
                 } else {
@@ -527,11 +517,11 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // Expose functions to global scope for onclick attributes in HTML
+    // Expose to global scope
     window.openUpdateModal = openUpdateModal;
     window.openDeleteModal = openDeleteModal;
     window.closeModal = closeModal;
-    window.selectInvoice = selectInvoice; // Make sure selectInvoice is global too
+    window.selectInvoice = selectInvoice;
 });
 
 
@@ -546,7 +536,6 @@ document.addEventListener("DOMContentLoaded", function () {
         const todayStr = today.toISOString().split("T")[0];
         invoiceDateInput.value = todayStr;
 
-        // Even though TbOrder doesn't store DueDate, we keep UI logic intact for now
         const due = new Date(today);
         due.setDate(due.getDate() + 7);
         const dueStr = due.toISOString().split("T")[0];
