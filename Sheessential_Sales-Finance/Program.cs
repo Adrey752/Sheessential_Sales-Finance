@@ -59,6 +59,8 @@ app.Use(async (context, next) =>
         path.Contains("/auth/forgotpassword") ||
         path.Contains("/auth/resetpassword") ||
          path.Contains("/auth/register") ||
+         path.Contains("/sales_finance/gethumanresourcetables") ||
+         path.Contains("/sales_finance/gethumanresourcetableattributes") ||
          path.Contains("/css") ||
          path.Contains("/js") ||
          path.Contains("/images") ||
@@ -75,6 +77,16 @@ app.Use(async (context, next) =>
         }
         else
         {
+            if (path != null && path.Contains("/sales_finance/executivepayrollapproval"))
+            {
+                var userRole = context.Session.GetString("UserRole");
+                if (!string.Equals(userRole, "Finance manager", StringComparison.OrdinalIgnoreCase))
+                {
+                    context.Response.Redirect("/Sales_Finance/Dashboard");
+                    return;
+                }
+            }
+
             await next();
         }
     }

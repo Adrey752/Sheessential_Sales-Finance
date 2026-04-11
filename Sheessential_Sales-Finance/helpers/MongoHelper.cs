@@ -1,4 +1,5 @@
 ﻿using MongoDB.Bson;
+using MongoDB.Bson;
 using MongoDB.Driver;
 using Sheessential_Sales_Finance.Models;
 
@@ -130,6 +131,7 @@ namespace Sheessential_Sales_Finance.helpers
         public IMongoCollection<InventoryUser> InventoryUsers => GetInventoryCollection<InventoryUser>("Users");
         public IMongoCollection<Supplier> Suppliers => GetInventoryCollection<Supplier>("Suppliers");
         public IMongoCollection<PayrollRun> ParyrollRuns => GetHrCollection<PayrollRun>("PayRuns");
+        public IMongoCollection<BsonDocument> HrEmployees => GetHrCollection<BsonDocument>("Employees");
 
 
         public IMongoCollection<InventoryProductSales> ProductSalesInventory => GetInventoryCollection<InventoryProductSales>("ProductSales");
@@ -138,6 +140,54 @@ namespace Sheessential_Sales_Finance.helpers
         // === PAYROLL DATABASE COLLECTIONS (sia_payroll_db) ===
         public IMongoCollection<PayrollSnapshot> PayrollSnapshots =>
             GetPayrollCollection<PayrollSnapshot>("PayrollSnapshots");
+
+        public async Task<List<string>> GetHumanResourceCollectionNamesAsync()
+        {
+            EnsureConnection();
+            return _hrDatabase == null
+                ? new List<string>()
+                : await _hrDatabase.ListCollectionNames().ToListAsync();
+        }
+
+        public async Task<List<string>> GetHumanResourceCollectionAttributesAsync(string collectionName, int sampleSize = 50)
+        {
+            EnsureConnection();
+
+            if (_hrDatabase == null || string.IsNullOrWhiteSpace(collectionName))
+                return new List<string>();
+
+            var collection = _hrDatabase.GetCollection<BsonDocument>(collectionName);
+            var docs = await collection
+                .Find(FilterDefinition<BsonDocument>.Empty)
+                .Limit(sampleSize)
+                .ToListAsync();
+
+            var fields = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var doc in docs)
+            {
+                CollectFieldNames(doc, fields, string.Empty);
+            }
+
+            return fields.OrderBy(x => x).ToList();
+        }
+
+        private static void CollectFieldNames(BsonDocument doc, HashSet<string> fields, string prefix)
+        {
+            foreach (var element in doc.Elements)
+            {
+                var fieldName = string.IsNullOrEmpty(prefix)
+                    ? element.Name
+                    : $"{prefix}.{element.Name}";
+
+                fields.Add(fieldName);
+
+                if (element.Value.IsBsonDocument)
+                {
+                    CollectFieldNames(element.Value.AsBsonDocument, fields, fieldName);
+                }
+            }
+        }
 
         // ✅ Safe query wrapper (updated to use EnsureConnection)
         public List<T> SafeFindAll<T>(IMongoCollection<T> collection)

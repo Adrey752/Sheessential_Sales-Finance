@@ -44,31 +44,54 @@ namespace Sheessential_Sales_Finance.Controllers
                 return View();
             }
 
-            var user = await _mongo.Users.Find(u => u.Email == Email).FirstOrDefaultAsync();
+            var employee = await _mongo.HrEmployees
+                .Find(Builders<BsonDocument>.Filter.Eq("email", Email.Trim()))
+                .FirstOrDefaultAsync();
 
-            if (user == null)
+            if (employee == null)
             {
-                ViewBag.Error = "Invalid e-mail or password.";
+                ViewBag.Error = "Invalid e-mail or employee ID.";
                 return View();
             }
 
-            var passwordHash = ComputeSha256Hash(Password);
-
-            if (user.Password != passwordHash)
+            var department = employee.GetValue("department", "").ToString();
+            if (!department.Equals("Finance", StringComparison.OrdinalIgnoreCase))
             {
-                ViewBag.Error = "Invalid e-mail or password.";
+                ViewBag.Error = "Only Finance department users can log in.";
                 return View();
             }
 
-            HttpContext.Session.SetString("UserId", user.Id ?? "");
-            HttpContext.Session.SetString("UserName", $"{user.FirstName} {user.LastName}");
-            HttpContext.Session.SetString("UserRole", user.Role);
-            HttpContext.Session.SetString("Email", user.Email);
+            var employeeId = employee.GetValue("employeeId", "").ToString();
+            if (!employeeId.Equals(Password.Trim(), StringComparison.OrdinalIgnoreCase))
+            {
+                ViewBag.Error = "Invalid e-mail or employee ID.";
+                return View();
+            }
 
-            user.LastLogin = DateTime.Now;
-            await _mongo.Users.ReplaceOneAsync(u => u.Id == user.Id, user);
+            if (employee.TryGetValue("isActive", out var isActiveValue) && isActiveValue.IsBoolean && !isActiveValue.AsBoolean)
+            {
+                ViewBag.Error = "Your account is inactive.";
+                return View();
+            }
 
-            return RedirectToAction("DashBoard", "Sales_Finance");
+            var role = employee.GetValue("role", "").ToString();
+            var firstName = employee.GetValue("firstName", "").ToString();
+            var lastName = employee.GetValue("lastName", "").ToString();
+            var fullName = $"{firstName} {lastName}".Trim();
+            var employeeMongoId = employee.GetValue("_id", "").ToString();
+
+            HttpContext.Session.SetString("UserId", employeeMongoId);
+            HttpContext.Session.SetString("UserName", string.IsNullOrWhiteSpace(fullName) ? "Finance User" : fullName);
+            HttpContext.Session.SetString("UserRole", role);
+            HttpContext.Session.SetString("UserDepartment", department);
+            HttpContext.Session.SetString("Email", Email.Trim());
+
+            if (role.Equals("Finance manager", StringComparison.OrdinalIgnoreCase))
+            {
+                return RedirectToAction("ExecutivePayrollApproval", "Sales_Finance");
+            }
+
+            return RedirectToAction("Dashboard", "Sales_Finance");
         }
 
 

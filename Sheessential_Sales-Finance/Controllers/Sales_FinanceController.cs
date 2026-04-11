@@ -36,6 +36,34 @@ namespace Sheessential_Sales_Finance.Controllers
             _env = env;
             _viewEngine = viewEngine;
         }
+
+        [HttpGet]
+        public async Task<IActionResult> GetHumanResourceTables()
+        {
+            var collections = await _mongo.GetHumanResourceCollectionNamesAsync();
+
+            return Json(new
+            {
+                database = "HumanResourcesDB",
+                count = collections.Count,
+                tables = collections
+            });
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetHumanResourceTableAttributes(string tableName = "Employees")
+        {
+            var attributes = await _mongo.GetHumanResourceCollectionAttributesAsync(tableName);
+
+            return Json(new
+            {
+                database = "HumanResourcesDB",
+                table = tableName,
+                count = attributes.Count,
+                attributes
+            });
+        }
+
         public IActionResult Index()
         {
             var userName = HttpContext.Session.GetString("UserName");
@@ -2553,6 +2581,12 @@ namespace Sheessential_Sales_Finance.Controllers
 
         public IActionResult ExecutivePayrollApproval()
         {
+            var userRole = HttpContext.Session.GetString("UserRole") ?? "";
+            if (!userRole.Equals("Finance manager", StringComparison.OrdinalIgnoreCase))
+            {
+                return RedirectToAction("Dashboard");
+            }
+
             var model = new ExpensesWithBalanceViewModel
             {
                 Expenses = new List<Expenses>(),
@@ -2597,6 +2631,10 @@ namespace Sheessential_Sales_Finance.Controllers
         {
             try
             {
+                var userRole = HttpContext.Session.GetString("UserRole") ?? "";
+                if (!userRole.Equals("Finance manager", StringComparison.OrdinalIgnoreCase))
+                    return Json(new { success = false, message = "Unauthorized." });
+
                 _logger.LogInformation("ReleasePayroll triggered for Id: {Id}, Status: {Status}, DeclineReason: {DeclineReason}", id, status, declineReason);
 
                 if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(status))
@@ -2693,6 +2731,10 @@ namespace Sheessential_Sales_Finance.Controllers
         {
             try
             {
+                var userRole = HttpContext.Session.GetString("UserRole") ?? "";
+                if (!userRole.Equals("Finance manager", StringComparison.OrdinalIgnoreCase))
+                    return Json(new { success = false, message = "Unauthorized." });
+
                 if (string.IsNullOrWhiteSpace(snapshotId) || string.IsNullOrWhiteSpace(status))
                     return Json(new { success = false, message = "Invalid request." });
 
