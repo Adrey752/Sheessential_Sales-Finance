@@ -269,6 +269,11 @@
             <h1 class="text-3xl font-bold text-[#A36A66]">Expenses by Department</h1>
             <p class="text-sm text-gray-500 mt-1">All expense requests, ingredient requests & payroll — grouped per department</p>
         </div>
+
+<!-- ═══ ACTION NOTIFICATION ═══ -->
+<div id="actionNotice" class="fixed top-5 right-5 z-[95] hidden">
+    <div id="actionNoticeBox" class="px-4 py-3 rounded-xl shadow-xl border text-sm font-medium bg-white text-gray-800 border-gray-200"></div>
+</div>
         <div class="flex items-center gap-3 flex-wrap">
             <!-- ═══ GLOBAL SEARCH ═══ -->
             <div class="relative">
@@ -2227,6 +2232,30 @@
 
     // ─── UNDO TOAST ───
     let undoTimer = null, undoAction = null;
+    let actionNoticeTimer = null;
+
+    function showActionNotice(message, type = 'success') {
+        const notice = document.getElementById('actionNotice');
+        const box = document.getElementById('actionNoticeBox');
+        if (!notice || !box) return;
+
+        clearTimeout(actionNoticeTimer);
+
+        const map = {
+            success: 'bg-green-50 text-green-800 border-green-200',
+            error: 'bg-red-50 text-red-800 border-red-200',
+            info: 'bg-blue-50 text-blue-800 border-blue-200'
+        };
+
+        box.className = `px-4 py-3 rounded-xl shadow-xl border text-sm font-medium ${map[type] || map.info}`;
+        box.textContent = message;
+        notice.classList.remove('hidden');
+
+        actionNoticeTimer = setTimeout(() => {
+            notice.classList.add('hidden');
+        }, 2200);
+    }
+
     function showUndoToast(message, undoFn){
         clearTimeout(undoTimer);
         undoAction = undoFn;
@@ -2850,13 +2879,13 @@
                 const res = await fetch('/Sales_Finance/AddExpense', { method:'POST', body: formData });
                 const data = await res.json();
                 if(data.success){
-                    alert('Expense request submitted successfully!');
-                    location.reload();  
+                    showActionNotice('Expense request submitted successfully.', 'success');
+                    setTimeout(()=>location.reload(), 900);
                 } else {
-                    alert(data.message || 'Failed to submit expense request.');
+                    showActionNotice(data.message || 'Failed to submit expense request.', 'error');
                 }
             } catch(err){
-                alert(err.message || 'An error occurred while submitting the request.');
+                showActionNotice(err.message || 'An error occurred while submitting the request.', 'error');
             }
         });
     });
