@@ -1492,10 +1492,22 @@ namespace Sheessential_Sales_Finance.Controllers
 
         // Replace the existing ExpensesByDepartment method with this one
         [HttpGet]
+        public IActionResult ExpenseByDeparment()
+        {
+            return RedirectToAction(nameof(ExpensesByDepartment));
+        }
+
+        [HttpGet]
         public IActionResult ExpensesByDepartment()
         {
             try
             {
+                var userDepartment = (HttpContext.Session.GetString("UserDepartment") ?? string.Empty).Trim();
+                if (!userDepartment.Equals("Finance", StringComparison.OrdinalIgnoreCase))
+                {
+                    return RedirectToAction("Dashboard");
+                }
+
                 // Fetch all non-ingredient expenses
                 var allExpenses = _mongo.Expenses
                     .Find(e => e.isIngredientsRequest == false)
@@ -1733,18 +1745,22 @@ namespace Sheessential_Sales_Finance.Controllers
         public IActionResult AddExpense(Expenses newExpense)
         {
             _logger.LogInformation("\n\n\n\n\n Im in Add expense \n\n\n");
-            var lastExpense = _mongo.Expenses
+            var existingExpenseIds = _mongo.Expenses
                 .Find(_ => true)
-                .SortByDescending(e => e.ExpenseId)
-                .FirstOrDefault();
+                .Project(e => e.ExpenseId)
+                .ToList();
 
-            int nextNumber = 1;
-            if (lastExpense != null && !string.IsNullOrEmpty(lastExpense.ExpenseId))
-            {
-                string lastNumberPart = lastExpense.ExpenseId.Replace("EXP-", "");
-                if (int.TryParse(lastNumberPart, out int lastNumber))
-                    nextNumber = lastNumber + 1;
-            }
+            var maxNumber = existingExpenseIds
+                .Select(id =>
+                {
+                    if (string.IsNullOrWhiteSpace(id)) return 0;
+                    var match = Regex.Match(id, @"\d+");
+                    return match.Success && int.TryParse(match.Value, out var number) ? number : 0;
+                })
+                .DefaultIfEmpty(0)
+                .Max();
+
+            int nextNumber = maxNumber + 1;
 
             newExpense.ExpenseId = $"EXP-{nextNumber:D4}";
             newExpense.Status = "Pending";
@@ -1753,6 +1769,101 @@ namespace Sheessential_Sales_Finance.Controllers
             _mongo.Expenses.InsertOne(newExpense);
 
             return Json(new { success = true, expenseId = newExpense.Id });
+        }
+
+        [HttpPost]
+        public IActionResult RemoveDuplicateExpensesByExpenseId(string target = "current")
+        {
+            var mode = (target ?? "current").Trim().ToLowerInvariant();
+
+            long currentDeleted = 0;
+            long legacyDeleted = 0;
+
+            if (mode is "current" or "both")
+            {
+                currentDeleted = CleanupDuplicateExpenseIds(_mongo.Expenses);
+            }
+
+            if (mode is "legacy" or "both")
+            {
+                legacyDeleted = CleanupDuplicateExpenseIds(_mongo.LegacyExpenses);
+            }
+
+            return Json(new
+            {
+                success = true,
+                target = mode,
+                currentDeleted,
+                legacyDeleted,
+                totalDeleted = currentDeleted + legacyDeleted,
+                message = "Duplicate ExpenseId cleanup completed."
+            });
+        }
+
+        private static long CleanupDuplicateExpenseIds(IMongoCollection<Expenses> collection)
+        {
+            var expenses = collection
+                .Find(e => !string.IsNullOrWhiteSpace(e.ExpenseId))
+                .SortByDescending(e => e.RequestedAt)
+                .ToList();
+
+            var idsToDelete = new List<string>();
+            var normalizedUpdates = new List<(string Id, string NormalizedExpenseId)>();
+
+            var grouped = expenses
+                .GroupBy(e => NormalizeExpenseId(e.ExpenseId), StringComparer.OrdinalIgnoreCase)
+                .Where(g => !string.IsNullOrWhiteSpace(g.Key));
+
+            foreach (var group in grouped)
+            {
+                var ordered = group
+                    .OrderByDescending(e => e.RequestedAt)
+                    .ThenByDescending(e => e.Id)
+                    .ToList();
+
+                var keep = ordered.First();
+
+                if (!string.Equals(keep.ExpenseId, group.Key, StringComparison.OrdinalIgnoreCase) &&
+                    !string.IsNullOrWhiteSpace(keep.Id))
+                {
+                    normalizedUpdates.Add((keep.Id, group.Key));
+                }
+
+                idsToDelete.AddRange(ordered
+                    .Skip(1)
+                    .Where(e => !string.IsNullOrWhiteSpace(e.Id))
+                    .Select(e => e.Id!));
+            }
+
+            foreach (var update in normalizedUpdates)
+            {
+                collection.UpdateOne(
+                    e => e.Id == update.Id,
+                    Builders<Expenses>.Update.Set(e => e.ExpenseId, update.NormalizedExpenseId));
+            }
+
+            if (idsToDelete.Count == 0)
+                return 0;
+
+            var deleteResult = collection.DeleteMany(e => idsToDelete.Contains(e.Id!));
+            return deleteResult.DeletedCount;
+        }
+
+        private static string NormalizeExpenseId(string? rawExpenseId)
+        {
+            if (string.IsNullOrWhiteSpace(rawExpenseId)) return string.Empty;
+
+            var value = rawExpenseId.Trim().Trim('"', '\'', '`');
+            var match = Regex.Match(value, @"EXP-\d+", RegexOptions.IgnoreCase);
+
+            if (match.Success)
+                return match.Value.ToUpperInvariant();
+
+            var numeric = Regex.Match(value, @"\d+");
+            if (numeric.Success && int.TryParse(numeric.Value, out var number))
+                return $"EXP-{number:D4}";
+
+            return value.ToUpperInvariant();
         }
 
 
@@ -2581,8 +2692,14 @@ namespace Sheessential_Sales_Finance.Controllers
 
         public IActionResult ExecutivePayrollApproval()
         {
-            var userRole = HttpContext.Session.GetString("UserRole") ?? "";
-            if (!userRole.Equals("Finance manager", StringComparison.OrdinalIgnoreCase))
+            var userRole = (HttpContext.Session.GetString("UserRole") ?? string.Empty).Trim();
+            var userDepartment = (HttpContext.Session.GetString("UserDepartment") ?? string.Empty).Trim();
+            var isFinanceManager =
+                userRole.Equals("Finance manager", StringComparison.OrdinalIgnoreCase) ||
+                (userDepartment.Equals("Finance", StringComparison.OrdinalIgnoreCase) &&
+                 userRole.Contains("manager", StringComparison.OrdinalIgnoreCase));
+
+            if (!isFinanceManager)
             {
                 return RedirectToAction("Dashboard");
             }
@@ -2631,8 +2748,14 @@ namespace Sheessential_Sales_Finance.Controllers
         {
             try
             {
-                var userRole = HttpContext.Session.GetString("UserRole") ?? "";
-                if (!userRole.Equals("Finance manager", StringComparison.OrdinalIgnoreCase))
+                var userRole = (HttpContext.Session.GetString("UserRole") ?? string.Empty).Trim();
+                var userDepartment = (HttpContext.Session.GetString("UserDepartment") ?? string.Empty).Trim();
+                var isFinanceManager =
+                    userRole.Equals("Finance manager", StringComparison.OrdinalIgnoreCase) ||
+                    (userDepartment.Equals("Finance", StringComparison.OrdinalIgnoreCase) &&
+                     userRole.Contains("manager", StringComparison.OrdinalIgnoreCase));
+
+                if (!isFinanceManager)
                     return Json(new { success = false, message = "Unauthorized." });
 
                 _logger.LogInformation("ReleasePayroll triggered for Id: {Id}, Status: {Status}, DeclineReason: {DeclineReason}", id, status, declineReason);
@@ -2731,8 +2854,14 @@ namespace Sheessential_Sales_Finance.Controllers
         {
             try
             {
-                var userRole = HttpContext.Session.GetString("UserRole") ?? "";
-                if (!userRole.Equals("Finance manager", StringComparison.OrdinalIgnoreCase))
+                var userRole = (HttpContext.Session.GetString("UserRole") ?? string.Empty).Trim();
+                var userDepartment = (HttpContext.Session.GetString("UserDepartment") ?? string.Empty).Trim();
+                var isFinanceManager =
+                    userRole.Equals("Finance manager", StringComparison.OrdinalIgnoreCase) ||
+                    (userDepartment.Equals("Finance", StringComparison.OrdinalIgnoreCase) &&
+                     userRole.Contains("manager", StringComparison.OrdinalIgnoreCase));
+
+                if (!isFinanceManager)
                     return Json(new { success = false, message = "Unauthorized." });
 
                 if (string.IsNullOrWhiteSpace(snapshotId) || string.IsNullOrWhiteSpace(status))

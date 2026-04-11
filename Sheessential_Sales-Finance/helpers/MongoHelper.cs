@@ -27,12 +27,14 @@ namespace Sheessential_Sales_Finance.helpers
         private readonly string _inventoryDbName = "InventorySystemDB";
         private readonly string _hrDbName = "HumanResourcesDB";
         private readonly string _payrollDbName = "sia_payroll_db";
+        private readonly string _salesFinanceDbName = "SalesAndFinanceDB";
 
         private IMongoDatabase? _primaryDatabase;
         private IMongoDatabase? _secondaryDatabase;
         private IMongoDatabase? _inventoryDatabase;
         private IMongoDatabase? _hrDatabase;
         private IMongoDatabase? _payrollDatabase;
+        private IMongoDatabase? _salesFinanceDatabase;
 
         private bool _isInitialized = false;
 
@@ -50,8 +52,44 @@ namespace Sheessential_Sales_Finance.helpers
                 $"{_inventoryDbName}");
             _hrDatabase = InitializeDatabase(_secondaryConnectionString, _hrDbName);
             _payrollDatabase = InitializeDatabase(_secondaryConnectionString, _payrollDbName);
+            _salesFinanceDatabase = InitializeDatabase(_primaryConnectionString, _salesFinanceDbName);
+
+            MigrateFinanceCollectionsToSalesFinanceDb();
 
             _isInitialized = true;
+        }
+
+        private void MigrateFinanceCollectionsToSalesFinanceDb()
+        {
+            if (_primaryDatabase == null || _salesFinanceDatabase == null)
+                return;
+
+            var collectionNames = new[] { "Expenses", "Balance", "PaymentTransaction" };
+
+            foreach (var collectionName in collectionNames)
+            {
+                try
+                {
+                    var source = _primaryDatabase.GetCollection<BsonDocument>(collectionName);
+                    var target = _salesFinanceDatabase.GetCollection<BsonDocument>(collectionName);
+
+                    var targetCount = target.EstimatedDocumentCount();
+                    if (targetCount > 0)
+                        continue;
+
+                    var sourceDocs = source.Find(FilterDefinition<BsonDocument>.Empty).ToList();
+                    if (sourceDocs.Count == 0)
+                        continue;
+
+                    target.InsertMany(sourceDocs);
+                    _logger.LogInformation("Migrated {Count} docs from {SourceDb}.{Collection} to {TargetDb}.{Collection}",
+                        sourceDocs.Count, _primaryDbName, collectionName, _salesFinanceDbName, collectionName);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Skipped migration for collection {Collection}", collectionName);
+                }
+            }
         }
 
         private IMongoDatabase InitializeDatabase(string connectionString, string databaseName)
@@ -104,6 +142,11 @@ namespace Sheessential_Sales_Finance.helpers
             if (_payrollDatabase == null) EnsureConnection();
             return _payrollDatabase!.GetCollection<T>(name);
         }
+        private IMongoCollection<T> GetSalesFinanceCollection<T>(string name)
+        {
+            if (_salesFinanceDatabase == null) EnsureConnection();
+            return _salesFinanceDatabase!.GetCollection<T>(name);
+        }
 
 
         // === PRIMARY DATABASE COLLECTIONS (ShessentialsDB) ===
@@ -113,9 +156,10 @@ namespace Sheessential_Sales_Finance.helpers
         public IMongoCollection<ProductSales> ProductSales => GetPrimaryCollection<ProductSales>("ProductSales");
         public IMongoCollection<ActionLog> ActionLog => GetPrimaryCollection<ActionLog>("action_log");
         public IMongoCollection<Vendor> Vendors => GetPrimaryCollection<Vendor>("Vendors");
-        public IMongoCollection<Expenses> Expenses => GetPrimaryCollection<Expenses>("Expenses");
-        public IMongoCollection<Balance> Balance => GetPrimaryCollection<Balance>("Balance");
-        public IMongoCollection<PaymentTransaction> PaymentTransactions => GetPrimaryCollection<PaymentTransaction>("PaymentTransaction");
+        public IMongoCollection<Expenses> LegacyExpenses => GetPrimaryCollection<Expenses>("Expenses");
+        public IMongoCollection<Expenses> Expenses => GetSalesFinanceCollection<Expenses>("Expenses");
+        public IMongoCollection<Balance> Balance => GetSalesFinanceCollection<Balance>("Balance");
+        public IMongoCollection<PaymentTransaction> PaymentTransactions => GetSalesFinanceCollection<PaymentTransaction>("PaymentTransaction");
 
 
         // === SECONDARY DATABASE COLLECTIONS (db_shessentials) ===
