@@ -22,7 +22,7 @@ namespace Sheessential_Sales_Finance.helpers
 
         // SECONDARY DATABASE (Cluster0.1uursjj, db_shessentials)
         private readonly string _secondaryConnectionString =
-            "mongodb+srv://sarmiento:adrial@cluster0.1uursjj.mongodb.net/";
+            "mongodb+srv://leocabs:shessentials@cluster0.1uursjj.mongodb.net/?appName=Cluster0";
         private readonly string _secondaryDbName = "db_shessentials";
         private readonly string _inventoryDbName = "InventorySystemDB";
         private readonly string _hrDbName = "HumanResourcesDB";
@@ -52,44 +52,9 @@ namespace Sheessential_Sales_Finance.helpers
                 $"{_inventoryDbName}");
             _hrDatabase = InitializeDatabase(_secondaryConnectionString, _hrDbName);
             _payrollDatabase = InitializeDatabase(_secondaryConnectionString, _payrollDbName);
-            _salesFinanceDatabase = InitializeDatabase(_primaryConnectionString, _salesFinanceDbName);
-
-            MigrateFinanceCollectionsToSalesFinanceDb();
+            _salesFinanceDatabase = InitializeDatabase(_secondaryConnectionString, _salesFinanceDbName);
 
             _isInitialized = true;
-        }
-
-        private void MigrateFinanceCollectionsToSalesFinanceDb()
-        {
-            if (_primaryDatabase == null || _salesFinanceDatabase == null)
-                return;
-
-            var collectionNames = new[] { "Expenses", "Balance", "PaymentTransaction" };
-
-            foreach (var collectionName in collectionNames)
-            {
-                try
-                {
-                    var source = _primaryDatabase.GetCollection<BsonDocument>(collectionName);
-                    var target = _salesFinanceDatabase.GetCollection<BsonDocument>(collectionName);
-
-                    var targetCount = target.EstimatedDocumentCount();
-                    if (targetCount > 0)
-                        continue;
-
-                    var sourceDocs = source.Find(FilterDefinition<BsonDocument>.Empty).ToList();
-                    if (sourceDocs.Count == 0)
-                        continue;
-
-                    target.InsertMany(sourceDocs);
-                    _logger.LogInformation("Migrated {Count} docs from {SourceDb}.{Collection} to {TargetDb}.{Collection}",
-                        sourceDocs.Count, _primaryDbName, collectionName, _salesFinanceDbName, collectionName);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Skipped migration for collection {Collection}", collectionName);
-                }
-            }
         }
 
         private IMongoDatabase InitializeDatabase(string connectionString, string databaseName)
@@ -156,7 +121,6 @@ namespace Sheessential_Sales_Finance.helpers
         public IMongoCollection<ProductSales> ProductSales => GetPrimaryCollection<ProductSales>("ProductSales");
         public IMongoCollection<ActionLog> ActionLog => GetPrimaryCollection<ActionLog>("action_log");
         public IMongoCollection<Vendor> Vendors => GetPrimaryCollection<Vendor>("Vendors");
-        public IMongoCollection<Expenses> LegacyExpenses => GetPrimaryCollection<Expenses>("Expenses");
         public IMongoCollection<Expenses> Expenses => GetSalesFinanceCollection<Expenses>("Expenses");
         public IMongoCollection<Balance> Balance => GetSalesFinanceCollection<Balance>("Balance");
         public IMongoCollection<PaymentTransaction> PaymentTransactions => GetSalesFinanceCollection<PaymentTransaction>("PaymentTransaction");
@@ -191,6 +155,14 @@ namespace Sheessential_Sales_Finance.helpers
             return _hrDatabase == null
                 ? new List<string>()
                 : await _hrDatabase.ListCollectionNames().ToListAsync();
+        }
+
+        public async Task<List<string>> GetSalesFinanceCollectionNamesAsync()
+        {
+            EnsureConnection();
+            return _salesFinanceDatabase == null
+                ? new List<string>()
+                : await _salesFinanceDatabase.ListCollectionNames().ToListAsync();
         }
 
         public async Task<List<string>> GetHumanResourceCollectionAttributesAsync(string collectionName, int sampleSize = 50)

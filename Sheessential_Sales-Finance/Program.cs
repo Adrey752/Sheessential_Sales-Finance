@@ -62,6 +62,8 @@ app.Use(async (context, next) =>
          path.Contains("/sales_finance/gethumanresourcetables") ||
          path.Contains("/sales_finance/gethumanresourcetableattributes") ||
          path.Contains("/sales_finance/removeduplicateexpensesbyexpenseid") ||
+         path.Contains("/sales_finance/deleteallexpenses") ||
+         path.Contains("/sales_finance/seedexpenses") ||
          path.Contains("/css") ||
          path.Contains("/js") ||
          path.Contains("/images") ||

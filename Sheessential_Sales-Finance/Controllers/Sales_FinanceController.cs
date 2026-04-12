@@ -137,7 +137,7 @@ namespace Sheessential_Sales_Finance.Controllers
 
             // --- Fetch Expenses ---
             var expenses = await _mongo.Expenses
-                .Find(e => e.Status == "Approved")
+                .Find(e => e.Status != "Declined")
                 .ToListAsync();
             double expense = (double)expenses.Sum(e => e.Amount);
 
@@ -1621,7 +1621,7 @@ namespace Sheessential_Sales_Finance.Controllers
                 TempData["DeclineSuccess"] = "✔️ Declined successfully.";
             }
 
-            return RedirectToAction("Expenses");
+            return RedirectToAction("ExpensesByDepartment");
         }
 
 
@@ -1663,7 +1663,7 @@ namespace Sheessential_Sales_Finance.Controllers
                 if (expense == null)
                 {
                     _logger.LogWarning($"Expense with ID {id} not found.");
-                    return RedirectToAction("Expenses");
+                    return RedirectToAction("ExpensesByDepartment");
                 }
 
                 // ✅ 2. Find the current balance
@@ -1730,13 +1730,13 @@ namespace Sheessential_Sales_Finance.Controllers
                     _logger.LogWarning("No balance record found.");
                 }
 
-                return RedirectToAction("Expenses");
+                return RedirectToAction("ExpensesByDepartment");
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Error approving expense {id}");
                 TempData["Error"] = "An error occurred.";
-                return RedirectToAction("Expenses");
+                return RedirectToAction("ExpensesByDepartment");
             }
         }
 
@@ -1772,31 +1772,145 @@ namespace Sheessential_Sales_Finance.Controllers
         }
 
         [HttpPost]
-        public IActionResult RemoveDuplicateExpensesByExpenseId(string target = "current")
+        public IActionResult SeedExpenses(int count = 30)
         {
-            var mode = (target ?? "current").Trim().ToLowerInvariant();
+            count = Math.Clamp(count, 1, 300);
 
-            long currentDeleted = 0;
-            long legacyDeleted = 0;
+            var existingExpenseIds = _mongo.Expenses
+                .Find(_ => true)
+                .Project(e => e.ExpenseId)
+                .ToList();
 
-            if (mode is "current" or "both")
+            var maxNumber = existingExpenseIds
+                .Select(id =>
+                {
+                    if (string.IsNullOrWhiteSpace(id)) return 0;
+                    var match = Regex.Match(id, @"\d+");
+                    return match.Success && int.TryParse(match.Value, out var number) ? number : 0;
+                })
+                .DefaultIfEmpty(0)
+                .Max();
+
+            var departments = new[] { "Finance", "HR", "Marketing", "Inventory", "Website", "Accounting" };
+
+            var expenseTypesByDepartment = new Dictionary<string, string[]>
             {
-                currentDeleted = CleanupDuplicateExpenseIds(_mongo.Expenses);
+                ["Finance"] = new[] { "Bank Charges", "Audit & Compliance", "Tax & Government Fees", "Financial Services", "Electricity", "Water", "Internet" },
+                ["HR"] = new[] { "Training", "Recruitment", "Employee Welfare", "Office Supplies", "Internet" },
+                ["Marketing"] = new[] { "Ads & Promotion", "Campaign Materials", "Event Sponsorship", "Internet" },
+                ["Inventory"] = new[] { "Warehouse Maintenance", "Packaging Materials", "Delivery Fuel", "Equipment Purchases", "Electricity", "Water" },
+                ["Website"] = new[] { "Hosting Services", "Domain Renewal", "Website Maintenance", "Security and Backup", "Internet" },
+                ["Accounting"] = new[] { "Office Supplies", "Software Subscription", "Tax Filing", "Bank Charges", "Internet" }
+            };
+
+            var financeRequesters = _mongo.HrEmployees
+                .Find(Builders<BsonDocument>.Filter.Eq("department", "Finance"))
+                .ToList()
+                .Select(e =>
+                {
+                    var firstName = e.GetValue("firstName", "").ToString().Trim();
+                    var lastName = e.GetValue("lastName", "").ToString().Trim();
+                    return $"{firstName} {lastName}".Trim();
+                })
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (!financeRequesters.Any())
+            {
+                financeRequesters = new List<string> { "Finance Staff" };
             }
 
-            if (mode is "legacy" or "both")
+            var declineReasons = new[]
             {
-                legacyDeleted = CleanupDuplicateExpenseIds(_mongo.LegacyExpenses);
+                "Insufficient supporting documents.",
+                "Budget limit reached for this month.",
+                "Duplicate request found.",
+                "Needs management review first."
+            };
+
+            var seedList = new List<Expenses>();
+            var random = new Random();
+
+            for (int i = 1; i <= count; i++)
+            {
+                var department = departments[random.Next(departments.Length)];
+                var expenseTypeOptions = expenseTypesByDepartment[department];
+                var expenseType = expenseTypeOptions[random.Next(expenseTypeOptions.Length)];
+
+                var requestedAt = DateTime.UtcNow.AddDays(-random.Next(0, 120)).AddHours(-random.Next(0, 23));
+
+                var statusRoll = random.Next(100);
+                var status = statusRoll < 60 ? "Approved" : statusRoll < 90 ? "Pending" : "Declined";
+
+                DateTime? dateApproved = null;
+                string notes = "";
+
+                if (status == "Approved")
+                {
+                    dateApproved = requestedAt.AddDays(random.Next(1, 8));
+                    notes = "Processed and approved by finance.";
+                }
+                else if (status == "Declined")
+                {
+                    dateApproved = requestedAt.AddDays(random.Next(1, 5));
+                    notes = declineReasons[random.Next(declineReasons.Length)];
+                }
+
+                var amount = GenerateSeedExpenseAmount(expenseType, random);
+
+                seedList.Add(new Expenses
+                {
+                    ExpenseId = $"EXP-{(maxNumber + i):D4}",
+                    Department = department,
+                    ExpenseType = expenseType,
+                    Description = $"{expenseType} expense for {department} operations",
+                    Amount = amount,
+                    RequestedBy = financeRequesters[random.Next(financeRequesters.Count)],
+                    Status = status,
+                    RequestedAt = requestedAt,
+                    DateApproved = dateApproved,
+                    Notes = notes,
+                    AttachmentUrl = "",
+                    isIngredientsRequest = false,
+                    Version = 0
+                });
             }
+
+            _mongo.Expenses.InsertMany(seedList);
 
             return Json(new
             {
                 success = true,
-                target = mode,
-                currentDeleted,
-                legacyDeleted,
-                totalDeleted = currentDeleted + legacyDeleted,
-                message = "Duplicate ExpenseId cleanup completed."
+                inserted = seedList.Count,
+                fromExpenseId = seedList.First().ExpenseId,
+                toExpenseId = seedList.Last().ExpenseId
+            });
+        }
+
+        [HttpPost]
+        public IActionResult RemoveDuplicateExpensesByExpenseId()
+        {
+            var deleted = CleanupDuplicateExpenseIds(_mongo.Expenses);
+
+            return Json(new
+            {
+                success = true,
+                deleted,
+                message = "Duplicate ExpenseId cleanup completed for SalesAndFinanceDB."
+            });
+        }
+
+        [HttpPost]
+        public IActionResult DeleteAllExpenses()
+        {
+            var result = _mongo.Expenses.DeleteMany(_ => true);
+
+            return Json(new
+            {
+                success = true,
+                deleted = result.DeletedCount,
+                message = "All expenses were deleted."
             });
         }
 
@@ -1864,6 +1978,21 @@ namespace Sheessential_Sales_Finance.Controllers
                 return $"EXP-{number:D4}";
 
             return value.ToUpperInvariant();
+        }
+
+        private static decimal GenerateSeedExpenseAmount(string expenseType, Random random)
+        {
+            return expenseType switch
+            {
+                "Electricity" => random.Next(8000, 28001),
+                "Water" => random.Next(2500, 12001),
+                "Internet" => random.Next(1500, 7001),
+                "Equipment Purchases" => random.Next(20000, 90001),
+                "Ads & Promotion" => random.Next(5000, 30001),
+                "Hosting Services" => random.Next(1000, 8001),
+                "Tax & Government Fees" => random.Next(5000, 45001),
+                _ => random.Next(1000, 20001)
+            };
         }
 
 
@@ -2704,10 +2833,34 @@ namespace Sheessential_Sales_Finance.Controllers
                 return RedirectToAction("Dashboard");
             }
 
+            var allExpenses = _mongo.Expenses
+                .Find(e => e.isIngredientsRequest == false)
+                .ToList();
+
+            var rawRequests = _mongo.IngredientsStockRequests.Find(_ => true).ToList();
+            var allIngredients = _mongo.Ingredients.Find(_ => true).ToList().ToDictionary(i => i.Id, i => i);
+            var allSuppliers = _mongo.Suppliers.Find(_ => true).ToList().ToDictionary(s => s.Id, s => s);
+
+            var displayRequests = rawRequests.Select(r => new IngredientStockRequestDisplayModel
+            {
+                Id = r.Id,
+                ExpenseId = r.ExpenseId?.ToString(),
+                RequestStatus = r.RequestStatus,
+                TotalCost = r.TotalCost,
+                RequestDate = r.RequestDate,
+                RequestedBy = r.RequestedBy,
+                QuantityRequested = r.QuantityRequested,
+                Unit = r.Unit,
+                CurrentStockAtRequest = r.CurrentStockAtRequest,
+                Instructions = r.Instructions,
+                IngredientName = allIngredients.GetValueOrDefault(r.IngredientId.ToString())?.IngredientName ?? "Unknown Ingredient",
+                SupplierName = allSuppliers.GetValueOrDefault(r.SupplierId.ToString())?.SupplierName ?? "Unknown Supplier"
+            }).OrderByDescending(r => r.RequestDate).ToList();
+
             var model = new ExpensesWithBalanceViewModel
             {
-                Expenses = new List<Expenses>(),
-                StockRequests = new List<IngredientStockRequestDisplayModel>(),
+                Expenses = allExpenses,
+                StockRequests = displayRequests,
                 PayrollSnapshots = _mongo.PayrollSnapshots
                     .Find(p => p.Department == "Finance")
                     .ToList(),
@@ -2744,7 +2897,7 @@ namespace Sheessential_Sales_Finance.Controllers
 
 
         [HttpPost]
-        public async Task<IActionResult> ReleasePayroll(string id, string status, string? declineReason = null)
+        public async Task<IActionResult> ReleasePayroll(string id, string status, string? declineReason = null, string? managerNote = null)
         {
             try
             {
@@ -2758,7 +2911,7 @@ namespace Sheessential_Sales_Finance.Controllers
                 if (!isFinanceManager)
                     return Json(new { success = false, message = "Unauthorized." });
 
-                _logger.LogInformation("ReleasePayroll triggered for Id: {Id}, Status: {Status}, DeclineReason: {DeclineReason}", id, status, declineReason);
+                _logger.LogInformation("ReleasePayroll triggered for Id: {Id}, Status: {Status}, DeclineReason: {DeclineReason}, ManagerNote: {ManagerNote}", id, status, declineReason, managerNote);
 
                 if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(status))
                     return Json(new { success = false, message = "Invalid request." });
@@ -2769,6 +2922,9 @@ namespace Sheessential_Sales_Finance.Controllers
 
                 if (normalizedStatus.Equals("Declined", StringComparison.OrdinalIgnoreCase) && string.IsNullOrWhiteSpace(declineReason))
                     return Json(new { success = false, message = "Please provide a reason for declining payroll." });
+
+                if (string.IsNullOrWhiteSpace(managerNote))
+                    return Json(new { success = false, message = "Manager note is required for payroll approval/decline." });
 
                 // 1) Find target snapshots by the same cutoff key used by the UI
                 var allSnapshots = await _mongo.PayrollSnapshots.Find(_ => true).ToListAsync();
@@ -2833,18 +2989,32 @@ namespace Sheessential_Sales_Finance.Controllers
                 }
                 else
                 {
-                    payrollUpdate = payrollUpdate.Set(x => x.Remarks, null);
+                    payrollUpdate = payrollUpdate.Set(x => x.Remarks, managerNote!.Trim());
                 }
 
                 await _mongo.PayrollSnapshots.UpdateManyAsync(
                     Builders<PayrollSnapshot>.Filter.In(x => x.Id, snapshotIds),
                     payrollUpdate);
 
+                var managerUserId = HttpContext.Session.GetString("UserId") ?? "System";
+                var managerName = HttpContext.Session.GetString("UserName") ?? "Finance Manager";
+                var finalNote = normalizedStatus.Equals("Declined", StringComparison.OrdinalIgnoreCase)
+                    ? $"Decline reason: {declineReason?.Trim()} | Manager note: {managerNote?.Trim()}"
+                    : $"Manager note: {managerNote?.Trim()}";
+
+                await _mongo.ActionLog.InsertOneAsync(new ActionLog(
+                    userId: managerUserId,
+                    entity: "PayrollCutoff",
+                    entityId: id,
+                    action: normalizedStatus.Equals("Declined", StringComparison.OrdinalIgnoreCase) ? "DECLINE" : "RELEASE",
+                    description: $"{managerName} marked payroll cutoff {id} as {normalizedStatus}. Gross: {grossAmount:N2}. {finalNote}"
+                ));
+
                 return Json(new { success = true, message = $"Payroll marked as {normalizedStatus}." });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "ReleasePayroll failed. Id: {Id}, Status: {Status}, DeclineReason: {DeclineReason}", id, status, declineReason);
+                _logger.LogError(ex, "ReleasePayroll failed. Id: {Id}, Status: {Status}, DeclineReason: {DeclineReason}, ManagerNote: {ManagerNote}", id, status, declineReason, managerNote);
                 return Json(new { success = false, message = ex.Message });
             }
         }
