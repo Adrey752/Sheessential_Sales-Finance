@@ -59,6 +59,11 @@ app.Use(async (context, next) =>
         path.Contains("/auth/forgotpassword") ||
         path.Contains("/auth/resetpassword") ||
          path.Contains("/auth/register") ||
+         path.Contains("/sales_finance/gethumanresourcetables") ||
+         path.Contains("/sales_finance/gethumanresourcetableattributes") ||
+         path.Contains("/sales_finance/removeduplicateexpensesbyexpenseid") ||
+         path.Contains("/sales_finance/deleteallexpenses") ||
+         path.Contains("/sales_finance/seedexpenses") ||
          path.Contains("/css") ||
          path.Contains("/js") ||
          path.Contains("/images") ||
@@ -75,11 +80,31 @@ app.Use(async (context, next) =>
         }
         else
         {
+            if (path != null &&
+                path.Contains("/sales_finance/executivepayrollapproval"))
+            {
+                var userRole = (context.Session.GetString("UserRole") ?? string.Empty).Trim();
+                var userDepartment = (context.Session.GetString("UserDepartment") ?? string.Empty).Trim();
+                var isFinanceManager =
+                    userRole.Equals("Finance manager", StringComparison.OrdinalIgnoreCase) ||
+                    (userDepartment.Equals("Finance", StringComparison.OrdinalIgnoreCase) &&
+                     userRole.Contains("manager", StringComparison.OrdinalIgnoreCase));
+
+                if (!isFinanceManager)
+                {
+                    context.Response.Redirect("/Sales_Finance/Dashboard");
+                    return;
+                }
+            }
+
             await next();
         }
     }
 });
-
+if (app.Environment.IsDevelopment())
+{
+    app.UseDeveloperExceptionPage();
+}
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Auth}/{action=Login}/{id?}"

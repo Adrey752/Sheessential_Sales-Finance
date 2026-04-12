@@ -15,7 +15,8 @@ using System.Security.Cryptography.X509Certificates;
 using System.Globalization;
 using MongoDB.Driver.Linq;
 using Microsoft.AspNetCore.Mvc.ViewEngines;
-
+using Microsoft.Extensions.Logging;
+using System.Text.Json;
 namespace Sheessential_Sales_Finance.Controllers
 {
     public class Sales_FinanceController : Controller
@@ -35,6 +36,34 @@ namespace Sheessential_Sales_Finance.Controllers
             _env = env;
             _viewEngine = viewEngine;
         }
+
+        [HttpGet]
+        public async Task<IActionResult> GetHumanResourceTables()
+        {
+            var collections = await _mongo.GetHumanResourceCollectionNamesAsync();
+
+            return Json(new
+            {
+                database = "HumanResourcesDB",
+                count = collections.Count,
+                tables = collections
+            });
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetHumanResourceTableAttributes(string tableName = "Employees")
+        {
+            var attributes = await _mongo.GetHumanResourceCollectionAttributesAsync(tableName);
+
+            return Json(new
+            {
+                database = "HumanResourcesDB",
+                table = tableName,
+                count = attributes.Count,
+                attributes
+            });
+        }
+
         public IActionResult Index()
         {
             var userName = HttpContext.Session.GetString("UserName");
@@ -89,365 +118,536 @@ namespace Sheessential_Sales_Finance.Controllers
             return View();
         }
 
-
-
         public async Task<IActionResult> Dashboard()
         {
             var userName = HttpContext.Session.GetString("UserName") ?? "User";
 
-            // --- Example Metrics ---
-            var invoices = await _mongo.Invoices.Find(i => !i.IsArchived).ToListAsync();
-            double revenue = (double)invoices.Where(i => i.Status == "Paid").Sum(i => i.Total);
-            ViewBag.Revenue = revenue;
+            // --- Fetch non-archived orders from TbOrder ---
+            var allOrders = await _mongo.TbOrder
+                .Find(o => !o.IsArchive)
+                .SortByDescending(o => o.CreatedAt)
+                .ToListAsync();
 
-            // Fix for CS1061: Replace SumAsync with manual summation after fetching the data
+            // --- Use one consistent sales definition across views ---
+            var paidOrders = allOrders
+                .Where(o => o.PaymentStatus == "Paid")
+                .ToList();
+
+            double revenue = (double)paidOrders.Sum(o => o.TotalAmount);
+
+            // --- Fetch Expenses ---
             var expenses = await _mongo.Expenses
-                .Find(e => e.Status == "Approved")
-                .ToListAsync(); // Fetch the data as a list first
-            double expense = (double)expenses.Sum(e => e.Amount); // Perform the summation on the list
-            ViewBag.Expense = expense;
-            ViewBag.Sales = invoices.Count;
-
-            // --- Fetch Recent Logs ---
-            var logs = await _mongo.ActionLog
-                .Find(_ => true)
-                .SortByDescending(l => l.TimeStamp)
-                .Limit(10)
+                .Find(e => e.Status != "Declined")
                 .ToListAsync();
+            double expense = (double)expenses.Sum(e => e.Amount);
 
-            // --- Get all involved users ---
-            var userIds = logs.Select(l => l.UserId).Distinct().ToList();
-            var users = await _mongo.Users
-                .Find(u => userIds.Contains(u.Id))
-                .ToListAsync();
+            // Activity log has been moved to ExecutivePayrollApproval view.
 
-            // --- Map logs with user names ---
-            var enrichedLogs = logs.Select(log =>
+
+            // --- Build ViewModel ---
+            var viewModel = new DashboardViewModel
             {
-                var user = users.FirstOrDefault(u => u.Id == log.UserId);
-                return new
+                Revenue = revenue,
+                Expense = expense,
+                NetProfit = revenue - expense,
+                SalesCount = paidOrders.Count,
+                UserName = userName,
+                TotalOrders = allOrders.Count,
+                PaidOrders = paidOrders.Count,
+                UnpaidOrders = allOrders.Count(o => o.PaymentStatus == "Unpaid"),
+                ProcessingOrders = allOrders.Count(o => o.OrderStatus == "Processing"),
+                OrderRevenue = paidOrders.Sum(o => o.TotalAmount),
+                RecentOrders = allOrders.Take(5).ToList()
+            };
+
+            return View(viewModel);
+        }
+
+
+        // Replace the existing SalesReportData method with this one that handles all periods + custom dates
+
+        [HttpGet]
+        public async Task<IActionResult> SalesReportData(string period = "week", string? startDate = null, string? endDate = null)
+        {
+            period = period.ToLowerInvariant();
+            var now = DateTime.UtcNow;
+
+            DateTime start;
+            DateTime end = now;
+
+            // Handle custom date range
+            if (period == "custom" && !string.IsNullOrEmpty(startDate) && !string.IsNullOrEmpty(endDate))
+            {
+                if (DateTime.TryParse(startDate, out DateTime parsedStart) &&
+                    DateTime.TryParse(endDate, out DateTime parsedEnd))
                 {
-                    UserName = user != null ? $"{user.FirstName} {user.LastName}" : "Unknown User",
-                    log.Action,
-                    log.Entity,
-                    log.Description,
-                    log.TimeStamp
+                    start = parsedStart.Date;
+                    end = parsedEnd.Date.AddDays(1).AddTicks(-1);
+                }
+                else
+                {
+                    return Json(new SalesReportViewModel { PeriodText = "Invalid date range" });
+                }
+            }
+            else
+            {
+                start = period switch
+                {
+                    "week" => now.AddDays(-(int)now.DayOfWeek + (int)DayOfWeek.Monday),
+                    "month" => new DateTime(now.Year, now.Month, 1),
+                    "year" => new DateTime(now.Year, 1, 1),
+                    "alltime" or "all" => DateTime.MinValue,
+                    _ => now.AddDays(-7)
                 };
-            }).ToList();
+            }
 
-            ViewBag.UserName = userName;
-            ViewBag.ActionLogs = enrichedLogs;
-            ViewBag.NetProfit = revenue - expense;
+            // Fetch sales data within the period
+            var filterBuilder = Builders<InventoryProductSales>.Filter;
+            var filter = filterBuilder.Gte(i => i.TransactionDate, start) &
+                         filterBuilder.Lte(i => i.TransactionDate, end);
 
-            return View();
-        }
+            var productSales = await _mongo.ProductSalesInventory.Find(filter).ToListAsync();
 
+            // Extract variant IDs and fetch variant details
+            var variantIds = productSales
+                .Where(i => !string.IsNullOrEmpty(i.VariantId))
+                .Select(i => i.VariantId)
+                .Distinct()
+                .ToList();
 
+            var productVariants = await _mongo.ProductVariantInventory
+                .Find(p => variantIds.Contains(p.Id!))
+                .ToListAsync();
 
-        [HttpGet] // Sales vs Expenses Chart
-        public IActionResult GetSalesData(string period = "monthly")
-        {
-            var invoices = _mongo.Invoices.Find(_ => true).ToList();
-            var sales = invoices.SelectMany(invoice => invoice.Items).ToList();
-            var expenses = _mongo.Expenses.Find(_ => _.Status == "Approved").ToList();
+            var nameLookup = productVariants
+                .Where(p => p.Id != null)
+                .ToDictionary(p => p.Id!, p => p.VariantName);
+            var categoryLookup = productVariants
+                .Where(p => p.Id != null)
+                .ToDictionary(p => p.Id!, p => p.Category ?? "N/A");
 
-            DateTime today = DateTime.Today;
-            var startOfWeek = today.AddDays(-(int)today.DayOfWeek + (int)DayOfWeek.Monday);
-            var startOfMonth = new DateTime(today.Year, today.Month, 1);
-            var startOfYear = new DateTime(today.Year, 1, 1);
-
-            var grouped = period.ToLower() switch
+            // Build the view model
+            var viewModel = new SalesReportViewModel
             {
-                //  WEEKLY (show Mon → Today, label per day)
-                "weekly" => sales
-                    .Where(s => s.TransactionDate >= startOfWeek)
-                    .GroupBy(s => s.TransactionDate.Date)
-                    .OrderBy(g => g.Key)
-                    .Select(g => new
-                    {
-                        Label = g.Key.ToString("ddd"), // Mon, Tue, Wed...
-                        TotalRevenue = g.Sum(x => (double)x.SalePrice),
-                        TotalExpense = expenses
-                            .Where(e => e.RequestedAt.Date == g.Key)
-                            .Sum(e => (double)e.Amount)
-                    }),
-
-                //  YEARLY (show Jan → Current month, label per month)
-                "yearly" => sales
-                    .Where(s => s.TransactionDate >= startOfYear)
-                    .GroupBy(s => s.TransactionDate.Month)
-                    .OrderBy(g => g.Key)
-                    .Select(g => new
-                    {
-                        Label = System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetAbbreviatedMonthName(g.Key),
-                        TotalRevenue = g.Sum(x => (double)x.SalePrice),
-                        TotalExpense = expenses
-                            .Where(e => e.RequestedAt.Month == g.Key)
-                            .Sum(e => (double)e.Amount)
-                    }),
-
-                // MONTHLY (default: 1st day → Today, label per day number)
-                _ => sales
-                    .Where(s => s.TransactionDate >= startOfMonth)
-                    .GroupBy(s => s.TransactionDate.Day)
-                    .OrderBy(g => g.Key)
-                    .Select(g => new
-                    {
-                        Label = g.Key.ToString(), // 1, 2, 3...
-                        TotalRevenue = g.Sum(x => (double)x.SalePrice),
-                        TotalExpense = expenses
-                            .Where(e => e.RequestedAt.Day == g.Key)
-                            .Sum(e => (double)e.Amount)
-                    }),
+                TotalSales = productSales.Sum(sale =>
+                    decimal.TryParse(sale.SalePrice, out decimal price) ? price * sale.Quantity : 0),
+                TotalOrders = productSales.Count,
+                PeriodText = start == DateTime.MinValue
+                    ? "All Time"
+                    : $"{start.ToLocalTime():MMM d, yyyy} – {end.ToLocalTime():MMM d, yyyy}"
             };
 
-            return Json(grouped.ToList());
-        }
+            // Chart Data (Revenue Trend)
+            var dateSpan = (end - start).TotalDays;
 
-
-
-
-        [HttpGet] // From Reports Page
-        public IActionResult GetSalesReportData(string period = "monthly")
-        {
-            var invoices = _mongo.Invoices.Find(_ => true).ToList();
-            var sales = invoices.SelectMany(invoice => invoice.Items).ToList();
-
-            DateTime today = DateTime.Today;
-            var startOfWeek = today.AddDays(-(int)today.DayOfWeek + (int)DayOfWeek.Monday);
-            var startOfMonth = new DateTime(today.Year, today.Month, 1);
-            var startOfYear = new DateTime(today.Year, 1, 1);
-
-            var grouped = period.ToLower() switch
+            if (period == "alltime" || period == "all" || period == "year" || (period == "custom" && dateSpan > 90))
             {
-                // WEEKLY: Monday → today (Group by each day)
-                "weekly" => sales
-                    .Where(s => s.TransactionDate >= startOfWeek)
-                    .GroupBy(s => s.TransactionDate.Date)
-                    .OrderBy(g => g.Key)
+                // Group by month
+                var monthlySales = productSales
+                    .GroupBy(i => new { i.TransactionDate.Year, i.TransactionDate.Month })
+                    .OrderBy(g => g.Key.Year).ThenBy(g => g.Key.Month)
                     .Select(g => new
                     {
-                        Label = g.Key.ToString("ddd"), // Mon, Tue, Wed...
-                        TotalSales = g.Sum(x => (double)x.SalePrice)
-                    }),
-
-                // YEARLY: January → current month (Group by month)
-                "yearly" => sales
-                    .Where(s => s.TransactionDate >= startOfYear)
-                    .GroupBy(s => s.TransactionDate.Month)
-                    .OrderBy(g => g.Key)
-                    .Select(g => new
-                    {
-                        Label = System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetAbbreviatedMonthName(g.Key),
-                        TotalSales = g.Sum(x => (double)x.SalePrice)
-                    }),
-
-                // MONTHLY (default): 1 → today (Group by day of month)
-                _ => sales
-                    .Where(s => s.TransactionDate >= startOfMonth)
-                    .GroupBy(s => s.TransactionDate.Day)
-                    .OrderBy(g => g.Key)
-                    .Select(g => new
-                    {
-                        Label = g.Key.ToString(), // 1, 2, 3 ...
-                        TotalSales = g.Sum(x => (double)x.SalePrice)
+                        DateLabel = new DateTime(g.Key.Year, g.Key.Month, 1).ToString("MMM yyyy"),
+                        Total = g.Sum(x => decimal.TryParse(x.SalePrice, out decimal p) ? p * x.Quantity : 0)
                     })
-            };
+                    .ToList();
 
-            return Json(grouped.ToList());
+                viewModel.ChartLabels = monthlySales.Select(m => m.DateLabel).ToList();
+                viewModel.ChartValues = monthlySales.Select(m => m.Total).ToList();
+            }
+            else
+            {
+                // Group by day
+                var dailySales = productSales
+                    .GroupBy(i => i.TransactionDate.Date)
+                    .OrderBy(g => g.Key)
+                    .Select(g => new
+                    {
+                        DateLabel = g.Key.ToString("MMM dd"),
+                        Total = g.Sum(x => decimal.TryParse(x.SalePrice, out decimal p) ? p * x.Quantity : 0)
+                    })
+                    .ToList();
+
+                viewModel.ChartLabels = dailySales.Select(d => d.DateLabel).ToList();
+                viewModel.ChartValues = dailySales.Select(d => d.Total).ToList();
+            }
+
+            // Top Products (for Doughnut Chart)
+            viewModel.TopProducts = productSales
+                .GroupBy(i => i.VariantId)
+                .Select(g => new TopProductDto
+                {
+                    ProductName = nameLookup.GetValueOrDefault(g.Key, "(Unknown Product)"),
+                    TotalAmount = g.Sum(x => decimal.TryParse(x.SalePrice, out decimal p) ? p * x.Quantity : 0)
+                })
+                .OrderByDescending(p => p.TotalAmount)
+                .Take(5)
+                .ToList();
+
+            // Sales Rows (for table)
+            viewModel.SalesRows = productSales
+                .GroupBy(x => x.VariantId)
+                .Select(g =>
+                {
+                    decimal totalAmount = g.Sum(x => decimal.TryParse(x.SalePrice, out decimal p) ? p * x.Quantity : 0);
+                    int totalQuantity = g.Sum(x => x.Quantity);
+                    return new ProductSalesRow
+                    {
+                        ProductId = g.Key ?? "(Unknown)",
+                        ProductName = nameLookup.GetValueOrDefault(g.Key, "(Unknown Product)"),
+                        Category = categoryLookup.GetValueOrDefault(g.Key, "(Unknown)"),
+                        UnitPrice = totalQuantity > 0 ? totalAmount / totalQuantity : 0,
+                        Quantity = totalQuantity,
+                        TotalAmount = totalAmount
+                    };
+                })
+                .OrderByDescending(x => x.TotalAmount)
+                .ToList();
+
+            return Json(viewModel);
         }
-
-
 
         public IActionResult Products(int page = 1)
         {
-            int pageSize = 5; // Show 10 products per page
+            int pageSize = 5;
 
-            // ✅ Fetch all sales data
-            var sales = _mongo.ProductSales.Find(_ => true).ToList();
-            var products = _mongo.Inventories.Find(_ => true).ToList();
+            // --- 1. PRE-FETCH ALL PRODUCT DATA ---
+            var allProducts = _mongo.ProductInventory.Find(_ => true)
+                .ToList()
+                .ToDictionary(p => p.Id, p => p);
 
-            // ✅ Group by item name and calculate total quantity sold
-            // Assuming you have these two collections loaded
-            // var sales = await _productSalesCollection.Find(_ => true).ToListAsync();
-            // var products = await _productsCollection.Find(_ => true).ToListAsync();
+            // --- 2. FETCH ALL PAID NON-ARCHIVED ORDERS ---
+            var paidOrders = _mongo.TbOrder
+                .Find(o => o.PaymentStatus == "Paid" && !o.IsArchive)
+                .ToList();
 
-            var topProduct = sales
-                .Join(
-                    products,
-                    sale => sale.ProductId,        // match ProductSale.ProductId
-                    product => product.Id,         // with Product.Id
-                    (sale, product) => new         // combine both objects
-                    {
-                        ProductName = product.Item,
-                        sale.Quantity,
-                        sale.SalePrice
-                    }
-                )
-                .GroupBy(x => x.ProductName)
-                .Select(g => new
-                {
-                    Item = g.Key,
-                    TotalQuantity = g.Sum(x => x.Quantity),
-                    TotalRevenue = g.Sum(x => x.SalePrice * x.Quantity)
-                })
-                .OrderByDescending(x => x.TotalQuantity)
-                .FirstOrDefault();
+            // Flatten order items from all paid orders
+            var allOrderItems = paidOrders
+                .SelectMany(o => o.Items)
+                .Where(i => i.Quantity > 0)
+                .ToList();
 
+            // --- CALCULATE TOTAL ORDERS AND SALES ---
+            int totalOrders = paidOrders.Count;
+            decimal totalSales = paidOrders.Sum(o => o.TotalAmount);
 
-            // ✅ Pass top product to view
-            ViewBag.TopProduct = topProduct;
+            // --- CALCULATE UNITS SOLD PER VARIANT ---
+            var variantSalesCounts = allOrderItems
+                .Where(i => i.ProductId != null)
+                .GroupBy(i => i.ProductId)
+                .ToDictionary(
+                    g => g.Key!,
+                    g => new { Orders = g.Count(), UnitsSold = g.Sum(x => x.Quantity) }
+                );
 
-            // ✅ Fetch inventory list with pagination
-            var totalProducts = (int)_mongo.Inventories.CountDocuments(_ => true);
+            // --- 3. FETCH PAGINATED PRODUCT VARIANTS ---
+            var totalProducts = (int)_mongo.ProductVariantInventory.CountDocuments(_ => true);
             int totalPages = (int)Math.Ceiling((double)totalProducts / pageSize);
 
-            var pagedProducts = _mongo.Inventories.Find(_ => true)
+            var pagedVariants = _mongo.ProductVariantInventory.Find(_ => true)
                 .Skip((page - 1) * pageSize)
                 .Limit(pageSize)
                 .ToList();
 
-            // ✅ Pass pagination info to View
+            // --- 4. ENRICH VARIANTS ---
+            foreach (var variant in pagedVariants)
+            {
+                if (allProducts.TryGetValue(variant.ProductId, out var product))
+                {
+                    variant.Category = product.ProductCategory;
+                    variant.Description = product.ProductDesc;
+                    variant.VariantImg = $"/Sales_Finance/GetProductImage/{product.Id}"; // ✅ ADDED
+                }
+                else
+                {
+                    variant.Category = "N/A";
+                    variant.Description = "No description available";
+                }
+
+                if (variant.Id != null && variantSalesCounts.TryGetValue(variant.Id, out var salesData))
+                {
+                    variant.OrdersCount = salesData.UnitsSold;
+                }
+                else
+                {
+                    variant.OrdersCount = 0;
+                }
+            }
+
+            // --- 5. PASS DATA TO VIEW BAGS ---
             ViewBag.CurrentPage = page;
             ViewBag.TotalPages = totalPages;
+            ViewBag.TotalOrders = totalOrders;
+            ViewBag.TotalSales = $"₱{totalSales:N2}";
 
-            return View(pagedProducts);
+            return View(pagedVariants);
         }
 
-
-
-        public async Task<IActionResult> Invoices()
+        [HttpGet]
+        public IActionResult GetProductImage(string id)
         {
-            // Fetch all invoices first
-            var invoices = await _mongo.Invoices
-                .Find(invoice => !invoice.IsArchived)
-                .SortByDescending(i => i.CreatedAt)
-                .ToListAsync();
+                var product = _mongo.ProductInventory
+                .Find(p => p.Id == id)
+                .FirstOrDefault();
 
-            // Update overdue invoices
-            var now = DateTime.UtcNow;
-            var overdueInvoices = invoices
-                .Where(i => i.Status == "Unpaid" && i.DueDate.HasValue && i.DueDate.Value < now)
-                .ToList();
+            if (product == null || product.ProductImgRaw == null || product.ProductImgRaw.IsBsonNull)
+                return NotFound();
 
-            if (overdueInvoices.Any())
-            {
-                foreach (var invoice in overdueInvoices)
-                {
-                    invoice.Status = "Overdue";
-                    invoice.UpdatedAt = now;
+            byte[] imageBytes;
 
-                    // Update in MongoDB
-                    var filter = Builders<Invoice>.Filter.Eq(i => i.Id, invoice.Id);
-                    var update = Builders<Invoice>.Update
-                        .Set(i => i.Status, "Overdue")
-                        .Set(i => i.UpdatedAt, now);
+            if (product.ProductImgRaw.IsBsonBinaryData)
+                imageBytes = product.ProductImgRaw.AsBsonBinaryData.Bytes;
+            else if (product.ProductImgRaw.IsString)
+                imageBytes = Convert.FromBase64String(product.ProductImgRaw.AsString);
+            else
+                return NotFound();
 
-                    await _mongo.Invoices.UpdateOneAsync(filter, update);
-                }
-            }
-
-            // Calculate totals
-            var overdueAmount = invoices.Where(i => i.Status == "Overdue").Sum(i => i.Total);
-            var openAmount = invoices.Where(i => i.Status == "Unpaid").Sum(i => i.Total);
-            var draftedAmount = invoices.Where(i => i.Status == "Draft").Sum(i => i.Total);
-
-            //  Replace billedTo with readable name
-            foreach (var invoice in invoices)
-            {
-                var billedTo = await _mongo.Users.Find(u => u.Id == invoice.BilledTo).FirstOrDefaultAsync();
-                invoice.BilledTo = billedTo?.FullName ?? "Unknown Customer";
-            }
-
-            // Fetch available products
-            var availableProducts = await _mongo.Inventories
-                .Find(_ => true)
-                .SortBy(p => p.Item)
-                .ToListAsync();
-
-            //  Fetch customer list
-            var customers = await _mongo.Users
-                .Find(u => u.Role.ToLower() == "customer")
-                .SortBy(u => u.FirstName)
-                .ToListAsync();
-
-            var viewModel = new InvoiceListViewModel
-            {
-                Invoices = invoices,
-                OverdueAmount = overdueAmount,
-                OpenAmount = openAmount,
-                DraftedAmount = draftedAmount,
-                AvailableProducts = availableProducts,
-                Customers = customers,
-            };
-
-            ViewBag.NextInvoiceNumber = await GenerateInvoiceNumber();
-            ViewBag.ActiveUsers = _mongo.Users.Find(u => u.Status.ToLower() == "active").ToList().Count;
-            return View(viewModel);
+            return File(imageBytes, "image/png");
         }
 
+
+
+
+
+
+        //public async Task<IActionResult> Invoices()
+        //{
+        //    // Fetch all invoices first
+        //    var invoices = await 
+        //        .Find(invoice => !invoice.IsArchived)
+        //        .SortByDescending(i => i.CreatedAt)
+        //        .ToListAsync();
+
+        //    // Update overdue invoices
+        //    var now = DateTime.UtcNow;
+        //    var overdueInvoices = invoices
+        //        .Where(i => i.Status == "Unpaid" && i.DueDate.HasValue && i.DueDate.Value < now)
+        //        .ToList();
+
+        //    if (overdueInvoices.Any())
+        //    {
+        //        foreach (var invoice in overdueInvoices)
+        //        {
+        //            invoice.Status = "Overdue";
+        //            invoice.UpdatedAt = now;
+
+        //            // Update in MongoDB
+        //            var filter = Builders<Invoice>.Filter.Eq(i => i.Id, invoice.Id);
+        //            var update = Builders<Invoice>.Update
+        //                .Set(i => i.Status, "Overdue")
+        //                .Set(i => i.UpdatedAt, now);
+
+        //            await .UpdateOneAsync(filter, update);
+        //        }
+        //    }
+
+        //    // Calculate totals
+        //    var overdueAmount = invoices.Where(i => i.Status == "Overdue").Sum(i => i.Total);
+        //    var openAmount = invoices.Where(i => i.Status == "Unpaid").Sum(i => i.Total);
+        //    var draftedAmount = invoices.Where(i => i.Status == "Draft").Sum(i => i.Total);
+
+        //    //  Replace billedTo with readable name
+        //    foreach (var invoice in invoices)
+        //    {
+        //        var billedTo = await _mongo.Users.Find(u => u.Id == invoice.BilledTo).FirstOrDefaultAsync();
+        //        invoice.BilledTo = billedTo?.FullName ?? "Unknown Customer";
+        //    }
+
+        //    // Fetch available products
+        //    var availableProducts = await _mongo.Inventories
+        //        .Find(_ => true)
+        //        .SortBy(p => p.Item)
+        //        .ToListAsync();
+
+        //    //  Fetch customer list
+        //    var customers = await _mongo.Users
+        //        .Find(u => u.Role.ToLower() == "customer")
+        //        .SortBy(u => u.FirstName)
+        //        .ToListAsync();
+
+        //    var viewModel = new InvoiceListViewModel
+        //    {
+        //        Invoices = invoices,
+        //        OverdueAmount = overdueAmount,
+        //        OpenAmount = openAmount,
+        //        DraftedAmount = draftedAmount,
+        //        AvailableProducts = availableProducts,
+        //        Customers = customers,
+        //    };
+
+        //    ViewBag.NextInvoiceNumber = await GenerateInvoiceNumber();
+        //    ViewBag.ActiveUsers = _mongo.Users.Find(u => u.Status.ToLower() == "active").ToList().Count;
+        //    return View(viewModel);
+        //}
+
+        // Replace the existing Invoices method body with this implementation
+        public async Task<IActionResult> Invoices(int page = 1, int pageSize = 10)
+        {
+            try
+            {
+                _logger.LogInformation($"Loading Invoices page {page} (size {pageSize})");
+
+                var totalOrders = await _mongo.TbOrder.CountDocumentsAsync(_ => true);
+                var totalPages = (int)Math.Ceiling(totalOrders / (double)pageSize);
+                page = Math.Max(1, Math.Min(page, totalPages == 0 ? 1 : totalPages));
+
+                var orders = await _mongo.TbOrder
+                    .Find(_ => true)
+                    .SortByDescending(o => o.CreatedAt)
+                    .Skip((page - 1) * pageSize)
+                    .Limit(pageSize)
+                    .ToListAsync();
+
+                // Lightweight projection for totals to avoid loading full documents
+                var totals = await _mongo.TbOrder
+                    .Find(_ => true)
+                    .Project(o => new { o.PaymentStatus, o.OrderStatus, o.TotalAmount })
+                    .ToListAsync();
+
+                var overdueAmount = totals.Where(o => o.PaymentStatus == "Overdue").Sum(o => o.TotalAmount);
+                var openAmount = totals.Where(o => o.PaymentStatus == "Unpaid").Sum(o => o.TotalAmount);
+                var draftedAmount = totals.Where(o => o.PaymentStatus == "Pending" || o.OrderStatus == "Processing").Sum(o => o.TotalAmount);
+
+                var availableProducts = await _mongo.ProductVariantInventory.Find(v => v.StockQuantity > 0).ToListAsync();
+                var customers = await _mongo.TbUserCollection.Find(u => u.Role.ToLower() == "customer").SortBy(u => u.FirstName).ToListAsync();
+
+                // --- Create JSON-safe DTOs to avoid serializer errors in the view ---
+                var safeOrders = orders.Select(o => new
+                {
+                    Id = o.Id,
+                    OrderNumber = o.OrderNumber,
+                    PaymentStatus = o.PaymentStatus,
+                    CreatedAt = o.CreatedAt,
+                    ShippingAddress = o.ShippingAddress == null ? null : new
+                    {
+                        FirstName = o.ShippingAddress.FirstName,
+                        LastName = o.ShippingAddress.LastName,
+                        Email = o.ShippingAddress.Email,
+                        Phone = o.ShippingAddress.Phone,
+                        Street = o.ShippingAddress.Street,
+                        City = o.ShippingAddress.City,
+                        State = o.ShippingAddress.State,
+                        Country = o.ShippingAddress.Country,
+                        ZipCode = o.ShippingAddress.ZipCode,
+                        FullAddress = o.ShippingAddress.FullAddress
+                    },
+                    Items = (o.Items ?? new List<OrderItem>()).Select(i => new
+                    {
+                        ProductId = i.ProductId,
+                        ProductName = i.ProductName,
+                        Quantity = i.Quantity,
+                        Price = i.Price,
+                        Subtotal = i.Subtotal
+                    }).ToList(),
+                    Subtotal = o.Subtotal,
+                    Tax = o.Tax,
+                    ShippingFee = o.ShippingFee,
+                    TotalAmount = o.TotalAmount
+                }).ToList();
+
+
+                var safeCustomers = customers.Select(c => new
+                {
+                    Id = c.Id,
+                    FirstName = c.FirstName,
+                    LastName = c.LastName,
+                    Email = c.Email
+                }).ToList();
+
+                var safeProducts = availableProducts.Select(p => new
+                {
+                    Id = p.Id,
+                    VariantName = p.VariantName,
+                    Price = p.Price,
+                    StockQuantity = p.StockQuantity
+                }).ToList();
+
+                // Serialize safe DTOs once on the server
+                ViewBag.OrdersJson = JsonSerializer.Serialize(safeOrders);
+                ViewBag.CustomersJson = JsonSerializer.Serialize(safeCustomers);
+                ViewBag.ProductsJson = JsonSerializer.Serialize(safeProducts);
+
+                var viewModel = new InvoiceListViewModel
+                {
+                    Orders = orders,
+                    OverdueAmount = overdueAmount,
+                    OpenAmount = openAmount,
+                    DraftedAmount = draftedAmount,
+                    AvailableProducts = availableProducts,
+                    Customers = customers
+                };
+
+                ViewBag.NextInvoiceNumber = await GenerateInvoiceNumber();
+                ViewBag.ActiveUsers = await _mongo.TbUserCollection.CountDocumentsAsync(u => u.IsEmailVerified == true);
+                ViewBag.CurrentPage = page;
+                ViewBag.TotalPages = totalPages;
+                ViewBag.TotalOrders = totalOrders;
+                ViewBag.PageSize = pageSize;
+
+                return View(viewModel);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error loading Invoices page");
+
+                // Show full exception in browser only during development to debug the 500
+                if (_env != null && _env.EnvironmentName == "Development")
+                {
+                    // return full stack trace in response for quick debugging (remove after fix)
+                    return Content(ex.ToString(), "text/plain");
+                }
+
+                return View(new InvoiceListViewModel());
+            }
+        }
         public async Task<IActionResult> InvoiceArchieves()
         {
-            // Fetch all invoices first
-            var invoices = await _mongo.Invoices
-                .Find(invoice => invoice.IsArchived)
+            // 1. Fetch "Archived" Orders
+            // Strategy: treating "Cancelled" or "Failed" orders as the "Archive" list
+            // If you add an 'IsArchived' boolean to TbOrder later, change this query.
+            var orders = await _mongo.TbOrder
+                .Find(o => o.OrderStatus == "Cancelled")
                 .SortByDescending(i => i.CreatedAt)
                 .ToListAsync();
 
-            // Update overdue invoices
+            /* NOTE: Overdue logic commented out. 
+               TbOrder does not have 'DueDate'. If you need this, add logic based on 
+               CreatedAt + X days, or add a DueDate field to the model.
+            */
+            /*
             var now = DateTime.UtcNow;
-            var overdueInvoices = invoices
-                .Where(i => i.Status == "Unpaid" && i.DueDate.HasValue && i.DueDate.Value < now)
+            var overdueOrders = orders
+                .Where(o => o.PaymentStatus == "Unpaid" && [DueDate Logic] < now)
                 .ToList();
 
-            if (overdueInvoices.Any())
-            {
-                foreach (var invoice in overdueInvoices)
-                {
-                    invoice.Status = "Overdue";
-                    invoice.UpdatedAt = now;
+            if (overdueOrders.Any()) { ... update logic ... }
+            */
 
-                    // Update in MongoDB
-                    var filter = Builders<Invoice>.Filter.Eq(i => i.Id, invoice.Id);
-                    var update = Builders<Invoice>.Update
-                        .Set(i => i.Status, "Overdue")
-                        .Set(i => i.UpdatedAt, now);
+            // 2. Calculate totals based on TbOrder properties
+            var overdueAmount = orders.Where(o => o.PaymentStatus == "Overdue").Sum(o => o.TotalAmount);
+            var openAmount = orders.Where(o => o.PaymentStatus == "Unpaid").Sum(o => o.TotalAmount);
 
-                    await _mongo.Invoices.UpdateOneAsync(filter, update);
-                }
-            }
+            // Treat Pending/Processing as Draft/In-Progress
+            var draftedAmount = orders.Where(o => o.OrderStatus == "Processing").Sum(o => o.TotalAmount);
 
 
-
-
-
-            // Calculate totals
-            var overdueAmount = invoices.Where(i => i.Status == "Overdue").Sum(i => i.Total);
-            var openAmount = invoices.Where(i => i.Status == "Unpaid").Sum(i => i.Total);
-            var draftedAmount = invoices.Where(i => i.Status == "Draft").Sum(i => i.Total);
-
-            //  Replace billedTo with readable name
-            foreach (var invoice in invoices)
-            {
-                var billedTo = await _mongo.Users.Find(u => u.Id == invoice.BilledTo).FirstOrDefaultAsync();
-                invoice.BilledTo = billedTo?.FullName ?? "Unknown Customer";
-            }
-
-            // Fetch available products
-            var availableProducts = await _mongo.Inventories
-                .Find(_ => true)
-                .SortBy(p => p.Item)
+            // Fetch all active variants
+            // 3. Fetch Products (for JS/ViewModel)
+            var availableProducts = await _mongo.ProductVariantInventory
+                .Find(v => v.IsActive == true && v.StockQuantity > 0)
                 .ToListAsync();
 
-            //  Fetch customer list
-            var customers = await _mongo.Users
+            // 4. Fetch Customers (TbUser)
+            var customers = await _mongo.TbUserCollection
                 .Find(u => u.Role.ToLower() == "customer")
                 .SortBy(u => u.FirstName)
                 .ToListAsync();
 
+            // 5. Construct ViewModel
             var viewModel = new InvoiceListViewModel
             {
-                Invoices = invoices,
+                Orders = orders, // Updated property
                 OverdueAmount = overdueAmount,
                 OpenAmount = openAmount,
                 DraftedAmount = draftedAmount,
@@ -458,90 +658,144 @@ namespace Sheessential_Sales_Finance.Controllers
             ViewBag.NextInvoiceNumber = await GenerateInvoiceNumber();
             return View(viewModel);
         }
-
-        [HttpPost]
-        public async Task<IActionResult> Restore(string id)
-        {
-            var filter = Builders<Invoice>.Filter.Eq(i => i.Id, id);
-            var update = Builders<Invoice>.Update
-                .Set(invoice => invoice.IsArchived, false);
-            TempData["Restored"] = true;
-            _logger.LogInformation("\n\n\nRestore bruhh\n\n\n\n");
-            await _mongo.Invoices.UpdateOneAsync(filter, update);
-            return RedirectToAction("InvoiceArchieves");
-        }
-
 
         [HttpPost]
         public async Task<IActionResult> DeleteInvoice(string id)
         {
-            _logger.LogInformation($"\n\n Archiving invoice with Id: {id} \n\n");
+            _logger.LogInformation($"\n\n Archiving order with Id: {id} \n\n");
 
-            // Find the invoice
-            var invoice = await _mongo.Invoices.Find(i => i.Id == id).FirstOrDefaultAsync();
-            if (invoice == null)
-                return NotFound(new { success = false, message = $"Invoice not found. Id: {id}" });
+            // 1. Find the Order (using TbOrder)
+            var order = await _mongo.TbOrder.Find(i => i.Id == id).FirstOrDefaultAsync();
 
-            // Mark as archived instead of deleting
-            var update = Builders<Invoice>.Update
-                .Set(i => i.IsArchived, true)
-                .Set(i => i.UpdatedAt, DateTime.UtcNow);
+            if (order == null)
+                return NotFound(new { success = false, message = $"Order not found. Id: {id}" });
 
-            await _mongo.Invoices.UpdateOneAsync(i => i.Id == id, update);
+            // 2. Mark as archived
+            var update = Builders<TbOrder>.Update
+                // Set the new IsArchive property to true
+                .Set(o => o.IsArchive, true)
+                .Set(o => o.UpdatedAt, DateTime.UtcNow);
 
-            // Log the action
+            await _mongo.TbOrder.UpdateOneAsync(i => i.Id == id, update);
+
+            // 3. Log the action
             var userId = HttpContext.Session.GetString("UserId") ?? "unknown";
             var actionLog = new ActionLog
             {
                 UserId = userId,
-                Entity = "Invoice",
+                Entity = "Order", // Updated entity name
                 EntityId = id,
                 Action = "ARCHIVE",
-                Description = $"Archived invoice #{invoice.InvoiceNumber}",
+                Description = $"Archived order #{order.OrderNumber}",
                 TimeStamp = DateTime.UtcNow
             };
 
             await _mongo.ActionLog.InsertOneAsync(actionLog);
 
-            return Json(new { success = true, message = "Invoice archived successfully." });
+            return Json(new { success = true, message = "Order archived successfully." });
         }
 
 
 
         [HttpPost]
-        public async Task<IActionResult> CreateInvoice(Invoice invoice)
+        public async Task<IActionResult> CreateInvoice(TbOrder order, string BilledTo)
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
-
-            // Remove items with zero or negative quantity
-            invoice.Items = invoice.Items
+            // 1. Remove items with zero/negative quantity
+            order.Items = order.Items
                 .Where(i => i.Quantity > 0)
                 .ToList();
 
-            if (invoice.Items.Count == 0)
-                return BadRequest("Invoice must contain at least one item with quantity greater than 0.");
+            if (order.Items.Count == 0)
+                return BadRequest("Order must contain at least one item with quantity greater than 0.");
 
-            // Auto-generate invoice number
-            invoice.InvoiceNumber = await GenerateInvoiceNumber();
-            invoice.CreatedAt = DateTime.UtcNow;
-            invoice.UpdatedAt = null;
-            invoice.Status = "Unpaid";
+            // 2. Fetch Customer Details
+            var customer = await _mongo.TbUserCollection
+                .Find(u => u.Id == BilledTo)
+                .FirstOrDefaultAsync();
 
-            if (invoice.Items == null)
-                invoice.Items = new List<ProductSales>();
+            if (customer == null)
+                return BadRequest("Invalid Customer Selected.");
 
-            // ✅ Insert the invoice
-            await _mongo.Invoices.InsertOneAsync(invoice);
+            // Map Customer Address
+            order.UserId = customer.Id;
+            order.ShippingAddress = new ShippingAddress
+            {
+                FirstName = customer.FirstName,
+                LastName = customer.LastName,
+                Email = customer.Email,
+                Phone = customer.Phone,
+                Street = customer.Address?.Street ?? "",
+                City = customer.Address?.City ?? "",
+                State = customer.Address?.State ?? "",
+                Country = customer.Address?.Country ?? "",
+                ZipCode = customer.ZipCode,
+                FullAddress = customer.Address?.FullAddress ?? ""
+            };
 
-            // ✅ After insert, invoice.Id now holds the generated ObjectId
+            // 3. Set Auto-Generated Fields for Order
+            order.OrderNumber = await GenerateInvoiceNumber();
+            order.CreatedAt = DateTime.UtcNow;
+            order.UpdatedAt = DateTime.UtcNow;
+            order.PaymentStatus = "Unpaid";
+            order.OrderStatus = "Processing";
+
+            // 4. Calculate Totals & Prepare Inventory Updates
+            decimal subtotal = 0;
+            var productSalesList = new List<ProductSales>();
+
+            foreach (var item in order.Items)
+            {
+                // A. Calculate Subtotal
+                item.Subtotal = item.Price * item.Quantity;
+                subtotal += (decimal)item.Subtotal;
+
+                // B. Prepare ProductSales Record
+                // Note: We use the VariantId (item.ProductId) here. 
+                var saleRecord = new ProductSales
+                {
+                    ProductId = item.ProductId, // This corresponds to the Variant Id
+                    Item = item.ProductName,
+                    Quantity = item.Quantity,
+                    SalePrice = item.Price,
+                    SRP = item.Price, // Assuming SRP is the same as selling price for this transaction
+                    TransactionDate = DateTime.UtcNow,
+                    SaleTax = 0, // Default to 0 unless you calculate tax per item
+                    SaleDiscounts = 0 // Default to 0 unless you calculate discount per item
+                };
+                productSalesList.Add(saleRecord);
+
+                // C. Decrement Stock Immediately (or you can use BulkWrite for optimization)
+                var filter = Builders<ProductVariant>.Filter.Eq(v => v.Id, item.ProductId);
+                var update = Builders<ProductVariant>.Update.Inc(v => v.StockQuantity, -item.Quantity);
+
+                // Ensure we don't go below zero? (Optional validation, currently just decrements)
+                await _mongo.ProductVariantInventory.UpdateOneAsync(filter, update);
+            }
+
+            order.Subtotal = subtotal;
+            order.Tax = 0;
+            order.ShippingFee = 0;
+            order.TotalAmount = (decimal)(subtotal + order.Tax + order.ShippingFee);
+
+            // 5. Insert Records into MongoDB
+
+            // A. Insert the Order
+            await _mongo.TbOrder.InsertOneAsync(order);
+
+            // B. Insert the Product Sales Records (Batch Insert)
+            if (productSalesList.Count > 0)
+            {
+                await _mongo.ProductSales.InsertManyAsync(productSalesList);
+            }
+
+            // 6. Log Action
             var userId = HttpContext.Session.GetString("UserId");
             var actionLog = new ActionLog(
-                userId: userId, // or your actual logged-in user’s ID
-                entity: "Invoice",
-                entityId: invoice.Id!, // use the generated Id here
+                userId: userId ?? "System",
+                entity: "Order",
+                entityId: order.Id!,
                 action: "CREATE",
-                description: $"Created invoice #{invoice.InvoiceNumber}"
+                description: $"Created order #{order.OrderNumber}"
             );
 
             await _mongo.ActionLog.InsertOneAsync(actionLog);
@@ -549,21 +803,20 @@ namespace Sheessential_Sales_Finance.Controllers
             ViewBag.NextInvoiceNumber = await GenerateInvoiceNumber();
             return RedirectToAction("Invoices");
         }
-
-
         private async Task<string> GenerateInvoiceNumber()
         {
-            var lastInvoice = await _mongo.Invoices
+            // Use TbOrder instead of Invoices to generate order numbers
+            var lastOrder = await _mongo.TbOrder
                 .Find(_ => true)
-                .SortByDescending(i => i.CreatedAt)
+                .SortByDescending(o => o.CreatedAt)
                 .Limit(1)
                 .FirstOrDefaultAsync();
 
             int nextNumber = 1;
 
-            if (lastInvoice != null && !string.IsNullOrEmpty(lastInvoice.InvoiceNumber))
+            if (lastOrder != null && !string.IsNullOrEmpty(lastOrder.OrderNumber))
             {
-                var numericPart = new string(lastInvoice.InvoiceNumber.Where(char.IsDigit).ToArray());
+                var numericPart = new string(lastOrder.OrderNumber.Where(char.IsDigit).ToArray());
                 if (int.TryParse(numericPart, out int lastNumber))
                 {
                     nextNumber = lastNumber + 1;
@@ -574,108 +827,351 @@ namespace Sheessential_Sales_Finance.Controllers
         }
 
         [HttpGet]
-        public IActionResult GetProductSales(string productId, string period = "month")
+        public IActionResult GetAllProductSalesByPeriod(string period = "week")
+        {
+            DateTime today = DateTime.Today;
+            DateTime start;
+
+            switch (period.ToLower())
+            {
+                case "week":
+                    start = today.AddDays(-(int)today.DayOfWeek + (int)DayOfWeek.Monday);
+                    break;
+
+                case "year":
+                    start = new DateTime(today.Year, 1, 1);
+                    break;
+
+                default:
+                    start = new DateTime(today.Year, today.Month, 1);
+                    break;
+            }
+
+            // get sales in the selected period
+            var sales = _mongo.ProductSalesInventory
+                .Find(s => s.TransactionDate >= start)
+                .ToList();
+
+            if (!sales.Any())
+                return Json(new { success = false, message = "No sales found for selected period" });
+
+            var variants = _mongo.ProductVariantInventory.Find(_ => true).ToList();
+
+            var data = sales
+                .Select(s =>
+                {
+                    var variant = variants.FirstOrDefault(v => v.Id == s.VariantId);
+
+                    return new
+                    {
+                        VariantName = variant?.VariantName ?? "Unknown",
+                        Quantity = s.Quantity,
+                        Price = decimal.TryParse(s.SalePrice, out var p) ? p : 0,
+                        Total = (decimal.TryParse(s.SalePrice, out var pr) ? pr : 0) * s.Quantity,
+                        TransactionDate = s.TransactionDate.ToString("yyyy-MM-dd")
+                    };
+                })
+                .OrderByDescending(x => x.TransactionDate)
+                .ToList();
+
+            return Json(new { success = true, data });
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetAllProductSalesDataPaginated(int page = 1, int pageSize = 10)
+        {
+            try
+            {
+                // 1. Fetch all paid orders
+                var allOrders = await _mongo.TbOrder
+                    .Find(o => o.PaymentStatus == "Paid" && !o.IsArchive)
+                    .SortByDescending(o => o.CreatedAt)
+                    .ToListAsync();
+
+                // 2. Flatten order items with order date
+                var allItems = allOrders
+                    .SelectMany(o => o.Items.Select(i => new
+                    {
+                        ProductId = i.ProductId,
+                        ProductName = i.ProductName,
+                        Quantity = i.Quantity,
+                        Price = i.Price,
+                        Total = i.Price * i.Quantity,
+                        TransactionDate = o.CreatedAt
+                    }))
+                    .OrderByDescending(x => x.TransactionDate)
+                    .ToList();
+
+                if (!allItems.Any())
+                {
+                    return Json(new { success = false, message = "No sales data found." });
+                }
+
+                // 3. Map sales data
+                var salesData = allItems.Select(item => new
+                {
+                    VariantName = item.ProductName ?? "Unknown Product",
+                    Quantity = item.Quantity,
+                    Price = item.Price,
+                    Total = item.Total,
+                    TransactionDate = item.TransactionDate.ToString("MMM dd, yyyy hh:mm tt")
+                }).ToList();
+
+                // 4. Calculate pagination
+                var totalItems = salesData.Count;
+                var totalPages = (int)Math.Ceiling(totalItems / (double)pageSize);
+
+                // 5. Apply pagination
+                var pagedData = salesData
+                    .Skip((page - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToList();
+
+                return Json(new
+                {
+                    success = true,
+                    data = pagedData,
+                    currentPage = page,
+                    totalPages = totalPages,
+                    totalItems = totalItems,
+                    pageSize = pageSize
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching paginated product sales data");
+                return Json(new { success = false, message = "Error loading sales data." });
+            }
+        }
+
+
+        [HttpGet]
+        public IActionResult GetSalesSummaryByPeriod(string period = "week", string? startDate = null, string? endDate = null)
+        {
+            DateTime today = DateTime.Today;
+            DateTime start;
+            DateTime end = today.AddDays(1).AddTicks(-1);
+
+            // Handle custom date range
+            if (period.ToLower() == "custom" && !string.IsNullOrEmpty(startDate) && !string.IsNullOrEmpty(endDate))
+            {
+                if (DateTime.TryParse(startDate, out DateTime parsedStart) &&
+                    DateTime.TryParse(endDate, out DateTime parsedEnd))
+                {
+                    start = parsedStart;
+                    end = parsedEnd.AddDays(1).AddTicks(-1);
+                }
+                else
+                {
+                    return BadRequest(new { success = false, message = "Invalid date format" });
+                }
+            }
+            else
+            {
+                switch (period.ToLower())
+                {
+                    case "week":
+                        start = today.AddDays(-(int)today.DayOfWeek + (int)DayOfWeek.Monday);
+                        break;
+
+                    case "year":
+                        start = new DateTime(today.Year, 1, 1);
+                        break;
+
+                    case "alltime":
+                        start = DateTime.MinValue;
+                        end = DateTime.MaxValue;
+                        break;
+
+                    case "month":
+                    default:
+                        start = new DateTime(today.Year, today.Month, 1);
+                        break;
+                }
+            }
+
+            // Fetch paid orders from TbOrder within the date range
+            var orders = _mongo.TbOrder
+                   .Find(o => o.PaymentStatus == "Paid"
+                       && !o.IsArchive
+                       && o.CreatedAt >= start && o.CreatedAt <= end)
+                   .ToList();
+
+            // Calculate totals
+            int totalOrders = orders.Count;
+            decimal totalSales = orders.Sum(o => o.TotalAmount);
+
+            return Json(new
+            {
+                success = true,
+                totalOrders = totalOrders,
+                totalSales = Math.Round(totalSales, 2),
+                totalSalesFormatted = $"₱{totalSales:N2}"
+            });
+        }
+
+        // Replace the existing GetProductSales method
+
+        [HttpGet]
+        public IActionResult GetProductSales(string productId, string period = "week", string? startDate = null, string? endDate = null)
         {
             if (string.IsNullOrEmpty(productId))
                 return Json(new { message = "Missing product ID" });
 
-            var productSales = _mongo.Invoices.Find(_ => true).ToList()
-                .SelectMany(inv => inv.Items)
-                .Where(item => item.ProductId == productId)
+            // Fetch paid orders that contain this product
+            var paidOrders = _mongo.TbOrder
+                .Find(o => o.PaymentStatus == "Paid" && !o.IsArchive)
+                .ToList();
+
+            // Flatten to order items matching the productId, keeping the order date
+            var productSales = paidOrders
+                .SelectMany(o => o.Items.Select(i => new { Item = i, o.CreatedAt }))
+                .Where(x => x.Item.ProductId == productId)
                 .ToList();
 
             if (!productSales.Any())
                 return Json(new { message = "No sales data found" });
 
             DateTime today = DateTime.Today;
-            var startOfWeek = today.AddDays(-(int)today.DayOfWeek + (int)DayOfWeek.Monday);
-            var startOfMonth = new DateTime(today.Year, today.Month, 1);
-            var startOfYear = new DateTime(today.Year, 1, 1);
+            DateTime start;
+            DateTime end = today.AddDays(1);
+            string periodLower = (period ?? "week").ToLower();
 
-            IEnumerable<object> grouped;
-
-            switch (period.ToLower())
+            if (periodLower == "custom" && !string.IsNullOrEmpty(startDate) && !string.IsNullOrEmpty(endDate))
             {
-                // WEEKLY: Monday → Today, label on days (Mon, Tue, Wed)
-                case "week":
-                    grouped = productSales
-                        .Where(s => s.TransactionDate >= startOfWeek)
-                        .GroupBy(s => s.TransactionDate.Date)
-                        .OrderBy(g => g.Key)
-                        .Select(g => new
-                        {
-                            Label = g.Key.ToString("ddd"),  // Mon, Tue, Wed...
-                            Total = g.Sum(x => x.Quantity)
-                        });
-                    break;
-
-                //  YEARLY: January → Current Month, grouped by month
-                case "year":
-                    grouped = productSales
-                        .Where(s => s.TransactionDate >= startOfYear)
-                        .GroupBy(s => s.TransactionDate.Month)
-                        .OrderBy(g => g.Key)
-                        .Select(g => new
-                        {
-                            Label = System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetAbbreviatedMonthName(g.Key),
-                            Total = g.Sum(x => x.Quantity)
-                        });
-                    break;
-
-                //  MONTHLY : 1 → Today, grouped by day-of-month
-                default:
-                    grouped = productSales
-                        .Where(s => s.TransactionDate >= startOfMonth)
-                        .GroupBy(s => s.TransactionDate.Day)
-                        .OrderBy(g => g.Key)
-                        .Select(g => new
-                        {
-                            Label = g.Key.ToString(),  // Day number 1,2,3...
-                            Total = g.Sum(x => x.Quantity)
-                        });
-                    break;
+                if (DateTime.TryParse(startDate, out DateTime parsedStart) &&
+                    DateTime.TryParse(endDate, out DateTime parsedEnd))
+                {
+                    start = parsedStart.Date;
+                    end = parsedEnd.Date.AddDays(1);
+                }
+                else
+                {
+                    return Json(new { message = "Invalid date format" });
+                }
+            }
+            else
+            {
+                switch (periodLower)
+                {
+                    case "week":
+                        start = today.AddDays(-(int)today.DayOfWeek + (int)DayOfWeek.Monday);
+                        break;
+                    case "month":
+                        start = new DateTime(today.Year, today.Month, 1);
+                        break;
+                    case "year":
+                        start = new DateTime(today.Year, 1, 1);
+                        break;
+                    case "alltime":
+                        start = DateTime.MinValue;
+                        end = today.AddDays(1);
+                        break;
+                    default:
+                        start = new DateTime(today.Year, today.Month, 1);
+                        break;
+                }
             }
 
-            return Json(grouped);
+            var filtered = (periodLower == "alltime")
+                ? productSales
+                : productSales.Where(s => s.CreatedAt >= start && s.CreatedAt < end).ToList();
+
+            if (!filtered.Any())
+                return Json(Array.Empty<object>());
+
+            IEnumerable<object> grouped;
+            double dateSpan = periodLower == "alltime" ? 365 : (end - start).TotalDays;
+
+            if (periodLower == "year" || periodLower == "alltime" || (periodLower == "custom" && dateSpan > 90))
+            {
+                grouped = filtered
+                    .GroupBy(s => new { s.CreatedAt.Year, s.CreatedAt.Month })
+                    .OrderBy(g => g.Key.Year).ThenBy(g => g.Key.Month)
+                    .Select(g => new
+                    {
+                        Label = new DateTime(g.Key.Year, g.Key.Month, 1).ToString("MMM yyyy"),
+                        Total = g.Sum(x => x.Item.Quantity)
+                    });
+            }
+            else if (periodLower == "month" || (periodLower == "custom" && dateSpan <= 90 && dateSpan > 7))
+            {
+                grouped = filtered
+                    .GroupBy(s => s.CreatedAt.Day)
+                    .OrderBy(g => g.Key)
+                    .Select(g => new
+                    {
+                        Label = g.Key.ToString(),
+                        Total = g.Sum(x => x.Item.Quantity)
+                    });
+            }
+            else
+            {
+                grouped = filtered
+                    .GroupBy(s => s.CreatedAt.Date)
+                    .OrderBy(g => g.Key)
+                    .Select(g => new
+                    {
+                        Label = g.Key.ToString("ddd"),
+                        Total = g.Sum(x => x.Item.Quantity)
+                    });
+            }
+
+            return Json(grouped.ToList());
         }
-
-
-
 
 
         [HttpPost]
         public async Task<IActionResult> UpdateStatus(string id, string newStatus)
         {
             if (string.IsNullOrEmpty(id) || string.IsNullOrEmpty(newStatus))
-                return BadRequest("Invalid invoice ID or status.");
+                return BadRequest("Invalid order ID or status.");
 
-            var invoice = _mongo.Invoices.Find(i => i.Id == id).FirstOrDefault();
-            if (invoice == null) return NotFound("Noto foundo");
-            var filter = Builders<Invoice>.Filter.Eq(i => i.Id, id);
-            var update = Builders<Invoice>.Update
-                .Set(i => i.Status, newStatus)
+            // 1. Find the Order (using TbOrder)
+            var order = await _mongo.TbOrder.Find(i => i.Id == id).FirstOrDefaultAsync();
+            _logger.LogInformation("\n\n\n\n" + order.OrderNumber + "\n\n\n");
+
+            if (order == null)
+                return NotFound("Order not found.");
+
+            // 2. Prepare Update
+            var filter = Builders<TbOrder>.Filter.Eq(i => i.Id, id);
+
+            // We update 'PaymentStatus' because the UI dropdown selects Paid/Unpaid.
+            // We also update 'UpdatedAt'.
+            var update = Builders<TbOrder>.Update
+                .Set(i => i.PaymentStatus, newStatus)
                 .Set(i => i.UpdatedAt, DateTime.UtcNow);
 
-            var result = await _mongo.Invoices.UpdateOneAsync(filter, update);
+            // Optional: If you want logic where "Paid" also automatically sets OrderStatus to "Processing" or "Completed", add it here.
+            // e.g. if (newStatus == "Paid") update = update.Set(i => i.OrderStatus, "Processing");
+
+            // 3. Execute Update
+            var result = await _mongo.TbOrder.UpdateOneAsync(filter, update);
+            _logger.LogInformation("\n\n\n\\n\n\n\nI'm  n\n\n");
 
             if (result.MatchedCount == 0)
-                return NotFound("Invoice not found.");
+                return NotFound("Order not found.");
 
+            // 4. Log Action
             var userId = HttpContext.Session.GetString("UserId");
             var actionLog = new ActionLog(
-                userId: userId,
-                entity: "Invoice",
+                userId: userId ?? "System",
+                entity: "Order", // Changed from Invoice
                 entityId: id,
                 action: "Update",
-                description: $"Updated status of invoice #{invoice.InvoiceNumber} to {newStatus}"
+                description: $"Updated payment status of order #{order.OrderNumber} to {newStatus}"
             );
+
             await _mongo.ActionLog.InsertOneAsync(actionLog);
 
-            return Ok(new { success = true, message = "Invoice status updated successfully." });
-        }
+            _logger.LogInformation("\n\n\n\\n\n\n\nI'm here inserting log n\n\n");
+            // 4. Log Action...
+            return RedirectToAction("Invoices");
+        } // Correct JSON response        }
         //delete
 
-        //Fetch Customers in customers page with search function
+            //Fetch Customers in customers page with search function
         public IActionResult Customers(string? searchQuery, string? selectedId)
         {
             // ✅ Base filter: only customers
@@ -714,11 +1210,11 @@ namespace Sheessential_Sales_Finance.Controllers
         [HttpGet]
         public IActionResult Reports()
         {
-            // fitch all invoices (with embedded product sales)
-            var invoices = _mongo.Invoices.Find(_ => true).ToList();
+            // Use ProductSalesInventory directly instead of invoices
+            var productSalesList = _mongo.ProductSalesInventory.Find(_ => true).ToList();
 
-            // Handol mt data
-            if (invoices == null || invoices.Count == 0)
+            // Handle empty data
+            if (productSalesList == null || productSalesList.Count == 0)
             {
                 ViewBag.Revenue = 0;
                 ViewBag.Expense = 0;
@@ -726,92 +1222,439 @@ namespace Sheessential_Sales_Finance.Controllers
                 return View();
             }
 
-            // get product sales from each inboyesesesldkflskdjf
-            var productSalesList = invoices.SelectMany(inv => inv.Items).ToList();
-
-            if (productSalesList.Count == 0)
+            // Calculate revenue (parse string prices)
+            ViewBag.Revenue = productSalesList.Sum(x =>
             {
-                ViewBag.Revenue = 0;
-                ViewBag.Expense = 0;
-                ViewBag.TotalTransactions = 0;
-                return View();
-            }
+                if (decimal.TryParse(x.SalePrice, out var price))
+                    return price * x.Quantity;
+                return 0;
+            });
 
+            // Calculate expenses (parse string values)
+            ViewBag.Expense = productSalesList.Sum(x =>
+            {
+                decimal tax = decimal.TryParse(x.SaleTax, out var t) ? t : 0;
+                decimal discount = decimal.TryParse(x.SaleDiscounts, out var d) ? d : 0;
+                return tax + discount;
+            });
 
-            ViewBag.Revenue = productSalesList.Sum(x => x.SalePrice * x.Quantity);
-            ViewBag.Expense = productSalesList.Sum(x => x.SaleTax + x.SaleDiscounts);
             ViewBag.TotalTransactions = productSalesList.Count;
-
 
             return View();
         }
-
         //Expenses in expense page
-        public IActionResult Expenses(string status, DateTime? startDate, DateTime? endDate)
+        // Note: You must include a using statement for the new Display Model
+        // using Sheessential_Sales_Finance.Models; 
+
+        public IActionResult Expenses(
+          // Expense filters - all optional with defaults
+          string? sortOrder = null,
+          string[]? departments = null,
+          string[]? status = null,
+          decimal? minAmount = null,
+          decimal? maxAmount = null,
+          DateTime? startDate = null,
+          DateTime? endDate = null,
+          int expensePage = 1,
+          int expensePageSize = 10,
+
+          // Ingredient filters - all optional with defaults
+          string[]? ingredientStatus = null,
+          DateTime? ingredientStartDate = null,
+          DateTime? ingredientEndDate = null,
+          int? minQty = null,
+          int? maxQty = null,
+          string? supplier = null,
+          int ingredientPage = 1,
+          int ingredientPageSize = 10,
+
+          // Payroll filters - all optional with defaults
+          string[]? payrollStatus = null,
+          DateTime? startPeriod = null,
+          DateTime? endPeriod = null,
+          string? payType = null,
+          int? minEmployees = null,
+          int? maxEmployees = null,
+          decimal? minGross = null,
+          decimal? maxGross = null,
+          decimal? minNet = null,
+          decimal? maxNet = null,
+          int payrollPage = 1,
+          int payrollPageSize = 10
+      )
         {
             try
             {
-                // ✅ Default to "Pending" if no filter is provided
-                if (string.IsNullOrEmpty(status))
-                    status = "Pending";
+                // --------------------
+                // 1. FILTER EXPENSES
+                // --------------------
+                var expenseFilter = Builders<Expenses>.Filter.Eq(e => e.isIngredientsRequest, false);
 
-                var filter = Builders<Expenses>.Filter.Empty;
+                if (status != null && status.Length > 0)
+                    expenseFilter &= Builders<Expenses>.Filter.In(e => e.Status, status);
 
-                // ✅ Apply Status Filter
-                if (!string.IsNullOrEmpty(status))
+                if (departments != null && departments.Length > 0)
+                    expenseFilter &= Builders<Expenses>.Filter.In(e => e.Department, departments);
+
+                if (minAmount.HasValue)
+                    expenseFilter &= Builders<Expenses>.Filter.Gte(e => e.Amount, minAmount.Value);
+                if (maxAmount.HasValue)
+                    expenseFilter &= Builders<Expenses>.Filter.Lte(e => e.Amount, maxAmount.Value);
+
+                if (startDate.HasValue)
+                    expenseFilter &= Builders<Expenses>.Filter.Gte(e => e.RequestedAt, startDate.Value);
+                if (endDate.HasValue)
+                    expenseFilter &= Builders<Expenses>.Filter.Lte(e => e.RequestedAt, endDate.Value.AddDays(1).AddSeconds(-1));
+
+                var allExpenses = _mongo.Expenses.Find(expenseFilter).ToList();
+
+                // Sorting Expenses
+                allExpenses = sortOrder switch
                 {
-                    filter &= Builders<Expenses>.Filter.Eq(e => e.Status, status);
+                    "date_desc" => allExpenses.OrderByDescending(e => e.RequestedAt).ToList(),
+                    "date_asc" => allExpenses.OrderBy(e => e.RequestedAt).ToList(),
+                    "amount_desc" => allExpenses.OrderByDescending(e => e.Amount).ToList(),
+                    "amount_asc" => allExpenses.OrderBy(e => e.Amount).ToList(),
+                    _ => allExpenses.OrderByDescending(e => e.RequestedAt).ToList()
+                };
+
+                // Paginate Expenses
+                var totalExpenses = allExpenses.Count;
+                var totalExpensePages = (int)Math.Ceiling(totalExpenses / (double)expensePageSize);
+                expensePage = Math.Max(1, Math.Min(expensePage, totalExpensePages == 0 ? 1 : totalExpensePages));
+
+                var expenses = allExpenses
+                    .Skip((expensePage - 1) * expensePageSize)
+                    .Take(expensePageSize)
+                    .ToList();
+
+                // ------------------------------
+                // 2. FILTER INGREDIENT REQUESTS
+                // ------------------------------
+                var ingredientFilter = Builders<IngredientStockRequests>.Filter.Empty;
+
+                if (ingredientStatus != null && ingredientStatus.Length > 0)
+                    ingredientFilter &= Builders<IngredientStockRequests>.Filter.In(r => r.RequestStatus, ingredientStatus);
+
+                if (ingredientStartDate.HasValue)
+                    ingredientFilter &= Builders<IngredientStockRequests>.Filter.Gte(r => r.RequestDate, ingredientStartDate.Value);
+
+                if (ingredientEndDate.HasValue)
+                    ingredientFilter &= Builders<IngredientStockRequests>.Filter.Lte(r => r.RequestDate, ingredientEndDate.Value.AddDays(1).AddSeconds(-1));
+
+                if (minQty.HasValue)
+                    ingredientFilter &= Builders<IngredientStockRequests>.Filter.Gte(r => r.QuantityRequested, minQty.Value);
+
+                if (maxQty.HasValue)
+                    ingredientFilter &= Builders<IngredientStockRequests>.Filter.Lte(r => r.QuantityRequested, maxQty.Value);
+
+                if (!string.IsNullOrEmpty(supplier))
+                {
+                    if (ObjectId.TryParse(supplier, out ObjectId supplierId))
+                    {
+                        ingredientFilter &= Builders<IngredientStockRequests>.Filter.Eq(r => r.SupplierId, supplierId);
+                    }
                 }
 
-                // ✅ Apply Date Range Filter
-                if (startDate.HasValue && endDate.HasValue)
+                var rawRequests = _mongo.IngredientsStockRequests.Find(ingredientFilter).ToList();
+
+                // Lookup dictionaries for display
+                var allIngredients = _mongo.Ingredients.Find(_ => true).ToList().ToDictionary(i => i.Id, i => i);
+                var allSuppliers = _mongo.Suppliers.Find(_ => true).ToList().ToDictionary(s => s.Id, s => s);
+
+                var allDisplayRequests = rawRequests.Select(r => new IngredientStockRequestDisplayModel
                 {
-                    filter &= Builders<Expenses>.Filter.Gte(e => e.RequestedAt, startDate.Value)
-                           & Builders<Expenses>.Filter.Lte(e => e.RequestedAt, endDate.Value);
-                }
+                    Id = r.Id,
+                    ExpenseId = r.ExpenseId?.ToString(),
+                    RequestStatus = r.RequestStatus,
+                    TotalCost = r.TotalCost,
+                    RequestDate = r.RequestDate,
+                    RequestedBy = r.RequestedBy,
+                    QuantityRequested = r.QuantityRequested,
+                    Unit = r.Unit,
+                    CurrentStockAtRequest = r.CurrentStockAtRequest,
+                    Instructions = r.Instructions,
+                    IngredientName = allIngredients.GetValueOrDefault(r.IngredientId.ToString())?.IngredientName ?? "Unknown Ingredient",
+                    SupplierName = allSuppliers.GetValueOrDefault(r.SupplierId.ToString())?.SupplierName ?? "Unknown Supplier"
+                }).OrderByDescending(r => r.RequestDate).ToList();
 
-                // ✅ Fetch filtered expenses
-                var expenses = _mongo.Expenses.Find(filter).ToList() ?? new List<Expenses>();
+                // Paginate Ingredient Requests
+                var totalIngredientRequests = allDisplayRequests.Count;
+                var totalIngredientPages = (int)Math.Ceiling(totalIngredientRequests / (double)ingredientPageSize);
+                ingredientPage = Math.Max(1, Math.Min(ingredientPage, totalIngredientPages == 0 ? 1 : totalIngredientPages));
 
-                // ✅ Fetch current balance
-                var balance = _mongo.Balance.Find(_ => true).FirstOrDefault();
+                var displayRequests = allDisplayRequests
+                    .Skip((ingredientPage - 1) * ingredientPageSize)
+                    .Take(ingredientPageSize)
+                    .ToList();
 
-                // ✅ Totals
-                ViewBag.TotalExpenses = expenses.Sum(e => e?.Amount ?? 0);
-                ViewBag.PendingTotal = expenses.Where(e => e.Status == "Pending").Sum(e => e.Amount);
-                ViewBag.ApprovedTotal = expenses.Where(e => e.Status == "Approved").Sum(e => e.Amount);
-                ViewBag.DeclinedTotal = expenses.Where(e => e.Status == "Declined").Sum(e => e.Amount);
+                // --------------------
+                // 3. FILTER PAYROLL RUNS
+                // --------------------
+                var payrollFilter = Builders<PayrollRun>.Filter.Empty;
 
-                // ✅ Pass the selected filter to the view so dropdown keeps selected value
-                ViewBag.SelectedStatus = status;
+                if (payrollStatus != null && payrollStatus.Length > 0)
+                    payrollFilter &= Builders<PayrollRun>.Filter.In(p => p.Status, payrollStatus);
 
+                if (startPeriod.HasValue)
+                    payrollFilter &= Builders<PayrollRun>.Filter.Gte(p => p.PayPeriodStart, startPeriod.Value);
+
+                if (endPeriod.HasValue)
+                    payrollFilter &= Builders<PayrollRun>.Filter.Lte(p => p.PayPeriodEnd, endPeriod.Value);
+
+                if (!string.IsNullOrEmpty(payType))
+                    payrollFilter &= Builders<PayrollRun>.Filter.Eq(p => p.PayPeriodType, payType);
+
+                if (minEmployees.HasValue)
+                    payrollFilter &= Builders<PayrollRun>.Filter.Gte(p => p.TotalEmployees, minEmployees.Value);
+
+                if (maxEmployees.HasValue)
+                    payrollFilter &= Builders<PayrollRun>.Filter.Lte(p => p.TotalEmployees, maxEmployees.Value);
+
+                if (minGross.HasValue)
+                    payrollFilter &= Builders<PayrollRun>.Filter.Gte(p => p.TotalGrossSalary, minGross.Value);
+
+                if (maxGross.HasValue)
+                    payrollFilter &= Builders<PayrollRun>.Filter.Lte(p => p.TotalGrossSalary, maxGross.Value);
+
+                if (minNet.HasValue)
+                    payrollFilter &= Builders<PayrollRun>.Filter.Gte(p => p.TotalNetSalary, minNet.Value);
+
+                if (maxNet.HasValue)
+                    payrollFilter &= Builders<PayrollRun>.Filter.Lte(p => p.TotalNetSalary, maxNet.Value);
+
+                var allPayrollRuns = _mongo.ParyrollRuns.Find(payrollFilter).ToList();
+
+                // Paginate Payroll Runs
+                var totalPayrollRuns = allPayrollRuns.Count;
+                var totalPayrollPages = (int)Math.Ceiling(totalPayrollRuns / (double)payrollPageSize);
+                payrollPage = Math.Max(1, Math.Min(payrollPage, totalPayrollPages == 0 ? 1 : totalPayrollPages));
+
+                var payrollRuns = allPayrollRuns
+                    .Skip((payrollPage - 1) * payrollPageSize)
+                    .Take(payrollPageSize)
+                    .ToList();
+
+                // --------------------
+                // 4. FETCH BALANCE
+                // --------------------
+                var balance = _mongo.Balance.Find(_ => true).FirstOrDefault() ?? new Balance();
+
+                // --------------------
+                // 5. CALCULATE TOTALS (using all data, not paginated)
+                // --------------------
+                ViewBag.TotalExpenses = allExpenses.Sum(e => e?.Amount ?? 0);
+                ViewBag.PendingTotal = allExpenses.Where(e => e.Status == "Pending").Sum(e => e.Amount);
+                ViewBag.ApprovedTotal = allExpenses.Where(e => e.Status == "Approved").Sum(e => e.Amount);
+                ViewBag.DeclinedTotal = allExpenses.Where(e => e.Status == "Declined").Sum(e => e.Amount);
+                ViewBag.TotalStockRequestCost = allDisplayRequests.Sum(r => r.TotalCost);
+
+                // --------------------
+                // 6. PAGINATION VIEWBAGS
+                // --------------------
+                // Expense Pagination
+                ViewBag.ExpenseCurrentPage = expensePage;
+                ViewBag.ExpenseTotalPages = totalExpensePages;
+                ViewBag.ExpenseTotalItems = totalExpenses;
+                ViewBag.ExpensePageSize = expensePageSize;
+
+                // Ingredient Pagination
+                ViewBag.IngredientCurrentPage = ingredientPage;
+                ViewBag.IngredientTotalPages = totalIngredientPages;
+                ViewBag.IngredientTotalItems = totalIngredientRequests;
+                ViewBag.IngredientPageSize = ingredientPageSize;
+
+                // Payroll Pagination
+                ViewBag.PayrollCurrentPage = payrollPage;
+                ViewBag.PayrollTotalPages = totalPayrollPages;
+                ViewBag.PayrollTotalItems = totalPayrollRuns;
+                ViewBag.PayrollPageSize = payrollPageSize;
+
+                // --------------------
+                // 7. BUILD VIEW MODEL
+                // --------------------
                 var viewModel = new ExpensesWithBalanceViewModel
                 {
                     Expenses = expenses,
-                    Balance = balance
+                    Balance = balance,
+                    StockRequests = displayRequests,
+                    PayrollRuns = payrollRuns
                 };
 
                 return View(viewModel);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error loading Expenses page.");
-                return View(new ExpensesWithBalanceViewModel
+                _logger.LogError(ex, "Error loading Expenses page with filters.");
+                return View(new ExpensesWithBalanceViewModel());
+            }
+        }
+
+        // Replace the existing ExpensesByDepartment method with this one
+        [HttpGet]
+        public IActionResult ExpenseByDeparment()
+        {
+            return RedirectToAction(nameof(ExpensesByDepartment));
+        }
+
+        [HttpGet]
+        public IActionResult ExpensesByDepartment()
+        {
+            try
+            {
+                var userDepartment = (HttpContext.Session.GetString("UserDepartment") ?? string.Empty).Trim();
+                if (!userDepartment.Equals("Finance", StringComparison.OrdinalIgnoreCase))
                 {
-                    Expenses = new List<Expenses>(),
-                    Balance = new Balance { CurrentBalance = 0 }
-                });
+                    return RedirectToAction("Dashboard");
+                }
+
+                // Fetch all non-ingredient expenses
+                var allExpenses = _mongo.Expenses
+                    .Find(e => e.isIngredientsRequest == false)
+                    .ToList();
+
+                // Fetch all ingredient stock requests + lookups
+                var rawRequests = _mongo.IngredientsStockRequests.Find(_ => true).ToList();
+                var allIngredients = _mongo.Ingredients.Find(_ => true).ToList().ToDictionary(i => i.Id, i => i);
+                var allSuppliers = _mongo.Suppliers.Find(_ => true).ToList().ToDictionary(s => s.Id, s => s);
+
+                var displayRequests = rawRequests.Select(r => new IngredientStockRequestDisplayModel
+                {
+                    Id = r.Id,
+                    ExpenseId = r.ExpenseId?.ToString(),
+                    RequestStatus = r.RequestStatus,
+                    TotalCost = r.TotalCost,
+                    RequestDate = r.RequestDate,
+                    RequestedBy = r.RequestedBy,
+                    QuantityRequested = r.QuantityRequested,
+                    Unit = r.Unit,
+                    CurrentStockAtRequest = r.CurrentStockAtRequest,
+                    Instructions = r.Instructions,
+                    IngredientName = allIngredients.GetValueOrDefault(r.IngredientId.ToString())?.IngredientName ?? "Unknown Ingredient",
+                    SupplierName = allSuppliers.GetValueOrDefault(r.SupplierId.ToString())?.SupplierName ?? "Unknown Supplier"
+                }).OrderByDescending(r => r.RequestDate).ToList();
+
+                // ✅ Fetch payroll snapshots
+                var payrollSnapshots = _mongo.PayrollSnapshots
+                    .Find(_ => true)
+                    .SortByDescending(p => p.ProcessedAt)
+                    .ToList();
+
+                _logger.LogInformation("PayrollSnapshots count: {Count}", payrollSnapshots.Count);
+
+                // Get balance
+                var balance = _mongo.Balance.Find(_ => true).FirstOrDefault() ?? new Balance();
+
+                var viewModel = new ExpensesWithBalanceViewModel
+                {
+                    Expenses = allExpenses,
+                    Balance = balance,
+                    StockRequests = displayRequests,
+                    PayrollSnapshots = payrollSnapshots
+                };
+
+                return View(viewModel);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error loading ExpensesByDepartment view.");
+
+                // TEMP DEBUG: show full exception in browser during development
+                if (_env != null && _env.EnvironmentName == "Development")
+                {
+                    return Content(ex.ToString(), "text/plain");
+                }
+
+                return View(new ExpensesWithBalanceViewModel());
             }
         }
 
 
 
+        [HttpPost]
+        public IActionResult DeclineExpense(string id, bool isStockRequest, string DeclineReason)
+        {
+            _logger.LogInformation("\n\n\n\n\n\n I'm here brooooooo we're declining \n\n\n\n\n\n");
+
+            bool updated = false;
+
+            if (isStockRequest)
+            {
+                // Update IngredientStockRequests
+            _logger.LogInformation("\n\n\n\n\n\n Updating: "+id+ "\n\n\n\n\n\n");
+                var filter = Builders<IngredientStockRequests>.Filter.Eq(r => r.Id, id);
+
+                var update = Builders<IngredientStockRequests>.Update
+                    .Set(r => r.RequestStatus, "Declined")
+                    .Set(r => r.RejectionReason, DeclineReason)
+                    .Set(r => r.StatusUpdatedDate, DateTime.UtcNow);
+
+                var result = _mongo.IngredientsStockRequests.UpdateOne(filter, update);
+
+                updated = result.MatchedCount > 0 && result.ModifiedCount > 0;
+
+                _logger.LogInformation($"StockRequest Updated? {updated} | Matched: {result.MatchedCount} | Modified: {result.ModifiedCount}");
+            }
+            else
+            {
+                // Update Expenses collection
+                var filter = Builders<Expenses>.Filter.Eq(e => e.Id, id);
+
+                var update = Builders<Expenses>.Update
+                    .Set(e => e.Status, "Declined")
+                    .Set(e => e.Notes, DeclineReason)
+                    .Set(e => e.DateApproved, DateTime.UtcNow);
+
+                var result = _mongo.Expenses.UpdateOne(filter, update);
+
+                updated = result.MatchedCount > 0 && result.ModifiedCount > 0;
+
+                _logger.LogInformation($"Expense Updated? {updated} | Matched: {result.MatchedCount} | Modified: {result.ModifiedCount}");
+            }
+
+            if (!updated)
+            {
+                TempData["DeclineError"] = "❌ Decline failed — no document was updated.";
+            }
+            else
+            {
+                TempData["DeclineSuccess"] = "✔️ Declined successfully.";
+            }
+
+            return RedirectToAction("ExpensesByDepartment");
+        }
 
 
 
+        ///
+        [HttpPost]
+        public IActionResult UpdatedStockRequestStatus(string id, string expenseId)
+        {
+            _logger.LogInformation("\n\n\n\n\n\n I'm approving \n\n\n\n");
+            var filter = Builders<IngredientStockRequests>.Filter.Eq(r => r.Id, id);
+
+            var update = Builders<IngredientStockRequests>.Update
+                .Set(r => r.RequestStatus, "Approved by Finance")
+                .Set(r => r.ExpenseId, string.IsNullOrWhiteSpace(expenseId) ? null : new ObjectId(expenseId));
+
+            _mongo.IngredientsStockRequests.UpdateOne(filter, update);
+
+            return Json(new { success = true, message = "Stock request approved." });
+        }
+
+
+
+
+        // add the logic for updating stock request
         //accept expense
         [HttpPost]
-        public IActionResult ApproveExpense(string id)
+        public IActionResult ApproveExpense(
+           string id,
+           string requestId,
+           string TransferTo,
+           string PaymentMethod,
+           string ReferenceNumber,
+           string TransferNotes)
         {
             try
             {
@@ -820,88 +1663,338 @@ namespace Sheessential_Sales_Finance.Controllers
                 if (expense == null)
                 {
                     _logger.LogWarning($"Expense with ID {id} not found.");
-                    return RedirectToAction("Expenses");
+                    return RedirectToAction("ExpensesByDepartment");
                 }
 
-                // ✅ 2. Find the current balance (assuming only 1 record)
+                // ✅ 2. Find the current balance
                 var balance = _mongo.Balance.Find(_ => true).FirstOrDefault();
 
                 if (balance != null)
                 {
-                    // ✅ 3. Check if there's enough balance
+                    // ✅ 3. Check sufficiency
                     if (balance.CurrentBalance >= expense.Amount)
                     {
-                        // Deduct the expense amount
+                        // --- TRANSACTION START ---
+
+                        // A. Deduct the amount
                         balance.CurrentBalance -= expense.Amount;
 
-                        // ✅ 4. Update the Balance collection
+                        // B. Update Balance in DB
                         var balanceFilter = Builders<Balance>.Filter.Eq(b => b.Id, balance.Id);
                         var balanceUpdate = Builders<Balance>.Update
-                            .Set(b => b.CurrentBalance, balance.CurrentBalance);
+                            .Set(b => b.CurrentBalance, balance.CurrentBalance)
+                            .Set(b => b.LastUpdated, DateTime.UtcNow);
+
                         _mongo.Balance.UpdateOne(balanceFilter, balanceUpdate);
 
-                        // ✅ 5. Update the Expense status
+
+                        // C. CREATE THE PAYMENT TRANSACTION RECORD (New Logic)
+                        var newTransaction = new PaymentTransaction
+                        {
+                            ExpenseId = id,
+                            Amount = expense.Amount,
+                            PaymentDate = DateTime.UtcNow,
+                            TransferTo = TransferTo,
+                            PaymentMethod = PaymentMethod,
+                            ReferenceNumber = ReferenceNumber ?? "N/A", // Handle nulls if optional
+                            Notes = TransferNotes ?? ""
+                        };
+
+                        // Save transaction to a new collection (e.g., PaymentTransactions)
+                        _mongo.PaymentTransactions.InsertOne(newTransaction);
+                        if (newTransaction.Id != null)
+                        {
+                            _logger.LogInformation("\n\n\n we inserted" + newTransaction.Id);
+                        }
+                        else
+                        {
+                            _logger.LogInformation("\n\\n\nBobo\n\n\n");
+                        }
+                        // D. Update Expense Status
                         var expenseFilter = Builders<Expenses>.Filter.Eq(e => e.Id, id);
                         var expenseUpdate = Builders<Expenses>.Update
                             .Set(e => e.Status, "Approved")
-                            .Set(e => e.RequestedAt, DateTime.UtcNow);
+                            .Set(e => e.DateApproved, DateTime.UtcNow); // Or maybe add a "PaidAt" field?
+
                         _mongo.Expenses.UpdateOne(expenseFilter, expenseUpdate);
 
-                        _logger.LogInformation($"Expense {id} approved and balance updated.");
+                        _logger.LogInformation($"Expense {id} paid to {TransferTo}.");
                     }
                     else
                     {
-                        // Not enough balance to approve
                         TempData["Error"] = "Insufficient balance to approve this expense.";
                     }
                 }
                 else
                 {
-                    _logger.LogWarning("No balance record found in the database.");
+                    _logger.LogWarning("No balance record found.");
                 }
 
-                return RedirectToAction("Expenses");
+                return RedirectToAction("ExpensesByDepartment");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error approving expense with ID {id}");
-                TempData["Error"] = "An error occurred while approving the expense.";
-                return RedirectToAction("Expenses");
+                _logger.LogError(ex, $"Error approving expense {id}");
+                TempData["Error"] = "An error occurred.";
+                return RedirectToAction("ExpensesByDepartment");
             }
         }
-
 
         // Add new expense
         [HttpPost]
         public IActionResult AddExpense(Expenses newExpense)
         {
-            // ✅ 1. Get the latest expense by ExpenseId
-            var lastExpense = _mongo.Expenses
+            _logger.LogInformation("\n\n\n\n\n Im in Add expense \n\n\n");
+            var existingExpenseIds = _mongo.Expenses
                 .Find(_ => true)
-                .SortByDescending(e => e.ExpenseId)
-                .FirstOrDefault();
+                .Project(e => e.ExpenseId)
+                .ToList();
 
-            // ✅ 2. Generate the next ExpenseId (EXP-0006, etc.)
-            int nextNumber = 1;
-            if (lastExpense != null && !string.IsNullOrEmpty(lastExpense.ExpenseId))
-            {
-                string lastNumberPart = lastExpense.ExpenseId.Replace("EXP-", "");
-                if (int.TryParse(lastNumberPart, out int lastNumber))
+            var maxNumber = existingExpenseIds
+                .Select(id =>
                 {
-                    nextNumber = lastNumber + 1;
-                }
-            }
+                    if (string.IsNullOrWhiteSpace(id)) return 0;
+                    var match = Regex.Match(id, @"\d+");
+                    return match.Success && int.TryParse(match.Value, out var number) ? number : 0;
+                })
+                .DefaultIfEmpty(0)
+                .Max();
 
-            newExpense.ExpenseId = $"EXP-{nextNumber.ToString("D4")}";
+            int nextNumber = maxNumber + 1;
+
+            newExpense.ExpenseId = $"EXP-{nextNumber:D4}";
             newExpense.Status = "Pending";
             newExpense.RequestedAt = DateTime.UtcNow;
 
-            // ✅ 3. Save to MongoDB
             _mongo.Expenses.InsertOne(newExpense);
 
-            // ✅ 4. Redirect back to Expense list
-            return RedirectToAction("Expenses");
+            return Json(new { success = true, expenseId = newExpense.Id });
         }
+
+        [HttpPost]
+        public IActionResult SeedExpenses(int count = 30)
+        {
+            count = Math.Clamp(count, 1, 300);
+
+            var existingExpenseIds = _mongo.Expenses
+                .Find(_ => true)
+                .Project(e => e.ExpenseId)
+                .ToList();
+
+            var maxNumber = existingExpenseIds
+                .Select(id =>
+                {
+                    if (string.IsNullOrWhiteSpace(id)) return 0;
+                    var match = Regex.Match(id, @"\d+");
+                    return match.Success && int.TryParse(match.Value, out var number) ? number : 0;
+                })
+                .DefaultIfEmpty(0)
+                .Max();
+
+            var departments = new[] { "Finance", "HR", "Marketing", "Inventory", "Website", "Accounting" };
+
+            var expenseTypesByDepartment = new Dictionary<string, string[]>
+            {
+                ["Finance"] = new[] { "Bank Charges", "Audit & Compliance", "Tax & Government Fees", "Financial Services", "Electricity", "Water", "Internet" },
+                ["HR"] = new[] { "Training", "Recruitment", "Employee Welfare", "Office Supplies", "Internet" },
+                ["Marketing"] = new[] { "Ads & Promotion", "Campaign Materials", "Event Sponsorship", "Internet" },
+                ["Inventory"] = new[] { "Warehouse Maintenance", "Packaging Materials", "Delivery Fuel", "Equipment Purchases", "Electricity", "Water" },
+                ["Website"] = new[] { "Hosting Services", "Domain Renewal", "Website Maintenance", "Security and Backup", "Internet" },
+                ["Accounting"] = new[] { "Office Supplies", "Software Subscription", "Tax Filing", "Bank Charges", "Internet" }
+            };
+
+            var financeRequesters = _mongo.HrEmployees
+                .Find(Builders<BsonDocument>.Filter.Eq("department", "Finance"))
+                .ToList()
+                .Select(e =>
+                {
+                    var firstName = e.GetValue("firstName", "").ToString().Trim();
+                    var lastName = e.GetValue("lastName", "").ToString().Trim();
+                    return $"{firstName} {lastName}".Trim();
+                })
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (!financeRequesters.Any())
+            {
+                financeRequesters = new List<string> { "Finance Staff" };
+            }
+
+            var declineReasons = new[]
+            {
+                "Insufficient supporting documents.",
+                "Budget limit reached for this month.",
+                "Duplicate request found.",
+                "Needs management review first."
+            };
+
+            var seedList = new List<Expenses>();
+            var random = new Random();
+
+            for (int i = 1; i <= count; i++)
+            {
+                var department = departments[random.Next(departments.Length)];
+                var expenseTypeOptions = expenseTypesByDepartment[department];
+                var expenseType = expenseTypeOptions[random.Next(expenseTypeOptions.Length)];
+
+                var requestedAt = DateTime.UtcNow.AddDays(-random.Next(0, 120)).AddHours(-random.Next(0, 23));
+
+                var statusRoll = random.Next(100);
+                var status = statusRoll < 60 ? "Approved" : statusRoll < 90 ? "Pending" : "Declined";
+
+                DateTime? dateApproved = null;
+                string notes = "";
+
+                if (status == "Approved")
+                {
+                    dateApproved = requestedAt.AddDays(random.Next(1, 8));
+                    notes = "Processed and approved by finance.";
+                }
+                else if (status == "Declined")
+                {
+                    dateApproved = requestedAt.AddDays(random.Next(1, 5));
+                    notes = declineReasons[random.Next(declineReasons.Length)];
+                }
+
+                var amount = GenerateSeedExpenseAmount(expenseType, random);
+
+                seedList.Add(new Expenses
+                {
+                    ExpenseId = $"EXP-{(maxNumber + i):D4}",
+                    Department = department,
+                    ExpenseType = expenseType,
+                    Description = $"{expenseType} expense for {department} operations",
+                    Amount = amount,
+                    RequestedBy = financeRequesters[random.Next(financeRequesters.Count)],
+                    Status = status,
+                    RequestedAt = requestedAt,
+                    DateApproved = dateApproved,
+                    Notes = notes,
+                    AttachmentUrl = "",
+                    isIngredientsRequest = false,
+                    Version = 0
+                });
+            }
+
+            _mongo.Expenses.InsertMany(seedList);
+
+            return Json(new
+            {
+                success = true,
+                inserted = seedList.Count,
+                fromExpenseId = seedList.First().ExpenseId,
+                toExpenseId = seedList.Last().ExpenseId
+            });
+        }
+
+        [HttpPost]
+        public IActionResult RemoveDuplicateExpensesByExpenseId()
+        {
+            var deleted = CleanupDuplicateExpenseIds(_mongo.Expenses);
+
+            return Json(new
+            {
+                success = true,
+                deleted,
+                message = "Duplicate ExpenseId cleanup completed for SalesAndFinanceDB."
+            });
+        }
+
+        [HttpPost]
+        public IActionResult DeleteAllExpenses()
+        {
+            var result = _mongo.Expenses.DeleteMany(_ => true);
+
+            return Json(new
+            {
+                success = true,
+                deleted = result.DeletedCount,
+                message = "All expenses were deleted."
+            });
+        }
+
+        private static long CleanupDuplicateExpenseIds(IMongoCollection<Expenses> collection)
+        {
+            var expenses = collection
+                .Find(e => !string.IsNullOrWhiteSpace(e.ExpenseId))
+                .SortByDescending(e => e.RequestedAt)
+                .ToList();
+
+            var idsToDelete = new List<string>();
+            var normalizedUpdates = new List<(string Id, string NormalizedExpenseId)>();
+
+            var grouped = expenses
+                .GroupBy(e => NormalizeExpenseId(e.ExpenseId), StringComparer.OrdinalIgnoreCase)
+                .Where(g => !string.IsNullOrWhiteSpace(g.Key));
+
+            foreach (var group in grouped)
+            {
+                var ordered = group
+                    .OrderByDescending(e => e.RequestedAt)
+                    .ThenByDescending(e => e.Id)
+                    .ToList();
+
+                var keep = ordered.First();
+
+                if (!string.Equals(keep.ExpenseId, group.Key, StringComparison.OrdinalIgnoreCase) &&
+                    !string.IsNullOrWhiteSpace(keep.Id))
+                {
+                    normalizedUpdates.Add((keep.Id, group.Key));
+                }
+
+                idsToDelete.AddRange(ordered
+                    .Skip(1)
+                    .Where(e => !string.IsNullOrWhiteSpace(e.Id))
+                    .Select(e => e.Id!));
+            }
+
+            foreach (var update in normalizedUpdates)
+            {
+                collection.UpdateOne(
+                    e => e.Id == update.Id,
+                    Builders<Expenses>.Update.Set(e => e.ExpenseId, update.NormalizedExpenseId));
+            }
+
+            if (idsToDelete.Count == 0)
+                return 0;
+
+            var deleteResult = collection.DeleteMany(e => idsToDelete.Contains(e.Id!));
+            return deleteResult.DeletedCount;
+        }
+
+        private static string NormalizeExpenseId(string? rawExpenseId)
+        {
+            if (string.IsNullOrWhiteSpace(rawExpenseId)) return string.Empty;
+
+            var value = rawExpenseId.Trim().Trim('"', '\'', '`');
+            var match = Regex.Match(value, @"EXP-\d+", RegexOptions.IgnoreCase);
+
+            if (match.Success)
+                return match.Value.ToUpperInvariant();
+
+            var numeric = Regex.Match(value, @"\d+");
+            if (numeric.Success && int.TryParse(numeric.Value, out var number))
+                return $"EXP-{number:D4}";
+
+            return value.ToUpperInvariant();
+        }
+
+        private static decimal GenerateSeedExpenseAmount(string expenseType, Random random)
+        {
+            return expenseType switch
+            {
+                "Electricity" => random.Next(8000, 28001),
+                "Water" => random.Next(2500, 12001),
+                "Internet" => random.Next(1500, 7001),
+                "Equipment Purchases" => random.Next(20000, 90001),
+                "Ads & Promotion" => random.Next(5000, 30001),
+                "Hosting Services" => random.Next(1000, 8001),
+                "Tax & Government Fees" => random.Next(5000, 45001),
+                _ => random.Next(1000, 20001)
+            };
+        }
+
 
 
         //Get all Vendors
@@ -939,7 +2032,43 @@ namespace Sheessential_Sales_Finance.Controllers
         }
 
 
+        [HttpGet]
+        public IActionResult GetExpenseAndPaymentDetails(string expenseId)
+        {
+            _logger.LogInformation("I'm in Get ikspinis mitod");
+            _logger.LogInformation("\n\n\n\n"+expenseId+"\n\n\n\n");
+            try
+            {
+                // 1. Fetch the Expense
+                var expense = _mongo.Expenses.Find(e => e.Id == expenseId).FirstOrDefault();
 
+                if (expense == null)
+                {
+                    _logger.LogInformation("No found bruuhhh");
+                    return NotFound(new { success = false, message = "Expense not found." });
+                }
+
+                // 2. Fetch the corresponding Payment Transaction using the ExpenseId
+                var paymentTransaction = _mongo.PaymentTransactions
+                                               .Find(p => p.ExpenseId == expenseId)
+                                               .FirstOrDefault();
+                _logger.LogInformation("I'm should be succed");
+
+                // 3. Return both objects as a combined result
+                return Json(new
+                {
+
+                    success = true,
+                    expense = expense,
+                    payment = paymentTransaction // Will be null if payment hasn't been recorded yet
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error fetching expense and payment details for ID {expenseId}");
+                return StatusCode(500, new { success = false, message = "Internal server error." });
+            }
+        }
 
 
 
@@ -1132,15 +2261,12 @@ namespace Sheessential_Sales_Finance.Controllers
                 {
                     Orientation = Orientation.Portrait,
                     PaperSize = PaperKind.A4,
-                    Margins = new MarginSettings { Top = 10, Bottom = 10 },
+                    Margins = new MarginSettings { Top = 10, Bottom = 10 }
                 },
                 Objects = {
                     new ObjectSettings {
                         HtmlContent = html,
-                        WebSettings = {
-                            DefaultEncoding = "utf-8",
-                            LoadImages = true
-                        }
+                        WebSettings = { DefaultEncoding = "utf-8", LoadImages = true }
                     }
                 }
             };
@@ -1159,7 +2285,7 @@ namespace Sheessential_Sales_Finance.Controllers
             var tempDataProvider = HttpContext.RequestServices.GetService(typeof(ITempDataProvider)) as ITempDataProvider;
             var actionContext = new ActionContext(HttpContext, RouteData, ControllerContext.ActionDescriptor);
 
-            var viewResult = viewEngine.FindView(actionContext, viewName, false);
+            var viewResult = viewEngine!.FindView(actionContext, viewName, false);
             if (viewResult.View == null)
                 throw new Exception($"View '{viewName}' not found.");
 
@@ -1168,7 +2294,7 @@ namespace Sheessential_Sales_Finance.Controllers
                 actionContext,
                 viewResult.View,
                 new ViewDataDictionary(new EmptyModelMetadataProvider(), new ModelStateDictionary()) { Model = model },
-                new TempDataDictionary(HttpContext, tempDataProvider),
+                new TempDataDictionary(HttpContext, tempDataProvider!),
                 sw,
                 new HtmlHelperOptions()
             );
@@ -1182,16 +2308,12 @@ namespace Sheessential_Sales_Finance.Controllers
         public IActionResult GetExpenseBreakdown()
         {
             // Get all approved expenses (optional: include others if needed)
-            var expenses = _mongo.Expenses.Find(_ => _.Status == "Approved").ToList();
+            var expenses = _mongo.Expenses.Find(e => e.Status == "Approved").ToList();
 
             // Group by ExpenseType and sum up their total amounts
             var breakdown = expenses
                 .GroupBy(e => e.ExpenseType)
-                .Select(g => new
-                {
-                    Label = g.Key,
-                    Total = g.Sum(x => (double)x.Amount)
-                })
+                .Select(g => new { Label = g.Key, Total = g.Sum(x => x.Amount) })
                 .OrderByDescending(x => x.Total)
                 .ToList();
 
@@ -1221,335 +2343,9 @@ namespace Sheessential_Sales_Finance.Controllers
         }
 
 
-        [HttpGet]
-        public async Task<IActionResult> FinanceReportData(string period = "week")
-        {
-            _logger.LogInformation("\n\n\n\nI'm in Finance Report \n\n\n\n");
-
-            // Normalize period string
-            period = (period ?? "week").ToLowerInvariant();
-
-            // ✅ Always use local timezone (PH TIME)
-            var phTime = TimeZoneInfo.FindSystemTimeZoneById("Asia/Manila");
-            DateTime localNow = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, phTime).Date;
-
-            DateTime start;
-            DateTime end = localNow.AddDays(1).AddTicks(-1); // end of today PH time
-
-            // ==== PERIOD RANGE LOGIC =====
-            if (period == "week")
-            {
-                // Monday start of current week
-                int diff = ((int)localNow.DayOfWeek - (int)DayOfWeek.Monday + 7) % 7;
-                start = localNow.AddDays(-diff);
-            }
-            else if (period == "month")
-            {
-                start = new DateTime(localNow.Year, localNow.Month, 1);
-            }
-            else if (period == "year")
-            {
-                start = new DateTime(localNow.Year, 1, 1);
-            }
-            else // alltime
-            {
-                var invoiceEarliest = await _mongo.Invoices
-                    .Find(FilterDefinition<Invoice>.Empty)
-                    .Project(i => i.Items.OrderBy(x => x.TransactionDate).FirstOrDefault().TransactionDate)
-                    .SortBy(x => x)
-                    .FirstOrDefaultAsync();
-
-                var expenseEarliest = await _mongo.Expenses
-                    .Find(FilterDefinition<Expenses>.Empty)
-                    .Project(e => e.RequestedAt)
-                    .SortBy(x => x)
-                    .FirstOrDefaultAsync();
-
-                DateTime earliest = DateTime.MaxValue;
-                if (invoiceEarliest != default(DateTime)) earliest = invoiceEarliest < earliest ? invoiceEarliest : earliest;
-                if (expenseEarliest != default(DateTime)) earliest = expenseEarliest < earliest ? expenseEarliest : earliest;
-
-                if (earliest == DateTime.MaxValue)
-                    earliest = localNow.AddYears(-1);
-
-                earliest = TimeZoneInfo.ConvertTimeFromUtc(earliest, phTime);
-                start = new DateTime(earliest.Year, earliest.Month, 1);
-            }
-
-            // ==== DB DATA ====
-
-            var builder = Builders<Invoice>.Filter;
-
-            var dateFilter = builder.ElemMatch(i => i.Items,
-                it => it.TransactionDate >= start && it.TransactionDate <= end);
-
-            // new paid filter
-            var paidFilter = builder.Eq(i => i.Status, "Paid");
-
-            // combine them
-            var invoiceFilter = builder.And(dateFilter, paidFilter);
-
-            var invoicesInRange = await _mongo.Invoices.Find(invoiceFilter).ToListAsync();
-
-            var expenseFilter = Builders<Expenses>.Filter.And(
-                Builders<Expenses>.Filter.Gte(e => e.RequestedAt, start),
-                Builders<Expenses>.Filter.Lte(e => e.RequestedAt, end)
-            );
-
-            var expensesInRange = await _mongo.Expenses.Find(expenseFilter).ToListAsync();
-
-            // ==== LABELS & BUCKETS ====
-            List<DateTime> bucketStarts = new List<DateTime>();
-            List<string> labels = new List<string>();
-
-            if (period == "week")
-            {
-                for (var d = start; d.Date <= localNow.Date; d = d.AddDays(1))
-                {
-                    bucketStarts.Add(d.Date);
-                    labels.Add(d.ToString("ddd")); // Mon, Tue, ...
-                }
-            }
-            else if (period == "month")
-            {
-                for (int day = 1; day <= localNow.Day; day++)
-                {
-                    var d = new DateTime(localNow.Year, localNow.Month, day);
-                    bucketStarts.Add(d.Date);
-                    labels.Add(day.ToString());
-                }
-            }
-            else
-            {
-                DateTime bucket = new DateTime(start.Year, start.Month, 1);
-                DateTime endBucket = new DateTime(localNow.Year, localNow.Month, 1);
-
-                while (bucket <= endBucket)
-                {
-                    bucketStarts.Add(bucket);
-                    labels.Add(bucket.ToString("MMM yyyy", CultureInfo.InvariantCulture));
-                    bucket = bucket.AddMonths(1);
-                }
-            }
-
-            var revenueBuckets = new decimal[bucketStarts.Count];
-            var expenseBuckets = new decimal[bucketStarts.Count];
-
-            // ✅ Converts to PH time before evaluating bucket
-            int GetBucketIndex(DateTime dt)
-            {
-                dt = TimeZoneInfo.ConvertTimeFromUtc(dt, phTime).Date;
-
-                for (int i = 0; i < bucketStarts.Count; i++)
-                {
-                    var startBucket = bucketStarts[i];
-                    DateTime bucketEnd = (i + 1 < bucketStarts.Count)
-                        ? bucketStarts[i + 1].AddTicks(-1)
-                        : end;
-
-                    if (dt >= startBucket.Date && dt <= bucketEnd.Date)
-                        return i;
-                }
-                return -1;
-            }
-
-            // ==== INCOME + ROW GENERATION ====
-            List<FinanceRow> rows = new List<FinanceRow>();
-            decimal totalIncome = 0;
-
-            foreach (var inv in invoicesInRange)
-            {
-                foreach (var item in inv.Items)
-                {
-                    if (item.TransactionDate < start || item.TransactionDate > end) continue;
-
-                    decimal amt = item.SalePrice * item.Quantity;
-                    var idx = GetBucketIndex(item.TransactionDate);
-
-                    if (idx >= 0) revenueBuckets[idx] += amt;
-                    totalIncome += amt;
-
-                    rows.Add(new FinanceRow
-                    {
-                        Reference = inv.InvoiceNumber,
-                        Date = TimeZoneInfo.ConvertTimeFromUtc(item.TransactionDate, phTime),
-                        Description = item.Item ?? "Sale",
-                        Type = "Income",
-                        Category = "Sales",
-                        Department = "—",
-                        Amount = amt
-                    });
-                }
-            }
-
-            // ==== EXPENSES ====
-            decimal totalExpenses = 0;
-
-            foreach (var exp in expensesInRange)
-            {
-                var idx = GetBucketIndex(exp.RequestedAt);
-                if (idx >= 0) expenseBuckets[idx] += exp.Amount;
-                totalExpenses += exp.Amount;
-
-                rows.Add(new FinanceRow
-                {
-                    Reference = exp.ExpenseId,
-                    Date = TimeZoneInfo.ConvertTimeFromUtc(exp.RequestedAt, phTime),
-                    Description = exp.Description,
-                    Type = "Expense",
-                    Category = exp.ExpenseType,
-                    Department = exp.Department,
-                    Amount = exp.Amount
-                });
-            }
-
-            // ==== EXPENSE BREAKDOWN ====
-            var breakdown = expensesInRange
-                .GroupBy(e => e.ExpenseType)
-                .Select(g => new { Type = g.Key, Amount = g.Sum(x => x.Amount) })
-                .OrderByDescending(x => x.Amount)
-                .ToList();
-
-            // sort rows descending by date
-            rows = rows.OrderByDescending(r => r.Date).ToList();
-
-            decimal netProfit = totalIncome - totalExpenses;
-            decimal netProfitPct = totalIncome == 0 ? 0 : Math.Round((netProfit / totalIncome) * 100, 2);
-
-            return Ok(new FinanceReportResponse
-            {
-                TotalIncome = Math.Round(totalIncome, 2),
-                TotalExpenses = Math.Round(totalExpenses, 2),
-                NetProfit = Math.Round(netProfit, 2),
-                NetProfitPercent = netProfitPct,
-                Labels = labels,
-                Revenue = revenueBuckets.Select(x => Math.Round(x, 2)).ToList(),
-                Expense = expenseBuckets.Select(x => Math.Round(x, 2)).ToList(),
-                BreakdownLabels = breakdown.Select(b => b.Type).ToList(),
-                BreakdownData = breakdown.Select(b => Math.Round(b.Amount, 2)).ToList(),
-                Rows = rows,
-                StartDateIso = start.ToString("o"),
-                EndDateIso = end.ToString("o")
-            });
-        }
-
-        [HttpGet]
-        public async Task<IActionResult> SalesReportData(string period = "week")
-        {
-            period = period.ToLowerInvariant();
-            var now = DateTime.UtcNow;
-
-            // ✅ Determine start date based on dropdown
-            DateTime start = period switch
-            {
-                "week" => now.AddDays(-(int)now.DayOfWeek + (int)DayOfWeek.Monday), // start of week (Monday)
-                "month" => new DateTime(now.Year, now.Month, 1),                     // start of month
-                "year" => new DateTime(now.Year, 1, 1),                              // Jan 1
-                "all" => DateTime.MinValue,                                          // all data
-                _ => now.AddDays(-7)
-            };
-
-            // ✅ Fetch paid invoices within period
-            var invoices = await _mongo.Invoices.Find(i =>
-                i.Status == "Paid" &&
-                i.Items.Any(it => it.TransactionDate >= start && it.TransactionDate <= now))
-                .ToListAsync();
-
-            var viewModel = new SalesReportViewModel
-            {
-                TotalSales = invoices.Sum(inv => inv.Total),
-                TotalOrders = invoices.Count,
-                ActiveCustomers = invoices.Select(inv => inv.BilledTo).Distinct().Count(),
-            };
-
-            // ✅ Flatten items and filter by date range
-            var items = invoices
-                .SelectMany(i => i.Items)
-                .Where(i => i.TransactionDate >= start && i.TransactionDate <= now)
-                .ToList();
-
-            // ✅ Collect distinct ProductIds
-            var productIds = items.Select(i => i.ProductId).Distinct().ToList();
-
-            // ✅ Fetch product names and categories
-            var products = await _mongo.Inventories
-                .Find(p => productIds.Contains(p.Id))
-                .ToListAsync();
-
-            // ✅ Lookup dictionaries
-            var productLookup = products.ToDictionary(p => p.Id, p => p.Item);
-            var categoryLookup = products.ToDictionary(p => p.Id, p => p.Category);
-
-            // ✅ Chart data
-            if (period == "all" || period == "year")
-            {
-                viewModel.ChartLabels = items
-                    .GroupBy(i => new { i.TransactionDate.Year, i.TransactionDate.Month })
-                    .OrderBy(g => g.Key.Year).ThenBy(g => g.Key.Month)
-                    .Select(g => new DateTime(g.Key.Year, g.Key.Month, 1).ToString("MMM yyyy"))
-                    .ToList();
-
-                viewModel.ChartValues = items
-                    .GroupBy(i => new { i.TransactionDate.Year, i.TransactionDate.Month })
-                    .Select(g => g.Sum(x => (decimal)x.SalePrice * x.Quantity))
-                    .ToList();
-            }
-            else
-            {
-                viewModel.ChartLabels = items
-                    .GroupBy(i => i.TransactionDate.Date)
-                    .OrderBy(g => g.Key)
-                    .Select(g => g.Key.ToString("MMM dd"))
-                    .ToList();
-
-                viewModel.ChartValues = items
-                    .GroupBy(i => i.TransactionDate.Date)
-                    .Select(g => g.Sum(x => (decimal)x.SalePrice * x.Quantity))
-                    .ToList();
-            }
-
-            // ✅ Top Products
-            viewModel.TopProducts = items
-                .GroupBy(i => i.ProductId)
-                .Select(g => new TopProductDto
-                {
-                    ProductName = productLookup.ContainsKey(g.Key)
-                        ? productLookup[g.Key]
-                        : "(Unknown Product)",
-                    TotalAmount = g.Sum(x => (decimal)x.SalePrice * x.Quantity)
-                })
-                .OrderByDescending(p => p.TotalAmount)
-                .Take(5)
-                .ToList();
-
-            // ✅ Product Sales Table (added Category)
-            viewModel.SalesRows = items
-                .GroupBy(x => x.ProductId)
-                .Select(g => new ProductSalesRow
-                {
-                    ProductId = g.Key ?? "(Unknown)",
-                    ProductName = productLookup.ContainsKey(g.Key)
-                        ? productLookup[g.Key]
-                        : "(Unknown Product)",
-                    Category = categoryLookup.ContainsKey(g.Key)
-                        ? categoryLookup[g.Key]
-                        : "(Unknown)",
-                    UnitPrice = g.Average(x => (decimal)x.SalePrice),
-                    Quantity = g.Sum(x => x.Quantity),
-                    TotalAmount = g.Sum(x => (decimal)x.SalePrice * x.Quantity)
-                })
-                .OrderByDescending(x => x.TotalAmount)
-                .ToList();
-
-            // ✅ Period text
-            viewModel.PeriodText = $"{start.ToLocalTime():MMMM d, yyyy} – {now.ToLocalTime():MMMM d, yyyy}";
-
-            return Json(viewModel);
-        }
 
 
-
-        [HttpPost]
+    [HttpPost]
         public IActionResult ExportPdfPreview([FromBody] FinancePdfPayload payload)
         {
             _logger.LogInformation("Generating PDF Preview...");
@@ -1630,156 +2426,164 @@ namespace Sheessential_Sales_Finance.Controllers
             // ✅ Make sure to pass the payroll list to the View
             return View(payroll);
         }
-
-
         [HttpGet]
-        public async Task<IActionResult> GetChartData(string period = "year")
+        public async Task<IActionResult> GetChartData(string period = "year", string? startDate = null, string? endDate = null)
         {
+            _logger.LogInformation($"📊 GetChartData called with period: {period}, startDate: {startDate}, endDate: {endDate}");
+
             DateTime utcNow = DateTime.UtcNow;
             string periodLower = period.ToLower();
 
-            // --- FOR ALL TIME VIEW (Multi-year comparison) ---
-            if (periodLower == "alltime")
+            DateTime calculatedStartDate;
+            DateTime calculatedEndDate = utcNow;
+
+            if (periodLower == "custom" && !string.IsNullOrEmpty(startDate) && !string.IsNullOrEmpty(endDate))
             {
-                // 1. Fetch ALL data
-                var allInvoicesTask = _mongo.Invoices.AsQueryable()
-                    .Where(i => !i.IsArchived)
-                    .ToListAsync();
-
-                var allExpensesTask = _mongo.Expenses.AsQueryable()
-                    .ToListAsync();
-
-                await Task.WhenAll(allInvoicesTask, allExpensesTask);
-
-                var allInvoices = allInvoicesTask.Result;
-                var allExpenses = allExpensesTask.Result;
-
-                // 2. Process Expense Breakdown (Doughnut)
-                var expenseBreakdown = allExpenses
-                    .GroupBy(e => e.ExpenseType)
-                    .Select(g => new { Label = g.Key, Data = g.Sum(e => e.Amount) })
-                    .ToList();
-
-                // 3. Process Revenue Trend (Line Chart)
-                // Group by Year, then create a dataset for each year
-                var revenueDatasets = allInvoices
-                    .GroupBy(i => i.IssuedAt.Year)
-                    .OrderBy(g => g.Key)
-                    .Select(yearGroup => new
-                    {
-                        Label = yearGroup.Key.ToString(), // e.g., "2023", "2024"
-                        Data = Enumerable.Range(1, 12)
-                            .Select(month => yearGroup
-                                .Where(i => i.IssuedAt.Month == month)
-                                .Sum(i => i.Total))
-                            .ToList()
-                    })
-                    .ToList();
-
-                // Labels are always months for "All Time" view
-                var revenueLabels = CultureInfo.CurrentCulture.DateTimeFormat.AbbreviatedMonthNames
-                    .Take(12).ToList(); // "Jan", "Feb", ...
-
-                // 4. Return JSON for "All Time"
-                return Json(new
+                if (DateTime.TryParse(startDate, out DateTime parsedStart) &&
+                    DateTime.TryParse(endDate, out DateTime parsedEnd))
                 {
-                    revenueTrend = new // Renamed from profitTrend
-                    {
-                        Labels = revenueLabels,
-                        Datasets = revenueDatasets // This is an array of objects
-                    },
-                    expenseBreakdown = new
-                    {
-                        Labels = expenseBreakdown.Select(e => e.Label).ToList(),
-                        Datasets = new[] { new { Data = expenseBreakdown.Select(e => e.Data).ToList() } }
-                    }
-                });
+                    calculatedStartDate = parsedStart.Date;
+                    calculatedEndDate = parsedEnd.Date.AddDays(1).AddTicks(-1);
+                }
+                else
+                {
+                    return BadRequest(new { error = "Invalid date format" });
+                }
             }
-
-            // --- FOR "WEEK", "MONTH", "YEAR" VIEWS (Single revenue line) ---
-
-            // 1. Determine Date Range (existing logic)
-            DateTime startDate;
-            DateTime endDate;
-            switch (periodLower)
+            else
             {
-                case "week":
-                    startDate = utcNow.Date.AddDays(-(int)utcNow.DayOfWeek);
-                    endDate = startDate.AddDays(7);
-                    break;
-                case "month":
-                    startDate = new DateTime(utcNow.Year, utcNow.Month, 1, 0, 0, 0, DateTimeKind.Utc);
-                    endDate = startDate.AddMonths(1);
-                    break;
-                default: // "year"
-                    startDate = new DateTime(utcNow.Year, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-                    endDate = startDate.AddYears(1);
-                    break;
+                switch (periodLower)
+                {
+                    case "week":
+                        int daysToMonday = ((int)utcNow.DayOfWeek - (int)DayOfWeek.Monday + 7) % 7;
+                        calculatedStartDate = utcNow.Date.AddDays(-daysToMonday);
+                        break;
+                    case "month":
+                        calculatedStartDate = new DateTime(utcNow.Year, utcNow.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+                        break;
+                    case "year":
+                        calculatedStartDate = new DateTime(utcNow.Year, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+                        break;
+                    case "alltime":
+                        calculatedStartDate = DateTime.MinValue;
+                        break;
+                    default:
+                        calculatedStartDate = new DateTime(utcNow.Year, utcNow.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+                        break;
+                }
             }
 
-            // 2. Fetch Filtered Data
-            var invoicesTask = _mongo.Invoices.AsQueryable()
-                .Where(i => i.IssuedAt >= startDate && i.IssuedAt < endDate && !i.IsArchived)
+            // Fetch orders and expenses in parallel
+            var ordersTask = _mongo.TbOrder.AsQueryable()
+                .Where(o => o.PaymentStatus == "Paid" && !o.IsArchive
+                    && o.CreatedAt >= calculatedStartDate && o.CreatedAt <= calculatedEndDate)
                 .ToListAsync();
 
             var expensesTask = _mongo.Expenses.AsQueryable()
-                .Where(e => e.RequestedAt >= startDate && e.RequestedAt < endDate)
+                .Where(e => e.RequestedAt >= calculatedStartDate && e.RequestedAt <= calculatedEndDate && e.Status == "Approved")
                 .ToListAsync();
 
-            await Task.WhenAll(invoicesTask, expensesTask);
+            await Task.WhenAll(ordersTask, expensesTask);
 
-            var relevantInvoices = invoicesTask.Result;
+            var relevantOrders = ordersTask.Result;
             var relevantExpenses = expensesTask.Result;
 
-            // 3. Process Expense Breakdown (Doughnut)
-            var filteredExpenseBreakdown = relevantExpenses
+            // Totals
+            decimal totalRevenue = relevantOrders.Sum(o => o.TotalAmount);
+            decimal totalExpense = relevantExpenses.Sum(e => e.Amount);
+            decimal netProfit = totalRevenue - totalExpense;
+
+            // Expense breakdown (for doughnut)
+            var expenseBreakdown = relevantExpenses
                 .GroupBy(e => e.ExpenseType)
                 .Select(g => new { Label = g.Key, Data = g.Sum(e => e.Amount) })
                 .ToList();
 
-            // 4. Process Revenue Trend (Line Chart)
+            // Build trend data — Revenue, Expense, Profit per time bucket
             List<string> lineChartLabels;
-            List<decimal> revenueData; // Changed from salesData
+            List<decimal> revenueData;
+            List<decimal> expenseData;
+            List<decimal> profitData;
 
-            if (periodLower == "year")
+            var dateSpan = (calculatedEndDate - calculatedStartDate).TotalDays;
+
+            if (periodLower == "year" || periodLower == "alltime" || (periodLower == "custom" && dateSpan > 90))
             {
+                // Group by month (Jan–Dec)
                 lineChartLabels = CultureInfo.CurrentCulture.DateTimeFormat.AbbreviatedMonthNames.Take(12).ToList();
+
                 revenueData = Enumerable.Range(1, 12)
-                    .Select(month => relevantInvoices.Where(i => i.IssuedAt.Month == month).Sum(i => i.Total))
+                    .Select(m => relevantOrders.Where(o => o.CreatedAt.Month == m)
+                        .Sum(o => o.TotalAmount))
                     .ToList();
+
+                expenseData = Enumerable.Range(1, 12)
+                    .Select(m => relevantExpenses.Where(e => e.RequestedAt.Month == m).Sum(e => e.Amount))
+                    .ToList();
+
+                profitData = revenueData.Select((r, i) => r - expenseData[i]).ToList();
             }
-            else if (periodLower == "month")
+            else if (periodLower == "month" || (periodLower == "custom" && dateSpan <= 90 && dateSpan > 7))
             {
-                int daysInMonth = DateTime.DaysInMonth(startDate.Year, startDate.Month);
+                // Group by day of month
+                int daysInMonth = DateTime.DaysInMonth(calculatedStartDate.Year, calculatedStartDate.Month);
                 lineChartLabels = Enumerable.Range(1, daysInMonth).Select(d => d.ToString()).ToList();
+
                 revenueData = Enumerable.Range(1, daysInMonth)
-                    .Select(day => relevantInvoices.Where(i => i.IssuedAt.Day == day).Sum(i => i.Total))
+                    .Select(d => relevantOrders.Where(o => o.CreatedAt.Day == d)
+                        .Sum(o => o.TotalAmount))
                     .ToList();
+
+                expenseData = Enumerable.Range(1, daysInMonth)
+                    .Select(d => relevantExpenses.Where(e => e.RequestedAt.Day == d).Sum(e => e.Amount))
+                    .ToList();
+
+                profitData = revenueData.Select((r, i) => r - expenseData[i]).ToList();
             }
-            else // "week"
+            else
             {
+                // Group by day of week (Sun–Sat)
                 lineChartLabels = CultureInfo.CurrentCulture.DateTimeFormat.AbbreviatedDayNames.ToList();
+
                 revenueData = Enumerable.Range(0, 7)
-                    .Select(day => relevantInvoices.Where(i => (int)i.IssuedAt.DayOfWeek == day).Sum(i => i.Total))
+                    .Select(d => relevantOrders.Where(o => (int)o.CreatedAt.DayOfWeek == d)
+                        .Sum(o => o.TotalAmount))
                     .ToList();
+
+                expenseData = Enumerable.Range(0, 7)
+                    .Select(d => relevantExpenses.Where(e => (int)e.RequestedAt.DayOfWeek == d).Sum(e => e.Amount))
+                    .ToList();
+
+                profitData = revenueData.Select((r, i) => r - expenseData[i]).ToList();
             }
 
-            // 5. Return JSON for "week", "month", "year"
             return Json(new
             {
-                revenueTrend = new // Renamed from profitTrend
+                summary = new
                 {
-                    Labels = lineChartLabels,
-                    // Note: Datasets is an array with ONE object
-                    Datasets = new[]
+                    totalRevenue,
+                    totalExpense,
+                    netProfit
+                },
+                dateRange = new
+                {
+                    start = calculatedStartDate.ToString("yyyy-MM-dd"),
+                    end = calculatedEndDate.ToString("yyyy-MM-dd")
+                },
+                revenueTrend = new
+                {
+                    labels = lineChartLabels,
+                    datasets = new object[]
                     {
-                new { Label = "Revenue", Data = revenueData }
-            }
+                new { label = "Revenue", data = revenueData },
+                new { label = "Expense", data = expenseData },
+                new { label = "Net Profit", data = profitData }
+                    }
                 },
                 expenseBreakdown = new
                 {
-                    Labels = filteredExpenseBreakdown.Select(e => e.Label).ToList(),
-                    Datasets = new[] { new { Data = filteredExpenseBreakdown.Select(e => e.Data).ToList() } }
+                    labels = expenseBreakdown.Select(e => e.Label).ToList(),
+                    datasets = new[] { new { data = expenseBreakdown.Select(e => e.Data).ToList() } }
                 }
             });
         }
@@ -1844,50 +2648,426 @@ namespace Sheessential_Sales_Finance.Controllers
             }
         }
 
+
         [HttpGet]
         public IActionResult GetSalesReportDatatry(string period)
         {
-            // In a real app, you would query your database based on the 'period'
-            // For this example, I'm returning mock data based on your PDF
+            _logger.LogInformation("Generating dynamic sales report...");
 
-            _logger.LogInformation("\n\n\n\nI'm in Sales Report Data Try \n\n\n\n");
+            // Fetch paid orders from TbOrder
+            var paidOrders = _mongo.TbOrder
+                .Find(o => o.PaymentStatus == "Paid" && !o.IsArchive)
+                .ToList();
+
+            var variants = _mongo.ProductVariantInventory.Find(_ => true).ToList();
+
+            if (!paidOrders.Any())
+                return Json(new { message = "No sales data found." });
+
+            // Flatten order items
+            // To this:
+            var allItems = paidOrders
+                .SelectMany(o => o.Items.Select(i => new { Item = i, o.CreatedAt }))
+                .Where(x => x.Item.Quantity > 0)  // ← Filter by valid quantity instead
+                .ToList();
+
+            // Summary
+            var totalSalesAmount = paidOrders.Sum(o => o.TotalAmount);
+            var totalOrders = paidOrders.Count;
+            var activeCustomers = paidOrders.Select(o => o.UserId).Distinct().Count();
+
+            // Top performing product
+            var topProduct = allItems
+                .GroupBy(x => x.Item.ProductId)
+                .Select(g => new
+                {
+                    ProductId = g.Key,
+                    Total = g.Sum(x => x.Item.Price * x.Item.Quantity)
+                })
+                .OrderByDescending(x => x.Total)
+                .FirstOrDefault();
+
+            string topProductName = "Unknown";
+            if (topProduct != null)
+            {
+                var match = variants.FirstOrDefault(v => v.Id == topProduct.ProductId);
+                topProductName = match?.VariantName ?? "Unknown Product";
+            }
+
+            // Sales Trend (monthly)
+            var salesTrend = paidOrders
+                .GroupBy(o => new { o.CreatedAt.Year, o.CreatedAt.Month })
+                .Select(g => new ChartDataPoint
+                {
+                    Label = $"{new DateTime(g.Key.Year, g.Key.Month, 1):MMM yyyy}",
+                    Total = (double)g.Sum(o => o.TotalAmount)
+                })
+                .OrderBy(x => DateTime.Parse(x.Label))
+                .ToList();
+
+            // Top Products Chart (percentage)
+            var productTotals = allItems
+                .GroupBy(x => x.Item.ProductId)
+                .Select(g => new
+                {
+                    ProductId = g.Key,
+                    Total = g.Sum(x => x.Item.Price * x.Item.Quantity)
+                })
+                .OrderByDescending(x => x.Total)
+                .ToList();
+
+            var topProductsChart = productTotals.Select(pt =>
+            {
+                var variant = variants.FirstOrDefault(v => v.Id == pt.ProductId);
+                var name = variant?.VariantName ?? "Unknown";
+
+                return new ProductChartPoint
+                {
+                    Name = name,
+                    Percentage = totalSalesAmount > 0
+                        ? Math.Round((double)(pt.Total / totalSalesAmount * 100), 2)
+                        : 0
+                };
+            }).ToList();
+
+            // Products Table
+            var topProductsTable = productTotals.Select(pt =>
+            {
+                var variant = variants.FirstOrDefault(v => v.Id == pt.ProductId);
+
+                return new TransactionItem
+                {
+                    ProductId = pt.ProductId,
+                    ProductName = variant?.VariantName ?? "Unknown",
+                    Category = variant?.Category ?? "N/A",
+                    UnitPrice = variant?.Price ?? 0,
+                    Quantity = allItems.Where(x => x.Item.ProductId == pt.ProductId).Sum(x => x.Item.Quantity),
+                    TotalAmount = pt.Total
+                };
+            }).ToList();
+
             var reportData = new SalesReportDataDto
             {
-                // Summary Stats
                 Summary = new ReportSummary
                 {
-                    TotalSales = 1374.5m,
-                    TotalOrders = 12,
-                    ActiveCustomers = 2,
-                    TopPerformingProduct = "Aloe Vera Gel 150ml"
+                    TotalSales = totalSalesAmount,
+                    TotalOrders = totalOrders,
+                    ActiveCustomers = activeCustomers,
+                    TopPerformingProduct = topProductName
                 },
-                // Data for the Sales Trend Line Chart
-                SalesTrend = new List<ChartDataPoint>
-                {
-                    new ChartDataPoint { Label = "Oct 2025", Total = 350 },
-                    new ChartDataPoint { Label = "Nov 2025", Total = 1024.5 }
-                },
-                // Data for the Top Products Doughnut Chart
-                TopProductsChart = new List<ProductChartPoint>
-                {
-                    new ProductChartPoint { Name = "Aloe Vera Gel 150ml", Percentage = 34.9 },
-                    new ProductChartPoint { Name = "Facial Toner 200ml", Percentage = 22.4 },
-                    new ProductChartPoint { Name = "Moisturizing Face Cream", Percentage = 20.0 },
-                    new ProductChartPoint { Name = "Argan Oil Hair Serum 100ml", Percentage = 13.3 },
-                    new ProductChartPoint { Name = "Body Lotion - Lavender 250ml", Percentage = 9.5 }
-                },
-                // Data for the Top 5 Products Table
-                TopProductsTable = new List<TransactionItem>
-                {
-                    new TransactionItem { ProductId = "68df7ff4e9a574db041d6950", ProductName = "Aloe Vera Gel 150ml", Category = "Skincare", UnitPrice = 12.5m, Quantity = 37, TotalAmount = 462.5m },
-                    new TransactionItem { ProductId = "68df7ff4e9a574db041d6957", ProductName = "Facial Toner 200ml", Category = "Skincare", UnitPrice = 16.5m, Quantity = 18, TotalAmount = 297.0m },
-                    new TransactionItem { ProductId = "68df7fe4e9a574db041d6941", ProductName = "Moisturizing Face Cream", Category = "Skincare", UnitPrice = 26.5m, Quantity = 10, TotalAmount = 265.0m },
-                    new TransactionItem { ProductId = "68df7ff4e9a574db041d6952", ProductName = "Argan Oil Hair Serum 100ml", Category = "Haircare", UnitPrice = 22.0m, Quantity = 8, TotalAmount = 176.0m },
-                    new TransactionItem { ProductId = "68df7ff4e9a574db041d6956", ProductName = "Body Lotion - Lavender 250ml", Category = "Bodycare", UnitPrice = 18.0m, Quantity = 7, TotalAmount = 126.0m }
-                }
+                SalesTrend = salesTrend,
+                TopProductsChart = topProductsChart,
+                TopProductsTable = topProductsTable
             };
 
             return Json(reportData);
         }
+
+        [HttpGet]
+        public IActionResult ExpenseReportPrint(string status = "all", string sortBy = "amount")
+        {
+            try
+            {
+                var allExpenses = _mongo.Expenses
+                    .Find(e => e.isIngredientsRequest == false)
+                    .ToList();
+
+                var rawRequests = _mongo.IngredientsStockRequests.Find(_ => true).ToList();
+                var allIngredients = _mongo.Ingredients.Find(_ => true).ToList().ToDictionary(i => i.Id, i => i);
+                var allSuppliers = _mongo.Suppliers.Find(_ => true).ToList().ToDictionary(s => s.Id, s => s);
+
+                var displayRequests = rawRequests.Select(r => new IngredientStockRequestDisplayModel
+                {
+                    Id = r.Id,
+                    ExpenseId = r.ExpenseId?.ToString(),
+                    RequestStatus = r.RequestStatus,
+                    TotalCost = r.TotalCost,
+                    RequestDate = r.RequestDate,
+                    RequestedBy = r.RequestedBy,
+                    QuantityRequested = r.QuantityRequested,
+                    Unit = r.Unit,
+                    CurrentStockAtRequest = r.CurrentStockAtRequest,
+                    Instructions = r.Instructions,
+                    IngredientName = allIngredients.GetValueOrDefault(r.IngredientId.ToString())?.IngredientName ?? "Unknown Ingredient",
+                    SupplierName = allSuppliers.GetValueOrDefault(r.SupplierId.ToString())?.SupplierName ?? "Unknown Supplier"
+                }).OrderByDescending(r => r.RequestDate).ToList();
+
+                var payrollSnapshots = _mongo.PayrollSnapshots
+                    .Find(_ => true)
+                    .SortByDescending(p => p.ProcessedAt)
+                    .ToList();
+
+                var balance = _mongo.Balance.Find(_ => true).FirstOrDefault() ?? new Balance();
+
+                var viewModel = new ExpensesWithBalanceViewModel
+                {
+                    Expenses = allExpenses,
+                    Balance = balance,
+                    StockRequests = displayRequests,
+                    PayrollSnapshots = payrollSnapshots
+                };
+
+                ViewBag.FilterStatus = status;
+                ViewBag.SortBy = sortBy;
+
+                return View(viewModel);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error loading ExpenseReportPrint view.");
+                return Content("Error generating report.");
+            }
+        }
+
+        public IActionResult ExecutivePayrollApproval()
+        {
+            var userRole = (HttpContext.Session.GetString("UserRole") ?? string.Empty).Trim();
+            var userDepartment = (HttpContext.Session.GetString("UserDepartment") ?? string.Empty).Trim();
+            var isFinanceManager =
+                userRole.Equals("Finance manager", StringComparison.OrdinalIgnoreCase) ||
+                (userDepartment.Equals("Finance", StringComparison.OrdinalIgnoreCase) &&
+                 userRole.Contains("manager", StringComparison.OrdinalIgnoreCase));
+
+            if (!isFinanceManager)
+            {
+                return RedirectToAction("Dashboard");
+            }
+
+            var allExpenses = _mongo.Expenses
+                .Find(e => e.isIngredientsRequest == false)
+                .ToList();
+
+            var rawRequests = _mongo.IngredientsStockRequests.Find(_ => true).ToList();
+            var allIngredients = _mongo.Ingredients.Find(_ => true).ToList().ToDictionary(i => i.Id, i => i);
+            var allSuppliers = _mongo.Suppliers.Find(_ => true).ToList().ToDictionary(s => s.Id, s => s);
+
+            var displayRequests = rawRequests.Select(r => new IngredientStockRequestDisplayModel
+            {
+                Id = r.Id,
+                ExpenseId = r.ExpenseId?.ToString(),
+                RequestStatus = r.RequestStatus,
+                TotalCost = r.TotalCost,
+                RequestDate = r.RequestDate,
+                RequestedBy = r.RequestedBy,
+                QuantityRequested = r.QuantityRequested,
+                Unit = r.Unit,
+                CurrentStockAtRequest = r.CurrentStockAtRequest,
+                Instructions = r.Instructions,
+                IngredientName = allIngredients.GetValueOrDefault(r.IngredientId.ToString())?.IngredientName ?? "Unknown Ingredient",
+                SupplierName = allSuppliers.GetValueOrDefault(r.SupplierId.ToString())?.SupplierName ?? "Unknown Supplier"
+            }).OrderByDescending(r => r.RequestDate).ToList();
+
+            var model = new ExpensesWithBalanceViewModel
+            {
+                Expenses = allExpenses,
+                StockRequests = displayRequests,
+                PayrollSnapshots = _mongo.PayrollSnapshots
+                    .Find(p => p.Department == "Finance")
+                    .ToList(),
+                Balance = _mongo.Balance.Find(_ => true).FirstOrDefault()
+            };
+
+            // Activity log for executive payroll view
+            var logs = _mongo.ActionLog
+                .Find(_ => true)
+                .SortByDescending(l => l.TimeStamp)
+                .Limit(15)
+                .ToList();
+
+            var userIds = logs.Select(l => l.UserId).Distinct().ToList();
+            var users = _mongo.Users
+                .Find(u => userIds.Contains(u.Id!))
+                .ToList();
+
+            ViewBag.ActionLogs = logs.Select(log =>
+            {
+                var user = users.FirstOrDefault(u => u.Id == log.UserId);
+                return new
+                {
+                    UserName = user != null ? $"{user.FirstName} {user.LastName}" : "Unknown User",
+                    log.Action,
+                    log.Entity,
+                    log.Description,
+                    log.TimeStamp
+                };
+            }).ToList();
+
+            return View(model);
+        }
+
+
+        [HttpPost]
+        public async Task<IActionResult> ReleasePayroll(string id, string status, string? declineReason = null, string? managerNote = null)
+        {
+            try
+            {
+                var userRole = (HttpContext.Session.GetString("UserRole") ?? string.Empty).Trim();
+                var userDepartment = (HttpContext.Session.GetString("UserDepartment") ?? string.Empty).Trim();
+                var isFinanceManager =
+                    userRole.Equals("Finance manager", StringComparison.OrdinalIgnoreCase) ||
+                    (userDepartment.Equals("Finance", StringComparison.OrdinalIgnoreCase) &&
+                     userRole.Contains("manager", StringComparison.OrdinalIgnoreCase));
+
+                if (!isFinanceManager)
+                    return Json(new { success = false, message = "Unauthorized." });
+
+                _logger.LogInformation("ReleasePayroll triggered for Id: {Id}, Status: {Status}, DeclineReason: {DeclineReason}, ManagerNote: {ManagerNote}", id, status, declineReason, managerNote);
+
+                if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(status))
+                    return Json(new { success = false, message = "Invalid request." });
+
+                var normalizedStatus = status.Trim();
+                if (normalizedStatus.Equals("Approved", StringComparison.OrdinalIgnoreCase))
+                    normalizedStatus = "Completed";
+
+                if (normalizedStatus.Equals("Declined", StringComparison.OrdinalIgnoreCase) && string.IsNullOrWhiteSpace(declineReason))
+                    return Json(new { success = false, message = "Please provide a reason for declining payroll." });
+
+                if (string.IsNullOrWhiteSpace(managerNote))
+                    return Json(new { success = false, message = "Manager note is required for payroll approval/decline." });
+
+                // 1) Find target snapshots by the same cutoff key used by the UI
+                var allSnapshots = await _mongo.PayrollSnapshots.Find(_ => true).ToListAsync();
+                var targetSnapshots = allSnapshots
+                    .Where(s => $"{s.PayPeriodStart:yyyyMMdd}-{s.PayPeriodEnd:yyyyMMdd}" == id)
+                    .ToList();
+
+                if (!targetSnapshots.Any())
+                    return Json(new { success = false, message = $"No payroll snapshots found for cutoff {id}." });
+
+                var snapshotIds = targetSnapshots
+                    .Where(s => !string.IsNullOrWhiteSpace(s.Id))
+                    .Select(s => s.Id!)
+                    .ToList();
+
+                var grossAmount = targetSnapshots.Sum(x => x.GrossPay);
+
+                // 2) Complete flow = deduct + expense
+                if (normalizedStatus.Equals("Completed", StringComparison.OrdinalIgnoreCase))
+                {
+                    var balance = _mongo.Balance.Find(_ => true).FirstOrDefault();
+                    if (balance != null)
+                    {
+                        if (balance.CurrentBalance < grossAmount)
+                            return Json(new { success = false, message = "Insufficient balance." });
+
+                        var newBalance = balance.CurrentBalance - grossAmount;
+
+                        await _mongo.Balance.UpdateOneAsync(
+                            Builders<Balance>.Filter.Eq(b => b.Id, balance.Id),
+                            Builders<Balance>.Update
+                                .Set(b => b.CurrentBalance, newBalance)
+                                .Set(b => b.LastUpdated, DateTime.UtcNow));
+                    }
+
+                    _mongo.Expenses.InsertOne(new Expenses
+                    {
+                        ExpenseId = $"EXP-{DateTime.UtcNow.Ticks}",
+                        Department = "Finance",
+                        ExpenseType = "Salary",
+                        Description = $"Salary payout for payroll cutoff {id}",
+                        Amount = grossAmount,
+                        RequestedBy = "System",
+                        Status = "Approved",
+                        RequestedAt = DateTime.UtcNow,
+                        DateApproved = DateTime.UtcNow,
+                        Notes = "Automatically generated after payroll release.",
+                        AttachmentUrl = "",
+                        isIngredientsRequest = false,
+                        Version = 0
+                    });
+                }
+
+                // 3) Update matched snapshots by Id
+                var payrollUpdate = Builders<PayrollSnapshot>.Update
+                    .Set(x => x.Status, normalizedStatus)
+                    .Set(x => x.ProcessedAt, DateTime.UtcNow);
+
+                if (normalizedStatus.Equals("Declined", StringComparison.OrdinalIgnoreCase))
+                {
+                    payrollUpdate = payrollUpdate.Set(x => x.Remarks, declineReason!.Trim());
+                }
+                else
+                {
+                    payrollUpdate = payrollUpdate.Set(x => x.Remarks, managerNote!.Trim());
+                }
+
+                await _mongo.PayrollSnapshots.UpdateManyAsync(
+                    Builders<PayrollSnapshot>.Filter.In(x => x.Id, snapshotIds),
+                    payrollUpdate);
+
+                var managerUserId = HttpContext.Session.GetString("UserId") ?? "System";
+                var managerName = HttpContext.Session.GetString("UserName") ?? "Finance Manager";
+                var finalNote = normalizedStatus.Equals("Declined", StringComparison.OrdinalIgnoreCase)
+                    ? $"Decline reason: {declineReason?.Trim()} | Manager note: {managerNote?.Trim()}"
+                    : $"Manager note: {managerNote?.Trim()}";
+
+                await _mongo.ActionLog.InsertOneAsync(new ActionLog(
+                    userId: managerUserId,
+                    entity: "PayrollCutoff",
+                    entityId: id,
+                    action: normalizedStatus.Equals("Declined", StringComparison.OrdinalIgnoreCase) ? "DECLINE" : "RELEASE",
+                    description: $"{managerName} marked payroll cutoff {id} as {normalizedStatus}. Gross: {grossAmount:N2}. {finalNote}"
+                ));
+
+                return Json(new { success = true, message = $"Payroll marked as {normalizedStatus}." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "ReleasePayroll failed. Id: {Id}, Status: {Status}, DeclineReason: {DeclineReason}, ManagerNote: {ManagerNote}", id, status, declineReason, managerNote);
+                return Json(new { success = false, message = ex.Message });
+            }
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> ReleasePayrollEmployee(string snapshotId, string status, string? declineReason = null)
+        {
+            try
+            {
+                var userRole = (HttpContext.Session.GetString("UserRole") ?? string.Empty).Trim();
+                var userDepartment = (HttpContext.Session.GetString("UserDepartment") ?? string.Empty).Trim();
+                var isFinanceManager =
+                    userRole.Equals("Finance manager", StringComparison.OrdinalIgnoreCase) ||
+                    (userDepartment.Equals("Finance", StringComparison.OrdinalIgnoreCase) &&
+                     userRole.Contains("manager", StringComparison.OrdinalIgnoreCase));
+
+                if (!isFinanceManager)
+                    return Json(new { success = false, message = "Unauthorized." });
+
+                if (string.IsNullOrWhiteSpace(snapshotId) || string.IsNullOrWhiteSpace(status))
+                    return Json(new { success = false, message = "Invalid request." });
+
+                var normalizedStatus = status.Trim();
+                if (normalizedStatus.Equals("Approved", StringComparison.OrdinalIgnoreCase))
+                    normalizedStatus = "Completed";
+
+                if (normalizedStatus.Equals("Declined", StringComparison.OrdinalIgnoreCase) && string.IsNullOrWhiteSpace(declineReason))
+                    return Json(new { success = false, message = "Please provide a reason for declining payroll." });
+
+                var update = Builders<PayrollSnapshot>.Update
+                    .Set(x => x.Status, normalizedStatus)
+                    .Set(x => x.ProcessedAt, DateTime.UtcNow);
+
+                if (normalizedStatus.Equals("Declined", StringComparison.OrdinalIgnoreCase))
+                    update = update.Set(x => x.Remarks, declineReason!.Trim());
+                else
+                    update = update.Set(x => x.Remarks, null);
+
+                var result = await _mongo.PayrollSnapshots.UpdateOneAsync(
+                    Builders<PayrollSnapshot>.Filter.Eq(x => x.Id, snapshotId),
+                    update);
+
+                if (result.MatchedCount == 0)
+                    return Json(new { success = false, message = "Employee payroll snapshot not found." });
+
+                return Json(new { success = true, message = $"Employee payroll marked as {normalizedStatus}." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "ReleasePayrollEmployee failed. SnapshotId: {SnapshotId}, Status: {Status}", snapshotId, status);
+                return Json(new { success = false, message = ex.Message });
+            }
+        }
+
     }
 }

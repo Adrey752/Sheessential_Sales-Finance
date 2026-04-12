@@ -3,6 +3,56 @@
 <head>
     <title>Employee Dashboard</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+        .review-btn {
+            padding: 1rem 1rem;
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all 0.2s;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+        .review-btn:hover {
+            opacity: 0.9;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.10);
+            transform: translateY(-2px);
+        }
+
+
+        /* Add these styles for smooth transitions */
+        .payroll-row {
+            transition: all 0.2s ease-in-out;
+        }
+
+            .payroll-row:hover {
+                transform: translateX(2px);
+            }
+
+        /* Custom scrollbar for the right panel */
+        #payslipTableContainer {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+            #payslipTableContainer::-webkit-scrollbar {
+                width: 6px;
+            }
+
+            #payslipTableContainer::-webkit-scrollbar-track {
+                background: #f1f1f1;
+                border-radius: 10px;
+            }
+
+            #payslipTableContainer::-webkit-scrollbar-thumb {
+                background: #888;
+                border-radius: 10px;
+            }
+
+                #payslipTableContainer::-webkit-scrollbar-thumb:hover {
+                    background: #555;
+                }
+    </style>
+
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
@@ -10,6 +60,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 
     <script src="https://cdn.tailwindcss.com"></script>
+
     <script>
         tailwind.config = {
             theme: {
@@ -77,6 +128,10 @@
             -ms-overflow-style: none;
             scrollbar-width: none;
         }
+
+        .selected-row {
+            background-color: #F0E4E3 !important; /* Same as hover */
+        }
     </style>
 </head>
 
@@ -93,45 +148,65 @@
             </div>
 
             <nav class="py-6">
+                @{
+                    // Get the current URL path. Example: "/Sales_Finance/DashBoard"
+                    var currentPath = Context.Request.Path.Value;
+
+                    // Define the common active classes based on your hover styles
+                    const string activeClasses = "bg-sidebar-hover text-primary rounded-xl mr-25px";
+                }
+
                 <div class="mb-8">
                     <div class="text-nav-label text-xs font-semibold uppercase tracking-wider px-6 mb-3 ml-25px">Menu</div>
 
                     <ul class="p-0 m-0 list-none">
+
                         <li class="mb-1">
-                            <a asp-controller="Sales_Finance" asp-action="DashBoard" class="nav-link flex items-center py-3 px-6 text-primary no-underline font-medium text-sm ml-25px hover:bg-sidebar-hover hover:text-primary hover:rounded-xl hover:mr-25px active:bg-sidebar-hover active:text-primary active:rounded-xl active:mr-25px">
+                            @{
+                                // Check if the current path matches the Dashboard route
+                                // We use StartsWith for a safe match, assuming the link URL is correct.
+                                string dashboardClass = currentPath.StartsWith("/Sales_Finance/DashBoard", StringComparison.OrdinalIgnoreCase) ? activeClasses : "";
+                            }
+                            <a asp-controller="Sales_Finance" asp-action="DashBoard" class="nav-link flex items-center py-3 px-6 text-primary no-underline font-medium text-sm ml-25px hover:bg-sidebar-hover hover:text-primary hover:rounded-xl hover:mr-25px @dashboardClass">
                                 <i class="fas fa-chart-line mr-4 text-lg w-5 text-center"></i>
                                 <span class="nav-text">Dashboard</span>
                             </a>
                         </li>
 
                         <li class="mb-1">
-                            <a asp-controller="Sales_Finance" asp-action="Invoices" class="nav-link flex items-center py-3 px-6 text-primary no-underline font-medium text-sm ml-25px hover:bg-sidebar-hover hover:text-primary hover:rounded-xl hover:mr-25px">
+                            @{
+                                // Check for Payments route
+                                string invoicesClass = currentPath.StartsWith("/Sales_Finance/Invoices", StringComparison.OrdinalIgnoreCase) ? activeClasses : "";
+                            }
+                            <a asp-controller="Sales_Finance" asp-action="Invoices" class="nav-link flex items-center py-3 px-6 text-primary no-underline font-medium text-sm ml-25px hover:bg-sidebar-hover hover:text-primary hover:rounded-xl hover:mr-25px @invoicesClass">
                                 <i class="fas fa-credit-card mr-4 text-lg w-5 text-center"></i>
                                 <span class="nav-text">Payments</span>
                             </a>
                         </li>
+
                         <li class="mb-1">
-                            <a asp-controller="Sales_Finance" asp-action="Products" class="nav-link flex items-center py-3 px-6 text-primary no-underline font-medium text-sm ml-25px hover:bg-sidebar-hover hover:text-primary hover:rounded-xl hover:mr-25px">
+                            @{
+                                // Check for Sales/Products route
+                                string productsClass = currentPath.StartsWith("/Sales_Finance/Products", StringComparison.OrdinalIgnoreCase) ? activeClasses : "";
+                            }
+                            <a asp-controller="Sales_Finance" asp-action="Products" class="nav-link flex items-center py-3 px-6 text-primary no-underline font-medium text-sm ml-25px hover:bg-sidebar-hover hover:text-primary hover:rounded-xl hover:mr-25px @productsClass">
                                 <i class="fas fa-shopping-cart mr-4 text-lg w-5 text-center"></i>
                                 <span class="nav-text">Sales</span>
                             </a>
                         </li>
+
                         <li class="mb-1">
-                            <a asp-controller="Sales_Finance" asp-action="Expenses" class="nav-link flex items-center py-3 px-6 text-primary no-underline font-medium text-sm ml-25px hover:bg-sidebar-hover hover:text-primary hover:rounded-xl hover:mr-25px">
+                            @{
+                                // Check for Expenses route
+                                string expensesClass = currentPath.StartsWith("/Sales_Finance/ExpensesByDepartment", StringComparison.OrdinalIgnoreCase) ? activeClasses : "";
+                            }
+                            <a asp-controller="Sales_Finance" asp-action="ExpensesByDepartment" class="nav-link flex items-center py-3 px-6 text-primary no-underline font-medium text-sm ml-25px hover:bg-sidebar-hover hover:text-primary hover:rounded-xl hover:mr-25px @expensesClass">
                                 <i class="fas fa-file-invoice-dollar mr-4 text-lg w-5 text-center"></i>
                                 <span class="nav-text">Expenses</span>
                             </a>
-                        </li>                        
-                        @* <li class="mb-1"> *@
-                        @*     <a asp-controller="Sales_Finance" asp-action="SalesReport" class="nav-link flex items-center py-3 px-6 text-primary no-underline font-medium text-sm ml-25px hover:bg-sidebar-hover hover:text-primary hover:rounded-xl hover:mr-25px"> *@
-                        @*         <i class="fas fa-file-invoice-dollar mr-4 text-lg w-5 text-center"></i> *@
-                        @*         <span class="nav-text">Expenses</span> *@
-                        @*     </a> *@
-                        @* </li> *@
-
+                        </li>
                     </ul>
                 </div>
-
             </nav>
         </aside>
 

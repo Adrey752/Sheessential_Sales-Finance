@@ -1,160 +1,1073 @@
-﻿@model IEnumerable<Products>
+﻿@model IEnumerable<ProductVariant>
 @{
     ViewData["Title"] = "Products Overview";
 }
+
+<style>
+
+    /* =============================================
+           ANIMATIONS
+        ============================================= */
+
+    @@keyframes fadeUp {
+        from {
+            opacity: 0;
+            transform: translateY(14px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @@keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateX(12px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+
+    @@keyframes spin {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    .anim-card {
+        animation: fadeUp 0.45s ease both;
+    }
+
+    .anim-delay-1 {
+        animation-delay: 0.05s;
+    }
+
+    .anim-delay-2 {
+        animation-delay: 0.10s;
+    }
+
+    .anim-delay-3 {
+        animation-delay: 0.15s;
+    }
+
+    .anim-delay-4 {
+        animation-delay: 0.20s;
+    }
+
+    .anim-delay-5 {
+        animation-delay: 0.25s;
+    }
+
+    .anim-delay-6 {
+        animation-delay: 0.30s;
+    }
+
+    .anim-delay-7 {
+        animation-delay: 0.35s;
+    }
+
+    /* =============================================
+           PAGE LAYOUT
+        ============================================= */
+
+    .page-wrapper {
+        padding: 1.5rem;
+        background: #F8F6F5;
+        min-height: 100vh;
+    }
+
+    /* =============================================
+           HEADER
+        ============================================= */
+
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .breadcrumb {
+        font-size: 0.72rem;
+        color: #9ca3af;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        margin-bottom: 0.2rem;
+    }
+
+        .breadcrumb span {
+            color: #A36A66;
+            font-weight: 500;
+        }
+
+    .page-title {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: #A36A66;
+        letter-spacing: -0.02em;
+    }
+
+    .header-controls {
+        display: flex;
+        align-items: center;
+        gap: 0.625rem;
+        flex-wrap: wrap;
+    }
+
+    .date-label-badge {
+        font-size: 0.72rem;
+        font-weight: 600;
+        color: #A36A66;
+        background: #FBEAEB;
+        padding: 3px 10px;
+        border-radius: 99px;
+    }
+
+    /* =============================================
+           DATE RANGE INPUTS
+        ============================================= */
+
+    .date-range-inputs {
+        display: none;
+        gap: 0.5rem;
+        align-items: center;
+    }
+
+        .date-range-inputs.active {
+            display: flex;
+        }
+
+    .date-input {
+        padding: 0.4rem 0.75rem;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        color: #A36A66;
+        font-size: 0.8125rem;
+        background: #fff;
+        transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+        .date-input:focus {
+            outline: none;
+            border-color: #A36A66;
+            box-shadow: 0 0 0 3px rgba(163,106,102,0.12);
+        }
+
+    .apply-date-btn {
+        padding: 0.4rem 1rem;
+        background-color: #A36A66;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 0.8125rem;
+        font-weight: 600;
+        transition: background-color 0.2s, transform 0.1s;
+    }
+
+        .apply-date-btn:hover {
+            background-color: #8a5a57;
+        }
+
+        .apply-date-btn:active {
+            transform: scale(0.97);
+        }
+
+    /* =============================================
+           SELECT
+        ============================================= */
+
+    .select-styled {
+        border: 1px solid #e5e7eb;
+        border-radius: 9px;
+        font-size: 0.8125rem;
+        padding: 0.4rem 0.875rem;
+        background: #fff;
+        color: #374151;
+        cursor: pointer;
+        transition: border-color 0.15s;
+    }
+
+        .select-styled:focus {
+            outline: none;
+            border-color: #A36A66;
+            box-shadow: 0 0 0 3px rgba(163,106,102,0.12);
+        }
+
+    /* =============================================
+           GENERATE REPORT BUTTON
+        ============================================= */
+
+    .btn-generate {
+        background: #22c55e;
+        color: #fff;
+        border: none;
+        border-radius: 9px;
+        font-size: 0.8125rem;
+        font-weight: 600;
+        padding: 0.45rem 1.1rem;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+        box-shadow: 0 2px 8px rgba(34,197,94,0.25);
+    }
+
+        .btn-generate:hover {
+            background: #16a34a;
+            box-shadow: 0 4px 14px rgba(34,197,94,0.30);
+        }
+
+        .btn-generate:active {
+            transform: scale(0.97);
+        }
+
+    /* =============================================
+           STAT CARDS
+        ============================================= */
+
+    .stat-card {
+        background: #ffffff;
+        border-radius: 16px;
+        border: 1px solid #f0e8e7;
+        padding: 1.25rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        position: relative;
+        overflow: hidden;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+        .stat-card::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 80px;
+            height: 80px;
+            background: radial-gradient(circle at top right, rgba(163,106,102,0.06), transparent 70%);
+            pointer-events: none;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(163,106,102,0.12);
+        }
+
+    .stat-card-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 14px;
+        background: #FBEAEB;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        color: #A36A66;
+        font-size: 1.1rem;
+    }
+
+    .stat-label {
+        font-size: 0.72rem;
+        font-weight: 600;
+        color: #A36A66;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin-bottom: 0.2rem;
+    }
+
+    .stat-value {
+        font-size: 1.55rem;
+        font-weight: 700;
+        color: #111827;
+        line-height: 1.1;
+    }
+
+    /* =============================================
+           SECTION TITLE WITH LEFT ACCENT
+        ============================================= */
+
+    .section-title {
+        font-size: 0.9375rem;
+        font-weight: 600;
+        color: #1f2937;
+        padding-left: 0.75rem;
+        position: relative;
+        display: inline-block;
+    }
+
+        .section-title::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 3px;
+            height: 65%;
+            background: #A36A66;
+            border-radius: 99px;
+        }
+
+    /* =============================================
+           CARD BASE
+        ============================================= */
+
+    .card {
+        background: #ffffff;
+        border-radius: 18px;
+        border: 1px solid #f0ebe9;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        padding: 1.375rem 1.5rem;
+    }
+
+    /* =============================================
+           CHART CARDS
+        ============================================= */
+
+    .chart-card {
+        background: #ffffff;
+        border-radius: 18px;
+        border: 1px solid #f0ebe9;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        padding: 1.375rem 1.5rem;
+        display: flex;
+        flex-direction: column;
+        height: 22rem;
+    }
+
+    .chart-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.875rem;
+    }
+
+    .chart-canvas-wrap {
+        flex: 1;
+        position: relative;
+        background: #fafaf9;
+        border-radius: 10px;
+        overflow: hidden;
+        padding: 0.5rem;
+    }
+
+        .chart-canvas-wrap canvas {
+            position: absolute;
+            inset: 0;
+            width: 100% !important;
+            height: 100% !important;
+        }
+
+    .bottom-chart-card {
+        background: #ffffff;
+        border-radius: 18px;
+        border: 1px solid #f0ebe9;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        padding: 1.375rem 1.5rem;
+        display: flex;
+        flex-direction: column;
+        height: 460px;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+        .bottom-chart-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 28px rgba(163,106,102,0.10);
+        }
+
+    .chart-inner-bg {
+        flex: 1;
+        position: relative;
+        background: #fafaf9;
+        border-radius: 12px;
+        overflow: hidden;
+        padding: 0.75rem;
+    }
+
+    /* =============================================
+           PRODUCT SHOWCASE CARD
+        ============================================= */
+
+    .product-showcase {
+        background: #ffffff;
+        border-radius: 18px;
+        border: 1px solid #f0ebe9;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        padding: 1.25rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        transition: box-shadow 0.2s ease;
+    }
+
+        .product-showcase:hover {
+            box-shadow: 0 8px 28px rgba(163,106,102,0.10);
+        }
+
+    .product-img-wrap {
+        border-radius: 14px;
+        overflow: hidden;
+        background: #f3f0ef;
+        aspect-ratio: 1 / 1;
+        width: 100%;
+    }
+
+        .product-img-wrap img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+            transition: transform 0.35s ease;
+        }
+
+        .product-img-wrap:hover img {
+            transform: scale(1.04);
+        }
+
+    .product-card-meta {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+        padding-bottom: 0.25rem;
+    }
+
+    .product-card-name {
+        font-weight: 700;
+        font-size: 0.9375rem;
+        color: #1f2937;
+        text-align: center;
+    }
+
+    .product-card-sub {
+        font-size: 0.72rem;
+        color: #9ca3af;
+    }
+
+    .product-card-count {
+        font-weight: 700;
+        font-size: 1.625rem;
+        color: #A36A66;
+    }
+
+    /* =============================================
+           TABLE
+        ============================================= */
+
+    .table-wrap {
+        overflow-x: auto;
+        overflow-y: auto;
+        max-height: 420px;
+        border-radius: 12px;
+        border: 1px solid #f0ebe9;
+    }
+
+    .data-table {
+        min-width: 100%;
+        font-size: 0.8125rem;
+        color: #374151;
+        border-collapse: collapse;
+    }
+
+        .data-table thead {
+            background: #faf8f7;
+            position: sticky;
+            top: 0;
+            z-index: 5;
+        }
+
+            .data-table thead th {
+                padding: 0.7rem 1rem;
+                text-align: left;
+                font-size: 0.6875rem;
+                text-transform: uppercase;
+                letter-spacing: 0.07em;
+                color: #6b7280;
+                font-weight: 600;
+                border-bottom: 1px solid #f0ebe9;
+                white-space: nowrap;
+            }
+
+        .data-table tbody tr {
+            border-bottom: 1px solid #faf8f7;
+            cursor: pointer;
+            transition: background 0.12s;
+        }
+
+            .data-table tbody tr:last-child {
+                border-bottom: none;
+            }
+
+            .data-table tbody tr:hover {
+                background: #F9EDEC;
+            }
+
+        .data-table tbody td {
+            padding: 0.75rem 1rem;
+            vertical-align: middle;
+        }
+
+    .row-selected {
+        background-color: #F3D7D5 !important;
+        box-shadow: inset 3px 0 0 #A36A66;
+    }
+
+    /* =============================================
+           CATEGORY BADGES
+        ============================================= */
+
+    .category-badge {
+        font-size: 0.6875rem;
+        font-weight: 600;
+        padding: 3px 10px;
+        border-radius: 6px;
+        display: inline-block;
+        letter-spacing: 0.03em;
+        white-space: nowrap;
+    }
+
+    /* =============================================
+           STOCK MINI-BAR
+        ============================================= */
+
+    .stock-bar-wrap {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .stock-bar-track {
+        height: 4px;
+        border-radius: 99px;
+        background: #f3f4f6;
+        width: 72px;
+        overflow: hidden;
+    }
+
+    .stock-bar-fill {
+        height: 4px;
+        border-radius: 99px;
+        transition: width 0.4s ease;
+    }
+
+    /* =============================================
+           STATUS BADGES
+        ============================================= */
+
+    .status-badge {
+        font-size: 0.6875rem;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        padding: 3px 9px;
+        border-radius: 6px;
+        display: inline-block;
+        text-transform: uppercase;
+    }
+
+    .status-available {
+        background: #e0f2fe;
+        color: #0369a1;
+    }
+
+    .status-low {
+        background: #fff7ed;
+        color: #c2410c;
+    }
+
+    .status-sold {
+        background: #fef2f2;
+        color: #b91c1c;
+    }
+
+    /* =============================================
+           PAGINATION
+        ============================================= */
+
+    .page-link-btn {
+        padding: 5px 13px;
+        background: #f3f4f6;
+        border-radius: 8px;
+        color: #374151;
+        font-size: 0.8rem;
+        font-weight: 500;
+        text-decoration: none;
+        transition: background 0.15s;
+        border: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        cursor: pointer;
+    }
+
+        .page-link-btn:hover {
+            background: #e5e7eb;
+        }
+
+        .page-link-btn.active {
+            background: #A36A66;
+            color: #ffffff;
+        }
+
+    /* =============================================
+           SEARCH INPUT
+        ============================================= */
+
+    .search-input-wrap {
+        position: relative;
+    }
+
+        .search-input-wrap input {
+            border: 1px solid #e5e7eb;
+            padding: 0.45rem 1rem 0.45rem 2.25rem;
+            border-radius: 10px;
+            width: 220px;
+            font-size: 0.8125rem;
+            transition: border-color 0.15s, box-shadow 0.15s, width 0.2s;
+            background: #fff;
+            color: #374151;
+        }
+
+            .search-input-wrap input:focus {
+                outline: none;
+                border-color: #A36A66;
+                box-shadow: 0 0 0 3px rgba(163,106,102,0.12);
+                width: 260px;
+            }
+
+        .search-input-wrap .search-icon {
+            position: absolute;
+            left: 0.65rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #9ca3af;
+            font-size: 0.75rem;
+            pointer-events: none;
+        }
+
+    /* =============================================
+           TOP PRODUCTS LIST
+        ============================================= */
+
+    .tp-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 7px 0;
+        border-bottom: 1px solid #f9f5f4;
+    }
+
+        .tp-row:last-child {
+            border-bottom: none;
+        }
+
+    .tp-dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        flex-shrink: 0;
+    }
+
+    .tp-name {
+        font-size: 0.8rem;
+        color: #374151;
+        flex: 1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .tp-pct {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: #6b7280;
+    }
+
+    /* =============================================
+           MODAL
+        ============================================= */
+
+    #productModal .modal-inner {
+        background: #ffffff;
+        border-radius: 24px;
+        box-shadow: 0 24px 64px rgba(0,0,0,0.16);
+        width: 700px;
+        max-width: 95vw;
+        padding: 2rem;
+        position: relative;
+        display: flex;
+        gap: 1.75rem;
+        animation: fadeUp 0.25s ease both;
+    }
+
+    .modal-close-btn {
+        position: absolute;
+        top: 1rem;
+        right: 1.25rem;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: #f3f4f6;
+        border: none;
+        font-size: 1.1rem;
+        color: #6b7280;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.15s, color 0.15s;
+        line-height: 1;
+    }
+
+        .modal-close-btn:hover {
+            background: #e5e7eb;
+            color: #1f2937;
+        }
+
+    /* =============================================
+           TOAST
+        ============================================= */
+
+    .toast-item {
+        background: #1f2937;
+        color: #f9fafb;
+        padding: 11px 18px;
+        border-radius: 12px;
+        font-size: 0.875rem;
+        font-weight: 500;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        border-left: 4px solid #A36A66;
+        animation: slideIn 0.25s ease;
+        min-width: 220px;
+    }
+
+    /* =============================================
+           LOADING OVERLAY SPINNER
+        ============================================= */
+
+    .spinner {
+        width: 40px;
+        height: 40px;
+        border: 4px solid #FBEAEB;
+        border-top-color: #A36A66;
+        border-radius: 50%;
+        animation: spin 0.7s linear infinite;
+    }
+
+    /* =============================================
+           EMPTY STATE
+        ============================================= */
+
+    .empty-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 3rem 1rem;
+        gap: 0.5rem;
+    }
+
+        .empty-state i {
+            font-size: 2rem;
+            color: #d1d5db;
+        }
+
+        .empty-state p {
+            font-size: 0.875rem;
+            color: #9ca3af;
+            font-weight: 500;
+        }
+
+        .empty-state small {
+            font-size: 0.75rem;
+            color: #d1d5db;
+        }
+
+    /* =============================================
+           MOBILE RESPONSIVENESS
+        ============================================= */
+
+    @@media (max-width: 640px) {
+        .page-wrapper {
+            padding: 1rem;
+        }
+
+        .page-title {
+            font-size: 1.375rem;
+        }
+
+        .stat-value {
+            font-size: 1.3rem;
+        }
+
+        .chart-card {
+            height: 18rem;
+        }
+
+        .bottom-chart-card {
+            height: auto;
+            min-height: 320px;
+        }
+
+        .search-input-wrap input {
+            width: 100%;
+        }
+
+            .search-input-wrap input:focus {
+                width: 100%;
+            }
+
+        #productModal .modal-inner {
+            flex-direction: column;
+            padding: 1.25rem;
+        }
+
+        #productModal .modal-img-col {
+            width: 100%;
+        }
+    }
+
+    @@media (max-width: 768px) {
+        .header-controls {
+            justify-content: flex-start;
+        }
+
+        .data-table thead th,
+        .data-table tbody td {
+            padding: 0.6rem 0.75rem;
+        }
+    }
+
+</style>
+
+<!-- ================================================
+     LOADING OVERLAY
+================================================ -->
 <div id="loadingOverlay" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-[9999]">
-    <div class="text-white text-lg font-semibold">
-        <span class="animate-pulse">...</span>
-        Generating Report...
+    <div class="bg-white rounded-2xl px-10 py-8 flex flex-col items-center gap-4 shadow-2xl">
+        <div class="spinner"></div>
+        <div class="text-center">
+            <p class="text-sm font-semibold text-gray-800">Generating Report</p>
+            <p class="text-xs text-gray-400 mt-0.5">Please wait a moment...</p>
+        </div>
     </div>
 </div>
-<div class="p-6 bg-gray-50 min-h-screen space-y-8">
-    <div class="flex justify-between items-center mb-6">
-        <h1 class="text-3xl font-bold" style="color:#A36A66;">
-            Sales Management
-        </h1>
 
-        <div class="flex items-center gap-3">
-            <select id="dateRangeSelect" class="border border-gray-300 rounded-lg text-sm px-3 py-1.5 focus:ring-2 focus:ring-pink-400">
-                <option value="month">This Month</option>
+<!-- ================================================
+     MAIN PAGE
+================================================ -->
+<div class="page-wrapper">
+
+    <!-- Header -->
+    <div class="page-header">
+        <div>
+            <div class="breadcrumb">
+                <i class="fa-solid fa-house" style="font-size:0.65rem;"></i>
+                Dashboard
+                <i class="fa-solid fa-chevron-right" style="font-size:0.55rem;"></i>
+                <span>Sales Management</span>
+            </div>
+            <h1 class="page-title">Sales Management</h1>
+        </div>
+
+        <div class="header-controls">
+            <span id="currentDateRange" class="date-label-badge"></span>
+
+            <select id="dateRangeSelect" class="select-styled">
                 <option value="week">This Week</option>
+                <option value="month">This Month</option>
                 <option value="year">This Year</option>
+                <option value="alltime" selected>All Time</option>
+                <option value="custom">Custom Range</option>
             </select>
-            <button id="generateReportBtn" class="bg-green-500 hover:bg-green-600 text-white text-sm font-medium px-4 py-1.5 rounded-lg shadow-md transition">
+
+            <div id="customDateRange" class="date-range-inputs">
+                <input type="date" id="startDate" class="date-input" />
+                <span style="color:#A36A66; font-size:0.8rem;">to</span>
+                <input type="date" id="endDate" class="date-input" />
+                <button id="applyDateRange" class="apply-date-btn">Apply</button>
+            </div>
+
+            <button id="generateReportBtn" class="btn-generate">
+                <i class="fa-solid fa-file-arrow-down" style="font-size:0.8rem;"></i>
                 Generate Report
             </button>
         </div>
     </div>
-    <div class="grid grid-cols-1 lg:grid-cols-5 gap-6 lg:items-stretch">
 
-        <div class="lg:col-span-3 space-y-6">
+    <!-- ============================================
+         STAT CARDS + CHART + PRODUCT CARD
+    ============================================= -->
+    <div class="grid grid-cols-1 lg:grid-cols-5 gap-5 mb-5">
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                <div class="bg-white rounded-2xl shadow-lg p-5 flex items-center space-x-4 border border-gray-100 h-32">
-                    <div class="p-3 rounded-full bg-rose-100 mt-0.5" style="color: #A36A66;">
-                        <i class="fa-solid fa-money-bill-trend-up fa-lg"></i>
+        <!-- Left: Stats + Trend Chart -->
+        <div class="lg:col-span-3 flex flex-col gap-5">
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="stat-card anim-card anim-delay-1">
+                    <div class="stat-card-icon">
+                        <i class="fa-solid fa-money-bill-trend-up"></i>
                     </div>
                     <div>
-                        <h2 class="text-lg font-semibold" style="color: #A36A66;">Total Sales</h2>
-                        <p class="text-2xl font-bold text-gray-900 mt-0.5">₱123,000.00</p>
+                        <div class="stat-label">Total Sales</div>
+                        <div id="summaryTotalSales" class="stat-value">@ViewBag.TotalSales</div>
                     </div>
                 </div>
 
-                <div class="bg-white rounded-2xl shadow-lg p-5 flex items-center space-x-4 border border-gray-100 h-32">
-                    <div class="p-3 rounded-full bg-rose-100 mt-0.5" style="color: #A36A66;">
-                        <i class="fa-solid fa-bag-shopping fa-lg"></i>
+                <div class="stat-card anim-card anim-delay-2">
+                    <div class="stat-card-icon">
+                        <i class="fa-solid fa-bag-shopping"></i>
                     </div>
                     <div>
-                        <h2 class="text-lg font-semibold" style="color: #A36A66;">Total Orders</h2>
-                        <p class="text-2xl font-bold text-gray-900 mt-0.5">100</p>
+                        <div class="stat-label">Total Orders</div>
+                        <div id="summaryTotalOrders" class="stat-value">@ViewBag.TotalOrders</div>
                     </div>
                 </div>
             </div>
 
-            <div class="bg-white rounded-2xl shadow-lg p-6 h-[20rem]">
-                <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-xl font-semibold text-gray-800">Product Sales Trend</h2> <span id="chartProductName" class="text-[#A36A66] ml-2"></span>
-
+            <div class="chart-card anim-card anim-delay-3">
+                <div class="chart-card-header">
+                    <span class="section-title">Product Sales Trend</span>
+                    <span id="chartProductName"
+                          class="text-xs font-semibold px-3 py-1 rounded-full"
+                          style="color:#A36A66; background:#FBEAEB;"></span>
                 </div>
-                <canvas id="productSalesChart" height="100"></canvas>
+                <div class="chart-canvas-wrap">
+                    <canvas id="productSalesChart"></canvas>
+                </div>
             </div>
         </div>
 
-        <div class="lg:col-span-2 bg-white rounded-2xl shadow-lg p-5 border border-gray-100 flex flex-col justify-between">
-            <div class="flex-grow flex flex-col">
-                <h6 class="text-center font-semibold text-gray-700 mb-3 uppercase">TOP PRODUCT</h6>
-                <img src="~/images/Hand_Sanitizer.jpg" alt="Top Product" class="rounded-xl mb-4 mx-auto w-full object-contain h-auto max-h-52">
+        <!-- Right: Product Showcase -->
+        <div class="lg:col-span-2 product-showcase anim-card anim-delay-4 h-3/4">
+            <div class="product-img-wrap">
+                <img src="/images/Hand_Sanitizer.jpg"
+                     id="productCardImg"
+                     alt="Product Image"
+                     onerror="this.src='/images/Hand_Sanitizer.jpg'">
             </div>
-            <div class="mt-auto">
-                <p class="text-center font-bold text-lg text-gray-800">Hydrating Face Cream</p>
-                <p class="text-center text-gray-500 text-sm mt-1">Total Order</p>
-                <p class="text-center font-bold text-2xl text-[#A36A66] mt-1">47</p>
+            <div class="product-card-meta">
+                <p class="product-card-name" id="productCardName">Select a product</p>
+                <p class="product-card-sub">Total Units Sold</p>
+                <p class="product-card-count" id="productCardTotalOrder">0</p>
             </div>
         </div>
     </div>
 
-
-
-    <div class="bg-white rounded-2xl shadow-sm p-6">
-        <div class="flex justify-between items-center mb-4">
-            <h2 class="text-xl font-semibold text-gray-800">Products Overview</h2>
-            <div class="relative">
-                <input id="productSearch" type="text" placeholder="Search product..."
-                       class="border border-gray-300 px-4 py-2 pl-10 rounded-xl w-60 focus:ring-2 focus:ring-[#A36A66] text-sm" />
-                <i class="fa-solid fa-search absolute left-3 top-2.5 text-gray-400 text-sm"></i>
+    <!-- ============================================
+         PRODUCTS OVERVIEW TABLE
+    ============================================= -->
+    <div class="card anim-card anim-delay-5 mb-5">
+        <div class="flex justify-between items-center mb-5 flex-wrap gap-3">
+            <span class="section-title">Products Overview</span>
+            <div class="search-input-wrap">
+                <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                <input id="productSearch" type="text" placeholder="Search product or category..." />
             </div>
         </div>
 
- 
-
-        <div class="overflow-x-auto">
-
-            <table class="min-w-full text-sm text-gray-700 border-t border-gray-100">
-                <thead class="bg-gray-50 text-gray-600 uppercase text-xs tracking-wider">
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
                     <tr>
-                        <th class="px-4 py-3 text-left">Product ID</th>
-                        <th class="px-4 py-3 text-left">Product Name</th>
-                        <th class="px-4 py-3 text-left">Category</th>
-                        <th class="px-4 py-3 text-left">Selling Price</th>
-                        <th class="px-4 py-3 text-left">Purchase Price</th>
-                        <th class="px-4 py-3 text-left">Stock</th>
-                        <th class="px-4 py-3 text-left">Status</th>
-                        <th class="px-4 py-3 text-center">Options</th>
+                        <th>Product ID</th>
+                        <th>Product Name</th>
+                        <th>Category</th>
+                        <th>Selling Price</th>
+                        <th>Stock</th>
+                        <th>Status</th>
+                        <th style="text-align:center;">Options</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-100">
+                <tbody>
                     @foreach (var p in Model)
                     {
-                        var statusColor = p.StockQuantity >= 10 ? "text-sky-500" : (p.StockQuantity < 10 && p.StockQuantity > 0 ? "text-orange-400" : "text-red-500");
                         var categoryColor = p.Category switch
                         {
-"Skincare" => "bg-pink-100 text-pink-700", // Retained
-    "Haircare" => "bg-teal-100 text-teal-700", // Changed from sky-blue to teal
-    "Makeup" => "bg-purple-100 text-purple-700",
+                            "Skincare" => "bg-pink-100 text-pink-700",
+                            "Haircare" => "bg-teal-100 text-teal-700",
+                            "Makeup" => "bg-purple-100 text-purple-700",
                             _ => "bg-gray-100 text-gray-700"
                         };
 
-                        <tr class="hover:bg-[#F0E4E3] transition cursor-pointer"
-                            onclick="selectProduct('@p.Item', '@p.Id' )">
-                            <td class="px-4 py-3 font-medium text-gray-600">@p.Id</td>
-                            <td class="px-4 py-3 text-gray-800">@p.Item</td>
-                            <td class="px-4 py-3">
-                                <span class="@categoryColor text-xs font-semibold px-3 py-1 rounded-lg">@p.Category</span>
+                        var statusClass = p.StockQuantity >= 10 ? "status-available"
+                        : p.StockQuantity > 0 ? "status-low"
+                        : "status-sold";
+
+                        var statusLabel = p.StockQuantity >= 10 ? "Available"
+                        : p.StockQuantity > 0 ? "Low Stock"
+                        : "Sold Out";
+
+                        var barColor = p.StockQuantity >= 10 ? "#0ea5e9"
+                        : p.StockQuantity > 0 ? "#f97316"
+                        : "#ef4444";
+
+                        var barWidth = Math.Min((double)p.StockQuantity / 50.0 * 100, 100);
+                        var imgUrl = !string.IsNullOrEmpty(p.VariantImg) ? p.VariantImg : "/images/Hand_Sanitizer.jpg";
+
+                        <tr class="product-row"
+                            data-name="@p.VariantName"
+                            data-id="@p.Id"
+                            data-orders="@p.OrdersCount"
+                            data-img="@imgUrl"
+                            data-category="@(p.Category ?? "N/A")"
+                            data-price="@p.Price"
+                            data-description="@(p.Description ?? "No description available")"
+                            onclick="selectProduct(this)">
+
+                            <td style="color:#6b7280; font-weight:500;">@p.Id</td>
+                            <td style="color:#111827; font-weight:500;">@p.VariantName</td>
+                            <td>
+                                <span class="category-badge @categoryColor">@p.Category</span>
                             </td>
-                            <td class="px-4 py-3">₱@p.UnitPrice</td>
-                            <td class="px-4 py-3">₱@p.UnitPrice</td>
-                            <td class="px-4 py-3">@p.StockQuantity</td>
-                            <td class="px-4 py-3">
-                                @if (p.StockQuantity >= 10)
-                                {
-                                    <span class="@statusColor font-semibold uppercase text-xs">Available</span>
-                                }
-                                else if (p.StockQuantity < 10 && p.StockQuantity > 0)
-                                {
-                                    <span class="@statusColor font-semibold uppercase text-xs">Low</span>
-                                }
-                                else
-                                {
-                                    <span class="@statusColor font-semibold uppercase text-xs">Sold</span>
-                                }
+                            <td style="color:#374151; font-weight:500;">₱@p.Price.ToString("N2")</td>
+                            <td>
+                                <div class="stock-bar-wrap">
+                                    <span style="font-size:0.8125rem; color:#374151;">@p.StockQuantity</span>
+                                    <div class="stock-bar-track">
+                                        <div class="stock-bar-fill"
+                                             style="width:@(barWidth.ToString("F0"))%; background:@barColor;"></div>
+                                    </div>
+                                </div>
                             </td>
-                            <td class="px-4 py-3 text-center">
-                                <button onclick="openModal('@p.Item', '@p.Category', '@p.UnitPrice', '@p.UnitPrice')"
-                                        class="text-blue-500 hover:underline text-sm font-medium">
-                                    Details
+                            <td>
+                                <span class="status-badge @statusClass">@statusLabel</span>
+                            </td>
+                            <td style="text-align:center;">
+                                <button onclick="event.stopPropagation(); openModal(this.closest('tr'))"
+                                        class="text-blue-500 hover:text-blue-700 text-xs font-semibold hover:underline transition">
+                                    View Details
                                 </button>
                             </td>
                         </tr>
                     }
                 </tbody>
             </table>
+        </div>
 
-            <div class="flex justify-center mt-6 space-x-2">
+        <!-- Pagination -->
+        <div class="flex items-center justify-between mt-5 flex-wrap gap-3">
+            <p class="text-xs text-gray-400">
+                Page <span class="font-semibold text-gray-600">@ViewBag.CurrentPage</span>
+                of <span class="font-semibold text-gray-600">@ViewBag.TotalPages</span>
+            </p>
+            <div class="flex gap-2 flex-wrap">
                 @if (ViewBag.CurrentPage > 1)
                 {
-                    <a href="@Url.Action("Products", new { page = ViewBag.CurrentPage - 1 })"
-                       class="px-4 py-2 bg-gray-200 rounded-lg text-gray-700 hover:bg-gray-300 text-sm">
-                        Previous
+                    <a href="@Url.Action("Products", new { page = ViewBag.CurrentPage - 1 })" class="page-link-btn">
+                        <i class="fa-solid fa-chevron-left" style="font-size:0.6rem;"></i> Prev
                     </a>
                 }
 
@@ -162,451 +1075,137 @@
                 {
                     if (i == ViewBag.CurrentPage)
                     {
-                        <span class="px-4 py-2 bg-[#A36A66] text-white rounded-lg text-sm">@i</span>
+                        <span class="page-link-btn active">@i</span>
                     }
                     else
                     {
-                        <a href="@Url.Action("Products", new { page = i })"
-                           class="px-4 py-2 bg-gray-200 rounded-lg text-gray-700 hover:bg-gray-300 text-sm">
-                            @i
-                        </a>
+                        <a href="@Url.Action("Products", new { page = i })" class="page-link-btn">@i</a>
                     }
                 }
 
                 @if (ViewBag.CurrentPage < ViewBag.TotalPages)
                 {
-                    <a href="@Url.Action("Products", new { page = ViewBag.CurrentPage + 1 })"
-                       class="px-4 py-2 bg-gray-200 rounded-lg text-gray-700 hover:bg-gray-300 text-sm">
-                        Next
+                    <a href="@Url.Action("Products", new { page = ViewBag.CurrentPage + 1 })" class="page-link-btn">
+                        Next <i class="fa-solid fa-chevron-right" style="font-size:0.6rem;"></i>
                     </a>
                 }
             </div>
         </div>
     </div>
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-    <!-- Sales Revenue Chart -->
-    <div class="bg-white shadow-lg rounded-2xl p-6 flex flex-col h-[460px]" id="revenueCard">
+    <!-- ============================================
+         REVENUE + TOP PRODUCTS CHARTS
+    ============================================= -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
 
-        <div class="flex justify-between items-center mb-3">
-            <p class="font-semibold text-sm">Total Revenue</p>
-        </div>
-
-        <div class="flex-1 relative">
-            <canvas id="salesRevenueChart"></canvas>
-        </div>
-    </div>
-
-    <!-- Top Products Card -->
-    <div id="topProductsCard" class="bg-white shadow-lg rounded-2xl p-6 flex flex-col h-[460px]">
-        <h2 class="font-semibold text-sm mb-4">Top Products</h2>
-
-        <div class="flex flex-1 items-center justify-center gap-6">
-            <!-- Donut Chart (Left) -->
-            <div class="w-1/2 max-w-[280px] relative aspect-square">
-                <canvas id="topProductsChart"></canvas>
+        <div class="bottom-chart-card anim-card anim-delay-6" id="revenueCard">
+            <div class="flex justify-between items-center mb-4">
+                <span class="section-title">Total Revenue</span>
             </div>
+            <div class="chart-inner-bg">
+                <canvas id="salesRevenueChart" style="width:100%; height:100%;"></canvas>
+            </div>
+        </div>
 
-            <div id="topProductsList" class="w-1/2 flex flex-col ...">
-                <!-- dynamically generated -->
+        <div class="bottom-chart-card anim-card anim-delay-7" id="topProductsCard">
+            <div class="flex justify-between items-center mb-4">
+                <span class="section-title">Top Products</span>
+            </div>
+            <div class="flex flex-1 items-center justify-center gap-6 flex-wrap">
+                <div style="width:190px; height:190px; flex-shrink:0; position:relative;">
+                    <canvas id="topProductsChart"></canvas>
+                </div>
+                <div id="topProductsList" style="flex:1; min-width:140px; display:flex; flex-direction:column;"></div>
             </div>
         </div>
     </div>
-</div>
-</div>
 
+</div><!-- end page-wrapper -->
+<!-- ================================================
+     PRODUCT DETAIL MODAL
+================================================ -->
 <div id="productModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-    <div class="bg-white rounded-3xl shadow-xl w-[700px] p-8 relative flex gap-6">
-        <button onclick="closeModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
-        <div class="flex-1">
-            <h2 id="modalName" class="text-2xl font-bold text-gray-800 mb-2">Product Name</h2>
-            <span id="modalCategory" class="bg-[#A36A66] text-white text-sm font-semibold px-3 py-1 rounded-lg inline-block mb-3">Category</span>
-            <p class="text-gray-600 text-sm leading-relaxed mb-4">
-                Lorem ipsum dolor sit amet, consectetur adipiscing elit. Etiam sollicitudin ipsum arcu.
+    <div class="modal-inner">
+        <button onclick="closeModal()" class="modal-close-btn">&times;</button>
+
+        <div class="flex-1 flex flex-col gap-3">
+            <div>
+                <span id="modalCategory"
+                      class="bg-[#A36A66] text-white text-xs font-semibold px-3 py-1 rounded-lg inline-block mb-2">
+                    Category
+                </span>
+                <h2 id="modalName" class="text-xl font-bold text-gray-800 leading-tight">Product Name</h2>
+            </div>
+            <p class="text-gray-500 text-sm leading-relaxed" id="modalDescription">
+                No description available.
             </p>
-            <div class="mt-4">
-                <p class="text-gray-700 font-medium">Selling Price</p>
-                <p class="mt-1 font-semibold text-2xl text-[#A36A66]">
+            <div class="mt-auto pt-4 border-t border-gray-100">
+                <p class="text-gray-400 text-xs font-semibold uppercase tracking-widest mb-1">Selling Price</p>
+                <p class="font-bold text-2xl" style="color:#A36A66;">
                     ₱<span id="modalSelling">0</span>
                 </p>
-                <p class="text-sm text-gray-500 font-medium mt-1">Purchase Price: ₱<span id="modalPurchase">0</span></p>
             </div>
         </div>
-        <div class="w-60">
-            <img src="~/images/Hand_Sanitizer.jpg" alt="Product Image" class="rounded-xl shadow-sm w-full object-cover">
+
+        <div class="w-56 flex-shrink-0 modal-img-col">
+            <img src="/images/Hand_Sanitizer.jpg"
+                 alt="Product Image"
+                 class="rounded-2xl w-full object-cover"
+                 style="box-shadow: 0 8px 24px rgba(0,0,0,0.10);"
+                 id="modalImage"
+                 onerror="this.src='/images/Hand_Sanitizer.jpg'">
         </div>
     </div>
 </div>
-<div id="toastContainer" class="fixed top-5 right-5 space-y-2 z-[9999]"></div>
 
+<!-- Toast Container -->
+<div id="toastContainer" class="fixed top-5 right-5 flex flex-col gap-2 z-[9999]"></div>
 
+<!-- ================================================
+     SALES SUMMARY TABLE
+================================================ -->
+<div class="card mx-6 mb-6 anim-card anim-delay-7">
+    <div class="flex justify-between items-center mb-5 flex-wrap gap-2">
+        <span class="section-title">Sales Summary</span>
+        <span class="text-xs text-gray-400 font-medium">All Products</span>
+    </div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <div class="table-wrap">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Product Variant</th>
+                    <th>Qty</th>
+                    <th>Price</th>
+                    <th>Total</th>
+                    <th>Transaction Date</th>
+                </tr>
+            </thead>
+            <tbody id="salesTableBody">
+                <tr>
+                    <td colspan="5">
+                        <div class="empty-state">
+                            <i class="fa-solid fa-box-open"></i>
+                            <p>No sales data available</p>
+                            <small>Data will appear once orders are recorded</small>
+                        </div>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="flex justify-between items-center mt-5 flex-wrap gap-3">
+        <div class="text-xs text-gray-400">
+            Showing
+            <span class="font-semibold text-gray-600" id="salesShowingFrom">0</span> to
+            <span class="font-semibold text-gray-600" id="salesShowingTo">0</span> of
+            <span class="font-semibold text-gray-600" id="salesTotalItems">0</span> entries
+        </div>
+        <div id="salesPaginationControls" class="flex gap-2 flex-wrap"></div>
+    </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script>
-    /* ============================================================
-        1. INTERACTIVE PRODUCT SALES CHART (Onscreen Chart)
-        ============================================================ */
-
-    const ctx = document.getElementById('productSalesChart');
-    let selectedProductId = null;
-    let selectedPeriod = "week";
-
-    const productChart = new Chart(ctx, {
-        type: "line",
-        data: {
-            labels: [],
-            datasets: [{
-                label: "Sales (Units)",
-                data: [],
-                borderColor: "#A36A66",
-                backgroundColor: "rgba(163,106,102,0.25)",
-                borderWidth: 2,
-                tension: 0.3,
-                fill: true
-            }]
-        },
-        options: {
-            responsive: true,
-            scales: { y: { beginAtZero: true } }
-        }
-    });
-
-    function selectProduct(itemName, productId) {
-        selectedProductId = productId;
-        document.getElementById("chartProductName").textContent = itemName;
-        loadProductSales(selectedPeriod);
-    }
-
-    document.getElementById("dateRangeSelect").addEventListener("change", (e) => {
-        selectedPeriod = e.target.value;
-        if (selectedProductId) loadProductSales(selectedPeriod);
-    });
-
-    async function loadProductSales(period) {
-        try {
-            const response = await fetch(`/Sales_Finance/GetProductSales?productId=${selectedProductId}&period=${period}`);
-            const data = await response.json();
-
-            if (!Array.isArray(data)) {
-                showToast(data.message || "No sales data found.", "warning");
-                productChart.data.labels = [];
-                productChart.data.datasets[0].data = [];
-                productChart.update();
-                return;
-            }
-
-            productChart.data.labels = data.map(x => x.label ?? x.Label);
-            productChart.data.datasets[0].data = data.map(x => x.total ?? x.Total);
-            productChart.update();
-
-            showToast("Sales data loaded successfully! ✅", "success");
-
-        } catch (err) {
-            console.error(err);
-            showToast("Error loading sales 😭", "error");
-        }
-    }
-
-    /* ============================================================
-        2. SEARCH + TOAST UTILITIES
-        ============================================================ */
-
-    function showToast(message, type = "info") {
-        const toast = document.createElement("div");
-        const colors = {
-            success: "bg-green-500",
-            error: "bg-red-500",
-            warning: "bg-yellow-500",
-            info: "bg-blue-500"
-        };
-
-        toast.className = `${colors[type]} text-white px-4 py-3 rounded-lg shadow-lg animate-slideIn`;
-        toast.textContent = message;
-
-        document.getElementById("toastContainer").appendChild(toast);
-
-        setTimeout(() => {
-            toast.classList.add("animate-fadeOut");
-            setTimeout(() => toast.remove(), 500);
-        }, 3000);
-    }
-
-    document.getElementById("productSearch").addEventListener("keyup", function () {
-        const value = this.value.toLowerCase();
-        document.querySelectorAll("tbody tr").forEach(row => {
-            row.style.display = row.innerText.toLowerCase().includes(value) ? "" : "none";
-        });
-    });
-
-    /* ============================================================
-        3. PDF GENERATION PIPELINE
-        ============================================================ */
-
-    const reportBtn = document.getElementById("generateReportBtn");
-    const dateRangeSelect = document.getElementById("dateRangeSelect");
-    const loadingOverlay = document.getElementById("loadingOverlay");
-
-    reportBtn.addEventListener("click", generatePdfReport);
-
-    async function generatePdfReport() {
-        showLoader();
-
-        try {
-            const period = dateRangeSelect.value;
-            const periodText = dateRangeSelect.options[dateRangeSelect.selectedIndex].text;
-
-            // 1. Fetch full dataset
-            const response = await fetch(`/Sales_Finance/GetSalesReportDatatry?period=${period}`);
-            if (!response.ok) throw new Error("Server error loading report data.");
-
-            const data = await response.json();
-
-            // 2. Generate Base64 charts for PDF
-            // Use Promise.all to generate both charts concurrently
-            // const [salesTrendBase64, topProductsBase64] = await Promise.all([
-            //     createHiddenChart(pdfTrendChartConfig(data.salesTrend), 600, 300),
-            //     createHiddenChart(pdfTopProductsConfig(data.topProductsChart), 400, 400)
-            // ]);
-
-
-            // 3. Match your EXACT C# payload structure
-          const revenueCard = document.getElementById("revenueCard");
-
-            const revenueImg = await htmlToImage(revenueCard);
-            const topProductsImg = await htmlToImage(topProductsCard);
-            const payload = {
-                ReportPeriod: periodText,
-                Summary: data.summary,
-                SalesTrendChartBase64: revenueImg,
-                TopProductsChartBase64: topProductsImg,
-                TopProductsTable: data.topProductsTable
-            };
-
-
-            // 4. Send to PDF generator
-            const pdfResponse = await fetch("/Sales_Finance/ExportProductSalesPdf", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload)
-            });
-
-            if (!pdfResponse.ok) throw new Error("PDF creation failed.");
-
-            // 5. Download PDF
-            const blob = await pdfResponse.blob();
-            const link = URL.createObjectURL(blob);
-            window.open(link, "_blank");
-            URL.revokeObjectURL(link);
-
-            showToast("PDF Report generated! ✅", "success");
-
-        } catch (err) {
-            console.error("PDF Generation Error:", err);
-            showToast("Failed to generate PDF 😭", "error");
-        } finally {
-            // Hides loader even if an error occurs!
-            hideLoader();
-        }
-    }
-                async function htmlToImage(element) {
-            const canvas = await html2canvas(element, { scale: 2, backgroundColor: "#fff" });
-            return canvas.toDataURL("image/png");
-        }
-
-    /* ============================================================
-        4. OFFSCREEN CHART CREATION FOR PDF (CORRECTED)
-        ============================================================ */
-
- 
-    /* ... (rest of your script) ... */
-    /* ============================================================
-        5. PDF CHART CONFIGS (MATCHES YOUR PINK THEME)
-        ============================================================ */
-
-    function pdfTrendChartConfig(data) {
-        return {
-            type: "line",
-            data: {
-                labels: data.map(x => x.label),
-                datasets: [{
-                    label: "Total Revenue",
-                    data: data.map(x => x.total),
-                    borderColor: "#A36A66",
-                    backgroundColor: "rgba(163,106,102,0.15)",
-                    fill: true,
-                    tension: 0.3
-                }]
-            },
-            options: {
-                plugins: { legend: { display: false } },
-                scales: { y: { beginAtZero: true } }
-            }
-        };
-    }
-
-    function pdfTopProductsConfig(data) {
-        return {
-            type: "doughnut",
-            data: {
-                labels: data.map(x => x.name),
-                datasets: [{
-                    data: data.map(x => x.percentage),
-                    backgroundColor: [
-                        "#A36A66",
-                        "#D9AFA8",
-                        "#E8C4C4",
-                        "#B77E79",
-                        "#C9988F"
-                    ]
-                }]
-            },
-            options: {
-                plugins: { legend: { display: true } }
-            }
-        };
-    }
-
-    /* ============================================================
-        6. LOADER
-        ============================================================ */
-
-    function showLoader() {
-        loadingOverlay.classList.remove("hidden");
-    }
-
-    function hideLoader() {
-        loadingOverlay.classList.add("hidden");
-    }
-
-    /* ============================================================
-        7. MODAL UTILITIES (Missing in your code, added for completeness)
-        ============================================================ */
-    function openModal(name, category, sellingPrice, purchasePrice) {
-        document.getElementById("modalName").textContent = name;
-        document.getElementById("modalCategory").textContent = category;
-        document.getElementById("modalSelling").textContent = sellingPrice;
-        document.getElementById("modalPurchase").textContent = purchasePrice;
-        document.getElementById("productModal").classList.remove("hidden");
-    }
-
-    function closeModal() {
-        document.getElementById("productModal").classList.add("hidden");
-    }
-
-    let revenueChart = null;
-    let topProductsChart = null;
-
-    document.getElementById("dateRangeSelect").addEventListener("change", function () {
-        loadSalesReport(this.value);
-    });
-
-    loadSalesReport("week");
-
-    async function loadSalesReport(period) {
-        const resp = await fetch(`/Sales_Finance/SalesReportData?period=${period}`);
-        const data = await resp.json();
-        window.currentPeriodText = data.periodText;
-
-
-        updateRevenueChart(data.chartLabels, data.chartValues);
-        updateTopProductsChart(data.topProducts);
-    }
-
-        function updateTopProductsChart(topProducts) {
-            const labels = topProducts.map(p => p.productName);
-            const values = topProducts.map(p => p.totalAmount);
-            const total = values.reduce((a, b) => a + b, 0);
-
-            const colors = ["#FF4FC3", "#3FA9F5", "#00C49A", "#FFC75F", "#FF6F91"];
-
-            if (topProductsChart !== null) topProductsChart.destroy();
-
-            // 🎨 Draw donut chart
-            const ctx = document.getElementById("topProductsChart");
-            topProductsChart = new Chart(ctx, {
-                type: "doughnut",
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        data: values,
-                        backgroundColor: colors,
-                        borderWidth: 0
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    cutout: "60%",
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            callbacks: {
-                                label: ctx => {
-                                    const percentage = ((ctx.raw / total) * 100).toFixed(1);
-                                    return `${ctx.label}: ${percentage}%`;
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-
-            // 🧾 Generate product list
-    // 🧾 Generate product list
-    const listContainer = document.getElementById("topProductsList");
-    listContainer.innerHTML = `
-        <h3 class="font-semibold mb-4 text-gray-800">Top ${topProducts.length}</h3>
-        <div class="space-y-3"> ${topProducts.map((p, i) => {
-            const percent = ((p.totalAmount / total) * 100).toFixed(1);
-            return `
-                <div class="flex items-center w-full">
-                    <div class="w-3 h-3 rounded-full shrink-0 mr-3" style="background:${colors[i % colors.length]}"></div>
-
-                    <span class="text-sm text-gray-700 truncate min-w-0 flex-1" title="${p.productName}">
-                        ${p.productName}
-                    </span>
-
-                    <span class="ml-3 font-medium text-gray-500 text-sm whitespace-nowrap">
-                        ${percent}%
-                    </span>
-                </div>
-            `;
-        }).join("")}
-        </div>
-    `;
-        }
-
-
-
-
-    function updateRevenueChart(labels, values) {
-        if (revenueChart !== null) revenueChart.destroy();
-
-        revenueChart = new Chart(document.getElementById("salesRevenueChart"), {
-            type: "line",
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: "Sales Revenue",
-                    data: values,
-                borderColor: "#A36A66",
-                backgroundColor: "rgba(163,106,102,0.25)",
-                    tension: 0.4,
-                    fill: true
-                }]
-            },
-            options: {
-                scales: { y: { beginAtZero: true }},
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { display: false }},
-        cutout: "70%"
-            }
-        });
-    }
-
-</script>
+<script src="~/js/Products.js?v=@DateTime.UtcNow.Ticks"></script>
