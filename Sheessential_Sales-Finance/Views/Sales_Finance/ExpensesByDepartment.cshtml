@@ -270,6 +270,20 @@
             <p class="text-sm text-gray-500 mt-1">All expense requests, ingredient requests & payroll — grouped per department</p>
         </div>
 
+<!-- ═══ EXPENSE DETAILS MODAL ═══ -->
+<div id="expenseDetailsModal" class="fixed inset-0 bg-black/50 hidden flex items-center justify-center z-[65] backdrop-blur-sm">
+    <div class="bg-white w-full max-w-xl rounded-2xl shadow-2xl p-6 m-4 max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between mb-4 pb-3 border-b border-gray-100">
+            <h2 class="text-xl font-bold text-gray-900">Expense Details</h2>
+            <button type="button" onclick="closeExpenseDetailsModal()" class="text-gray-400 hover:text-gray-700 p-2 rounded-lg hover:bg-gray-100">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+        </div>
+
+        <div id="expenseDetailsBody" class="space-y-3 text-sm"></div>
+    </div>
+</div>
+
 <!-- ═══ ACTION NOTIFICATION ═══ -->
 <div id="actionNotice" class="fixed top-5 right-5 z-[95] hidden">
     <div id="actionNoticeBox" class="px-4 py-3 rounded-xl shadow-xl border text-sm font-medium bg-white text-gray-800 border-gray-200"></div>
@@ -856,6 +870,7 @@
                         <option value="">Select department</option>
                         <option value="HR">HR</option>
                         <option value="Accounting">Accounting</option>
+                        <option value="Finance">Finance</option>
                         <option value="Website">Website</option>
                         <option value="Marketing">Marketing</option>
                         <option value="Inventory">Inventory</option>
@@ -1068,9 +1083,11 @@
     // --- Quick Add Expense modal (same behavior as Expenses page) ---
     const OPEX_CATEGORIES = ['Office Supplies','Maintenance','Software Subscription','Equipment Purchases'];
     const WEBSITE_CATEGORIES = ['Hosting Services','Domain Renewal','Website Maintenance','Security and Backup'];
+    const FINANCE_CATEGORIES = ['Bank Charges','Audit & Compliance','Tax & Government Fees','Financial Services'];
 
     function getExpenseCategoriesByDepartment(dept){
         const base = [...OPEX_CATEGORIES];
+        if((dept||'').toLowerCase()==='finance') base.push(...FINANCE_CATEGORIES);
         if((dept||'').toLowerCase()==='website') base.push(...WEBSITE_CATEGORIES);
         return [...new Set(base)];
     }
@@ -2069,14 +2086,114 @@
     }
 
     function renderExpensesTab(expenses) {
-        const body=document.getElementById('panelBody');
-        if(!expenses.length){body.innerHTML='<p class="text-gray-400 text-center py-8">No expense requests for this department</p>';return;}
-        const grouped={};
-        expenses.forEach(e=>{const k=e.expenseType||'Uncategorized';if(!grouped[k])grouped[k]=[];grouped[k].push(e);});
-        const sortedKeys=Object.keys(grouped).sort((a,b)=>grouped[b].reduce((s,e)=>s+e.amount,0)-grouped[a].reduce((s,e)=>s+e.amount,0));
-        let html=`<div class="grid grid-cols-3 gap-3 mb-6"><div class="bg-yellow-50 rounded-xl p-3 border border-yellow-200"><p class="text-xs text-yellow-700 font-medium">Pending</p><p class="text-lg font-bold text-yellow-800">${fmt(expenses.filter(e=>e.status==='Pending').reduce((s,e)=>s+e.amount,0))}</p></div><div class="bg-green-50 rounded-xl p-3 border border-green-200"><p class="text-xs text-green-700 font-medium">Approved</p><p class="text-lg font-bold text-green-800">${fmt(expenses.filter(e=>e.status==='Approved').reduce((s,e)=>s+e.amount,0))}</p></div><div class="bg-red-50 rounded-xl p-3 border border-red-200"><p class="text-xs text-red-700 font-medium">Declined</p><p class="text-lg font-bold text-red-800">${fmt(expenses.filter(e=>e.status==='Declined').reduce((s,e)=>s+e.amount,0))}</p></div></div>`;
-        sortedKeys.forEach(cat=>{const items=grouped[cat];const catTotal=items.reduce((s,e)=>s+e.amount,0);html+=`<div class="mb-6"><div class="flex items-center justify-between mb-3"><h3 class="text-sm font-semibold text-gray-900">${esc(cat)} <span class="text-gray-400 font-normal">(${items.length})</span></h3><span class="text-sm font-bold text-[#A36A66]">${fmt(catTotal)}</span></div><div class="space-y-2">`;items.forEach(exp=>{const badge=exp.status==='Pending'?'<span class="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-yellow-100 text-yellow-800">Pending</span>':exp.status==='Approved'?'<span class="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-green-100 text-green-800">✓ Approved</span>':'<span class="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-red-100 text-red-800">✕ Declined</span>';const actions=exp.status==='Pending'?`<div class="flex gap-1.5 mt-2"><button onclick="event.stopPropagation();openApproveModal('${exp.id}','${esc(exp.expenseId)}',${exp.amount})" class="px-3 py-1 bg-green-600 text-white text-[11px] font-medium rounded-lg hover:bg-green-700">Approve</button><button onclick="event.stopPropagation();openDeclineModal('${exp.id}','${esc(exp.expenseId)}',false)" class="px-3 py-1 bg-red-600 text-white text-[11px] font-medium rounded-lg hover:bg-red-700">Decline</button></div>`:'';const notes=exp.status==='Declined'&&exp.notes?`<p class="text-[11px] text-red-600 mt-1">Reason: ${esc(exp.notes)}</p>`:'';html+=`<div class="bg-gray-50 rounded-xl p-4 border border-gray-100"><div class="flex items-start justify-between"><div class="flex-1 mr-3"><div class="flex items-center gap-2 mb-1"><span class="text-xs font-semibold text-blue-600">${esc(exp.expenseId)}</span>${badge}</div><p class="text-sm font-medium text-gray-800">${esc(exp.requestedBy)}</p><p class="text-xs text-gray-400 mt-0.5">${esc(exp.description||'')}</p><p class="text-[11px] text-gray-400 mt-1">${exp.requestedAt}</p>${notes}</div><div class="text-right shrink-0"><p class="text-sm font-bold text-gray-900">${fmt(exp.amount)}</p></div></div>${actions}</div>`;});html+='</div></div>';});
-        body.innerHTML=html;
+        const body = document.getElementById('panelBody');
+        if (!expenses.length) {
+            body.innerHTML = '<p class="text-gray-400 text-center py-8">No expense requests for this department</p>';
+            return;
+        }
+
+        const grouped = {};
+        expenses.forEach(e => {
+            const key = e.expenseType || 'Uncategorized';
+            if (!grouped[key]) grouped[key] = [];
+            grouped[key].push(e);
+        });
+
+        const sortedKeys = Object.keys(grouped)
+            .sort((a, b) => grouped[b].reduce((s, e) => s + e.amount, 0) - grouped[a].reduce((s, e) => s + e.amount, 0));
+
+        let html = `<div class="grid grid-cols-3 gap-3 mb-6">
+            <div class="bg-yellow-50 rounded-xl p-3 border border-yellow-200"><p class="text-xs text-yellow-700 font-medium">Pending</p><p class="text-lg font-bold text-yellow-800">${fmt(expenses.filter(e => e.status === 'Pending').reduce((s, e) => s + e.amount, 0))}</p></div>
+            <div class="bg-green-50 rounded-xl p-3 border border-green-200"><p class="text-xs text-green-700 font-medium">Approved</p><p class="text-lg font-bold text-green-800">${fmt(expenses.filter(e => e.status === 'Approved').reduce((s, e) => s + e.amount, 0))}</p></div>
+            <div class="bg-red-50 rounded-xl p-3 border border-red-200"><p class="text-xs text-red-700 font-medium">Declined</p><p class="text-lg font-bold text-red-800">${fmt(expenses.filter(e => e.status === 'Declined').reduce((s, e) => s + e.amount, 0))}</p></div>
+        </div>`;
+
+        sortedKeys.forEach(cat => {
+            const items = grouped[cat];
+            const catTotal = items.reduce((s, e) => s + e.amount, 0);
+
+            html += `<div class="mb-6">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-sm font-semibold text-gray-900">${esc(cat)} <span class="text-gray-400 font-normal">(${items.length})</span></h3>
+                    <span class="text-sm font-bold text-[#A36A66]">${fmt(catTotal)}</span>
+                </div>
+                <div class="space-y-2">`;
+
+            items.forEach(exp => {
+                const badge = exp.status === 'Pending'
+                    ? '<span class="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-yellow-100 text-yellow-800">Pending</span>'
+                    : exp.status === 'Approved'
+                        ? '<span class="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-green-100 text-green-800">✓ Approved</span>'
+                        : '<span class="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-red-100 text-red-800">✕ Declined</span>';
+
+                const actions = exp.status === 'Pending'
+                    ? `<div class="flex gap-1.5 mt-2 optimistic-actions">
+                            <button onclick="event.stopPropagation();openApproveModal('${exp.id}','${esc(exp.expenseId)}',${exp.amount})" class="px-3 py-1 bg-green-600 text-white text-[11px] font-medium rounded-lg hover:bg-green-700">Approve</button>
+                            <button onclick="event.stopPropagation();openDeclineModal('${exp.id}','${esc(exp.expenseId)}',false)" class="px-3 py-1 bg-red-600 text-white text-[11px] font-medium rounded-lg hover:bg-red-700">Decline</button>
+                       </div>`
+                    : '';
+
+                const notes = exp.status === 'Declined' && exp.notes
+                    ? `<p class="text-[11px] text-red-600 mt-1">Reason: ${esc(exp.notes)}</p>`
+                    : '';
+
+                const detailPayload = JSON.stringify(exp).replace(/"/g, '&quot;');
+
+                html += `<button type="button" onclick="openExpenseDetailsModal(${detailPayload})" data-expense-id="${esc(exp.id || '')}" class="w-full text-left bg-gray-50 rounded-xl p-4 border border-gray-100 hover:border-[#A36A66]/40 hover:bg-[#fff8f8] transition">
+                    <div class="flex items-start justify-between">
+                        <div class="flex-1 mr-3">
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="text-xs font-semibold text-blue-600">${esc(exp.expenseId)}</span>
+                                ${badge}
+                            </div>
+                            <p class="text-sm font-medium text-gray-800">${esc(exp.requestedBy)}</p>
+                            <p class="text-xs text-gray-400 mt-0.5">${esc(exp.description || '')}</p>
+                            <p class="text-[11px] text-gray-400 mt-1">${exp.requestedAt}</p>
+                            ${notes}
+                        </div>
+                        <div class="text-right shrink-0">
+                            <p class="text-sm font-bold text-gray-900">${fmt(exp.amount)}</p>
+                            <p class="text-[10px] text-gray-400">Click to view</p>
+                        </div>
+                    </div>
+                    ${actions}
+                </button>`;
+            });
+
+            html += '</div></div>';
+        });
+
+        body.innerHTML = html;
+    }
+
+    function openExpenseDetailsModal(exp) {
+        const modal = document.getElementById('expenseDetailsModal');
+        const body = document.getElementById('expenseDetailsBody');
+        if (!modal || !body) return;
+
+        const status = esc(exp.status || 'N/A');
+        const approvedAt = exp.dateApproved ? esc(exp.dateApproved) : '—';
+        const notes = exp.notes ? esc(exp.notes) : '—';
+
+        body.innerHTML = `
+            <div class="grid grid-cols-2 gap-3">
+                <div class="bg-gray-50 rounded-lg p-3"><p class="text-[11px] text-gray-500">Expense ID</p><p class="font-semibold text-gray-900">${esc(exp.expenseId || '—')}</p></div>
+                <div class="bg-gray-50 rounded-lg p-3"><p class="text-[11px] text-gray-500">Status</p><p class="font-semibold text-gray-900">${status}</p></div>
+                <div class="bg-gray-50 rounded-lg p-3"><p class="text-[11px] text-gray-500">Requested By</p><p class="font-semibold text-gray-900">${esc(exp.requestedBy || '—')}</p></div>
+                <div class="bg-gray-50 rounded-lg p-3"><p class="text-[11px] text-gray-500">Requested At</p><p class="font-semibold text-gray-900">${esc(exp.requestedAt || '—')}</p></div>
+                <div class="bg-gray-50 rounded-lg p-3"><p class="text-[11px] text-gray-500">Category</p><p class="font-semibold text-gray-900">${esc(exp.expenseType || '—')}</p></div>
+                <div class="bg-gray-50 rounded-lg p-3"><p class="text-[11px] text-gray-500">Amount</p><p class="font-semibold text-[#A36A66]">${fmt(Number(exp.amount || 0))}</p></div>
+            </div>
+            <div class="bg-gray-50 rounded-lg p-3"><p class="text-[11px] text-gray-500 mb-1">Description</p><p class="text-gray-800">${esc(exp.description || '—')}</p></div>
+            <div class="bg-gray-50 rounded-lg p-3"><p class="text-[11px] text-gray-500 mb-1">Notes / Reason</p><p class="text-gray-800">${notes}</p></div>
+            <div class="bg-gray-50 rounded-lg p-3"><p class="text-[11px] text-gray-500 mb-1">Date Approved</p><p class="text-gray-800">${approvedAt}</p></div>
+        `;
+
+        modal.classList.remove('hidden');
+    }
+
+    function closeExpenseDetailsModal() {
+        document.getElementById('expenseDetailsModal')?.classList.add('hidden');
     }
 
     function buildPayrollPanel(cutoffList) {
@@ -2818,6 +2935,7 @@
             closeSupplierPanel();
             closeHeadcountPanel();
             closeCapsModal();
+            closeExpenseDetailsModal();
             closeAddExpenseModal();
             document.getElementById('searchDropdown').classList.add('hidden');
         }
